@@ -8,7 +8,7 @@ import { renderComments } from './comments.mjs';
 import { ensureDependencies } from './fix.mjs';
 import { INPUT_DIR_NAME, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
-import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, log, logError, readJson, writeJson } from './store.mjs';
+import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
 // Тестирование PR в браузере — только по явной заявке и в два этапа: сначала план (дёшево), человек его смотрит
 // и правит, потом прогон с локальным бэкендом в Docker. Отчёт только локальный, в PR ничего не публикуется
@@ -17,6 +17,7 @@ const QUEUE_DIR = join(QA_DIR, 'queue');
 const STATE_DIR = join(QA_DIR, 'state');
 const RUNS_DIR = join(QA_DIR, 'runs');
 const PID_FILE = join(QA_DIR, 'worker.pid');
+const STOP_FILE = join(QA_DIR, 'stop-requested');
 const HISTORY_FILE = join(DATA_DIR, 'qa.jsonl');
 const WORKSPACES = join(GIT_ROOT, 'qa-workspaces');
 const PLAN_SCHEMA = join(TOOL_DIR, 'schema/qa-plan.schema.json');
@@ -95,12 +96,13 @@ export const requestQaRun = (repo, pr, { only = [], skip = [], extra = [], note 
 
 export const stopQa = () => {
     const pid = runningPid();
-    if (pid) process.kill(pid, 'SIGTERM');
+    if (pid) requestStop(pid, STOP_FILE);
     return pid;
 };
 
 const run = (cwd, command, args, { timeout = 10 * 60_000, env } = {}) => {
     const result = spawnSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, timeout, env: env ? { ...process.env, ...env } : process.env });
+    checkStopRequest();
     if (result.status !== 0) {
         const output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim().split('\n').slice(-15).join('\n');
         throw new Error(`${command} ${args.slice(0, 4).join(' ')}: ${result.error?.message ?? output}`);
@@ -427,6 +429,7 @@ const finalPlaywright = (dir, onActivity) => {
         timeout: 40 * 60_000,
         env: { ...process.env, REACT_APP_API_ENDPOINT: BACKEND_URL, E2E_POOL_SIZE: '' },
     });
+    checkStopRequest();
     return readJson(join(dir, QA_INPUT, 'report.json'), null);
 };
 
@@ -444,6 +447,7 @@ const finalVitest = (dir, files, onActivity) => {
     const output = join(dir, QA_INPUT, 'vitest.json');
     rmSync(output, { force: true });
     spawnSync('yarn', ['vitest', '--run', '--project=unit', '--reporter=json', `--outputFile=${output}`, ...files], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 20 * 60_000 });
+    checkStopRequest();
     return readJson(output, null);
 };
 
@@ -681,6 +685,7 @@ export const qaWorker = async ({ loadConfig, createBitbucket }) => {
     };
     process.on('SIGTERM', abort);
     process.on('SIGINT', abort);
+    onStopRequest(STOP_FILE, abort);
 
     try {
         let config;

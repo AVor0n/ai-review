@@ -139,6 +139,29 @@ export const releaseLock = () => {
     if (Number(readJson(PID_FILE, 0)) === process.pid) rmSync(PID_FILE, { force: true });
 };
 
+// Прерывание фонового обработчика. Обработчик SIGTERM в Node ждёт свободного цикла событий, а установка зависимостей,
+// проверки и docker идут синхронно десятки минут. Поэтому сигнал получает вся группа процессов (обработчик запущен detached
+// и сам её лидер) — дочерний процесс шага гибнет сразу, а обработчик по файлу-метке прерывается сразу после этого шага
+let stopRequest = null;
+export const requestStop = (pid, stopFile) => {
+    writeFileSync(stopFile, new Date().toISOString());
+    try {
+        process.kill(-pid, 'SIGTERM');
+    } catch {
+        // запущен не через detached-spawn, своей группы нет
+        process.kill(pid, 'SIGTERM');
+    }
+};
+export const onStopRequest = (stopFile, abort) => {
+    rmSync(stopFile, { force: true });
+    stopRequest = { stopFile, abort };
+};
+export const checkStopRequest = () => {
+    if (!stopRequest || !existsSync(stopRequest.stopFile)) return;
+    rmSync(stopRequest.stopFile, { force: true });
+    stopRequest.abort();
+};
+
 // Снимок открытых PR для окна обзора: пишут и воркер, и `sync`, поэтому по файлу на репозиторий
 // threads — счётчики тредов по id PR: открытые и закрытые (Resolve в Bitbucket); у PR без комментариев их нет
 export const savePrSnapshot = (slug, prs, threads = {}, branches = {}) =>

@@ -5,13 +5,14 @@ import { join } from 'node:path';
 import { killAgents, runStructured } from './agents.mjs';
 import { buildThreads, renderComments } from './comments.mjs';
 import { INPUT_DIR_NAME, ensureClone, fetchOrigin } from './git.mjs';
-import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, loadJsonl, log, logError, readJson, writeJson } from './store.mjs';
+import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, loadJsonl, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
 const FIX_DIR = join(DATA_DIR, 'fixes');
 const QUEUE_DIR = join(FIX_DIR, 'queue');
 const STATE_DIR = join(FIX_DIR, 'state');
 const RESUME_DIR = join(FIX_DIR, 'resume');
 const PID_FILE = join(FIX_DIR, 'worker.pid');
+const STOP_FILE = join(FIX_DIR, 'stop-requested');
 const HISTORY_FILE = join(DATA_DIR, 'fixes.jsonl');
 const WORKSPACES = join(GIT_ROOT, 'fix-workspaces');
 const FIX_SCHEMA = join(TOOL_DIR, 'schema/fix.schema.json');
@@ -53,14 +54,23 @@ export const requestFix = (repo, pr, mode = 'fix') => {
 
 export const stopFix = () => {
     const pid = runningPid();
-    if (pid) process.kill(pid, 'SIGTERM');
+    if (pid) requestStop(pid, STOP_FILE);
     return pid;
 };
 
-const sh = (cwd, command, args, options = {}) =>
-    execFileSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], ...options });
+const sh = (cwd, command, args, options = {}) => {
+    try {
+        return execFileSync(command, args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], ...options });
+    } finally {
+        checkStopRequest();
+    }
+};
 const git = (cwd, ...args) => sh(cwd, 'git', args).trim();
-const gitTry = (cwd, ...args) => spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: 'true' } });
+const gitTry = (cwd, ...args) => {
+    const result = spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_EDITOR: 'true' } });
+    checkStopRequest();
+    return result;
+};
 
 // Постоянный worktree служебного клона: свой node_modules переживает запуски, ставится заново только при смене lock-файла
 const ensureWorkspace = (repo, clone) => {
@@ -112,6 +122,7 @@ const runChecks = (dir, runner, onActivity) => {
     for (const [index, script] of scripts.entries()) {
         onActivity(`${runner} ${script} (${index + 1} из ${scripts.length})`);
         const result = spawnSync(command, [...prefix, script], { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 20 * 60_000 });
+        checkStopRequest();
         if (result.status !== 0) failures.push(`$ ${runner} ${script}\n${`${result.stdout}\n${result.stderr}`.trim().slice(-4000)}`);
     }
     return failures;
@@ -377,6 +388,7 @@ export const fixWorker = async ({ loadConfig, createBitbucket }) => {
     };
     process.on('SIGTERM', abort);
     process.on('SIGINT', abort);
+    onStopRequest(STOP_FILE, abort);
 
     try {
         const config = loadConfig();
