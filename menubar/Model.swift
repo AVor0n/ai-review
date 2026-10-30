@@ -1736,11 +1736,18 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // Codex и Cursor отдают лимиты по сети, поэтому спрашиваем не чаще раза в 5 минут; Claude пишет их сам при каждом запуске
+    private var limitsRequestedAt: Date?
+
+    // Codex и Cursor отдают лимиты по сети, поэтому спрашиваем не чаще раза в 5 минут; Claude пишет их сам при каждом запуске.
+    // Свежесть — по полю at каждой модели: дата изменения файла не годится, его перезаписывает каждый запуск Claude.
+    // Свой таймер попыток — чтобы модель, которая не отдаёт лимит, не дёргала сеть при каждом открытии настроек
     func refreshLimits() {
-        let file = Paths.data.appendingPathComponent("limits.json")
-        let modified = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.modificationDate] as? Date
-        guard modified.map({ Date().timeIntervalSince($0) > 300 }) ?? true else { return }
+        let isStale = { (id: String) in
+            Dates.parse(self.limits[id]?.at).map { Date().timeIntervalSince($0) > 300 } ?? true
+        }
+        guard ["codex", "cursor"].contains(where: { config.agents[$0] != nil && isStale($0) }),
+              limitsRequestedAt.map({ Date().timeIntervalSince($0) > 300 }) ?? true else { return }
+        limitsRequestedAt = Date()
         CLI.run(["limits"]) { _, _ in self.reload() }
     }
 
