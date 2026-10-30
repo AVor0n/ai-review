@@ -425,9 +425,38 @@ private struct AgentRow: View {
             && Dates.parse(limit.resetsAt).map { $0 > Date() } != false
     }
 
+    // Лимит без опроса (Claude) приходит только с запусков модели: старые данные — норма, а не сбой, поэтому полоса остаётся цветной
+    @ViewBuilder
+    private func unpolledLimitLine(_ limit: AgentLimit) -> some View {
+        let name = model.agentName(id)
+        let updatedAt = Dates.parse(limit.at)
+        if let resetsAt = Dates.parse(limit.resetsAt), resetsAt <= Date() {
+            Text("лимит сброшен, обновится после ревью \(name)")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        } else {
+            let old = updatedAt.map { Date().timeIntervalSince($0) >= 3600 } ?? false
+            HStack(spacing: 6) {
+                LimitBar(remaining: limit.remaining)
+                HStack(spacing: 0) {
+                    Text("\(Int(limit.remaining.rounded()))% \(limit.window == "month" ? "месяца" : "недели") осталось\(Dates.parse(limit.resetsAt).map { " · до \(Self.resetFormat.string(from: $0))" } ?? "")")
+                        .foregroundStyle(limit.remaining < 15 ? Color.orange : .secondary)
+                    if old, let updatedAt {
+                        Text(" · на \(Dates.moment(updatedAt))").foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.system(size: 11).monospacedDigit())
+                .lineLimit(1)
+            }
+            .help("Остаток на \(updatedAt.map(Dates.momentFull) ?? "—") — после последнего ревью \(name). Отдельно лимит \(name) не опрашивается; подписку тратят и другие сессии \(name), поэтому сейчас остаток может быть меньше")
+        }
+    }
+
     @ViewBuilder
     private var limitLine: some View {
-        if let limit = model.limits[id], !isFresh(limit) {
+        if let limit = model.limits[id], !AppModel.polledLimitAgents.contains(id) {
+            unpolledLimitLine(limit)
+        } else if let limit = model.limits[id], !isFresh(limit) {
             staleLimitLine(limit)
                 .font(.system(size: 11).monospacedDigit())
                 .lineLimit(1)
@@ -442,7 +471,7 @@ private struct AgentRow: View {
             }
             .help("Остаток лимита подписки на \(limit.window == "month" ? "месяц" : "неделю"), сброс \(Dates.parse(limit.resetsAt).map { Self.fullFormat.string(from: $0) } ?? "—"). Обновлено \(Dates.ago(limit.at))")
         } else {
-            Text(id == "claude" ? "лимит появится после ближайшего запуска" : "лимит недоступен")
+            Text(AppModel.polledLimitAgents.contains(id) ? "лимит недоступен" : "лимит появится после ближайшего запуска")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

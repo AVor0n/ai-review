@@ -250,7 +250,7 @@ struct SkipMark: Decodable {
 // Особое состояние модели в фоновом ревью — одно значение, чтобы порог лимита потом стал ещё одним случаем
 enum AgentAvailability {
     case available
-    case limitExhausted(resetsAt: Date, updatedAt: Date)
+    case limitExhausted(resetsAt: Date, updatedAt: Date?)
     case manualOnly
 
     var isLimitExhausted: Bool {
@@ -1144,6 +1144,8 @@ func openFindings(state: WorkerState, snapshots: [String: PrSnapshot]) -> [OpenF
 @MainActor
 final class AppModel: ObservableObject {
     static let agentOrder = ["claude", "codex", "cursor"]
+    // Модели, чей лимит сервис опрашивает (refreshLimits в limits.mjs); остальные сообщают его только в своих запусках
+    static let polledLimitAgents: Set<String> = ["codex", "cursor"]
 
     @Published private(set) var config = AppConfig(repos: [], agents: [:])
     @Published private(set) var snapshots: [String: PrSnapshot] = [:]
@@ -1353,12 +1355,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // Лимит считается исчерпанным, только пока данные свежие и сброс впереди: устаревший лимит лучше не показывать вовсе
+    // Исчерпанный лимит до сброса сам не восстанавливается, поэтому давность данных не важна — только что сброс впереди
     func availability(_ agent: String) -> AgentAvailability {
         if let limit = limits[agent], limit.usedPercent >= 100,
-           let resetsAt = Dates.parse(limit.resetsAt), resetsAt > Date(),
-           let updatedAt = Dates.parse(limit.at), Date().timeIntervalSince(updatedAt) < 3600 {
-            return .limitExhausted(resetsAt: resetsAt, updatedAt: updatedAt)
+           let resetsAt = Dates.parse(limit.resetsAt), resetsAt > Date() {
+            return .limitExhausted(resetsAt: resetsAt, updatedAt: Dates.parse(limit.at))
         }
         return config.agents[agent]?.isAuto == false ? .manualOnly : .available
     }
@@ -1904,7 +1905,7 @@ final class AppModel: ObservableObject {
         let isStale = { (id: String) in
             Dates.parse(self.limits[id]?.at).map { Date().timeIntervalSince($0) > 300 } ?? true
         }
-        guard ["codex", "cursor"].contains(where: { config.agents[$0] != nil && isStale($0) }),
+        guard Self.polledLimitAgents.contains(where: { config.agents[$0] != nil && isStale($0) }),
               limitsRequestedAt.map({ Date().timeIntervalSince($0) > 300 }) ?? true else { return }
         limitsRequestedAt = Date()
         CLI.run(["limits"]) { _, _ in self.reload() }

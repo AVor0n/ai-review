@@ -169,7 +169,7 @@ struct AvailabilityCapsule: View {
     private var hint: String {
         switch availability {
         case .limitExhausted(let resetsAt, let updatedAt):
-            "\(name) исчерпал лимит, сброс \(Dates.resetFull(resetsAt)). После сброса модель снова начнёт ревью сама. Обновлено \(Dates.ago(updatedAt))"
+            "\(name) исчерпал лимит, сброс \(Dates.resetFull(resetsAt)). После сброса модель снова начнёт ревью сама" + (updatedAt.map { ". Обновлено \(Dates.ago($0))" } ?? "")
         case .manualOnly, .available:
             "\(name) не участвует в фоновом ревью и запускается только по клику на значок. Включить — Настройки → Модели"
         }
