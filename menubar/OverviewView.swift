@@ -141,7 +141,7 @@ struct OverviewView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Запустить фоновую проверку сейчас, не дожидаясь 15 минут")
+                .help("Проверить сейчас, не дожидаясь расписания")
             }
             if model.syncing {
                 ProgressView().controlSize(.small)
@@ -300,9 +300,9 @@ struct OverviewView: View {
             Image(systemName: "hourglass")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Проход ревью не продвигается \(stall.minutes >= 60 ? "\(stall.minutes / 60) ч \(stall.minutes % 60) мин" : "\(stall.minutes) мин")")
+                Text("Проход ревью не продвигается \(minutesText(stall.minutes))")
                     .font(.system(size: 12, weight: .semibold))
-                Text("В журнале нет записей с \(stall.since.formatted(date: .omitted, time: .shortened)): похоже, завис git или модель. «Прервать» остановит этот проход, следующий начнётся по расписанию.")
+                Text("Сервис не подаёт признаков жизни, последняя запись в журнале — в \(stall.since.formatted(date: .omitted, time: .shortened)). Похоже, завис git или сеть. «Прервать» остановит этот проход, следующий начнётся по расписанию.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

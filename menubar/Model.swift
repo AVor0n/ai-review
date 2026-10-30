@@ -981,6 +981,10 @@ func workerStall() -> (since: Date, minutes: Int)? {
     return (min(modified(Paths.log) ?? beat, beat), Int(idle / 60))
 }
 
+func minutesText(_ minutes: Int) -> String {
+    minutes >= 60 ? "\(minutes / 60) ч \(minutes % 60) мин" : "\(minutes) мин"
+}
+
 var workerIsPaused: Bool { FileManager.default.fileExists(atPath: Paths.paused.path) }
 
 var fixIsRunning: Bool {

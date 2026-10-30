@@ -1129,7 +1129,7 @@ struct MemorySheet: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Память ревьюеров · \(repo.slug)").font(.title3.weight(.semibold))
-                    Text("Правила выводятся из комментариев людей в ревью и их ответов на замечания моделей и учитываются в каждом ревью этого репозитория обеими моделями. Лишнее можно удалить, недостающее — дописать.")
+                    Text("Правила выводятся из комментариев людей в ревью и их ответов на замечания моделей и учитываются в каждом ревью этого репозитория всеми моделями. Лишнее можно удалить, недостающее — дописать.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

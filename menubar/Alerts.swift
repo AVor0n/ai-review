@@ -226,7 +226,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         let run = (try? String(contentsOf: Paths.pid, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard run != stallNotified, settings.allows(.errors, repo: nil) else { return }
         stallNotified = run
-        post(id: "stall#\(run ?? "")", title: "PR Reviewer: проход ревью завис", subtitle: "", body: "Нет записей в журнале \(stall.minutes) мин. Прервать можно в окне, на вкладке «Обзор».", url: nil, thread: "errors")
+        post(id: "stall#\(run ?? "")", title: "Проход ревью завис", subtitle: "", body: "Сервис не отвечает \(minutesText(stall.minutes)) — похоже, завис git или сеть. Прервать проход можно в окне PR Reviewer, в «Обзоре».", url: nil, thread: "errors")
     }
 
     private func findings(_ findings: [OpenFinding], _ settings: NotificationSettings, _ agentName: (String) -> String) {

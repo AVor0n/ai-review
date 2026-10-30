@@ -147,9 +147,17 @@ const section = (title, exchanges) =>
         ? `## ${title}\n\n${exchanges.map((exchange) => `### PR #${exchange.pr}, тред ${exchange.rootId}\n\n${exchange.text}`).join('\n\n---\n\n')}`
         : null;
 
-const buildPrompt = (repo, lessons, exchanges) =>
+const listNames = (names) => (names.length > 1 ? `${names.slice(0, -1).join(', ')} и ${names.at(-1)}` : names[0]);
+
+// Список моделей — из конфига: модель памяти должна узнавать замечания каждой из них
+const reviewersLine = (agents) => {
+    const names = Object.values(agents).map((agent) => agent.shortName);
+    return names.length > 1 ? `Модели ${listNames(names)} оставляют замечания` : `Модель ${names[0]} оставляет замечания`;
+};
+
+const buildPrompt = (repo, agents, lessons, exchanges) =>
     [
-        `Ты ведёшь память ревьюеров кода репозитория \`${repo.workspace}/${repo.slug}\`. Две модели (Claude и Codex) оставляют замечания в pull request, люди из команды отвечают им и сами ревьюят код. По этой памяти модели будут ревьюить следующие PR так, как это делает команда.`,
+        `Ты ведёшь память ревьюеров кода репозитория \`${repo.workspace}/${repo.slug}\`. ${reviewersLine(agents)} в pull request, люди из команды отвечают им и сами ревьюят код. По этой памяти модели будут ревьюить следующие PR так, как это делает команда.`,
         'Выдели устойчивые знания, которые должны изменить будущие ревью в этом репозитории. Источников два, и критерии у них разные.',
         '**Ответы людей на замечания моделей** чаще всего говорят, чего не нужно: что задумано так и не является ошибкой, какие классы замечаний команда считает ложными или неважными, особенности предметной области и окружения.',
         '**Замечания, которые люди сами оставили в ревью,** показывают, что команда проверяет. Здесь будь строже: бери только обобщаемые правила — устройство API, обработка ошибок и транзакций, где что вычисляется и проверяется, безопасность, работа с данными, архитектурные границы. Правило должно быть применимо к другим PR: с обоснованием в треде или повторяющееся в нескольких тредах. Разовые предложения по именам переменных и методов, формулировкам, порядку кода и прочая вкусовщина в память не идут, даже если звучат как совет: моделям запрещено писать стилистические замечания.',
@@ -184,7 +192,7 @@ export const learn = async (ctx, repo, exchanges) => {
         const { data, usage } = await runStructured(agentId, agent, {
             cwd: ctx.workDir,
             workDir: ctx.workDir,
-            prompt: buildPrompt(repo, lessons, batch),
+            prompt: buildPrompt(repo, ctx.config.agents, lessons, batch),
             schemaPath: LESSONS_SCHEMA,
         });
         appendSpend('memory-learn', repo.slug, agentId, agent, usage, startedAt);

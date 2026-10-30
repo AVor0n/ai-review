@@ -161,7 +161,7 @@ const publish = async (ctx, { repo, pr, agentId, role, pass, commit, result, fil
         const anchor = anchorFinding(files, finding);
         if (!anchor) {
             dropped++;
-            log(`${repo.slug}#${pr.id} ${agentId}: строки ${finding.path}:${finding.line} нет в диффе, замечание пропущено — ${finding.title}`);
+            log(`${repo.slug}#${pr.id} ${agentId}: в диффе нет изменённых строк ${finding.path}, замечание пропущено — ${finding.title}`);
             continue;
         }
         if (anchor.moved) log(`${repo.slug}#${pr.id} ${agentId}: ${finding.path}:${finding.line} привязано к ближайшей строке диффа`);
