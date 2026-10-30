@@ -368,18 +368,21 @@ const runFix = async ({ config, bitbucket, repo, prId, mode = 'fix' }) => {
         }
     }
     const scripts = checkScripts(dir);
+    const failedScripts = failures.map((failure) => failure.split('\n')[0].replace('$ ', '')).join(', ');
     const checksSummary = failures.length
-        ? `падают: ${failures.map((failure) => failure.split('\n')[0].replace('$ ', '')).join(', ')}`
+        ? `падают: ${failedScripts}`
         : scripts.length ? `проходят: ${scripts.join(', ')}` : 'проверок в package.json нет';
 
     if (git(dir, 'rev-parse', 'HEAD') === expected) {
         rmSync(resumeFile(repo.slug, prId), { force: true });
-        const unchanged = rebaseOnly ? `Ветка уже на свежей ${base}` : 'Правок не понадобилось, ветка не изменилась';
         // Ветка та же, но проверки красные: это не успех, даже если пушить нечего
         if (failures.length) {
-            return finish({ status: 'checks-failed', message: `${unchanged}, но ${checksSummary} — Claude их не починил`, hook: brief(failures.join('\n\n'), 30), checks: checksSummary, rebase });
+            const message = rebaseOnly
+                ? `Ветка уже на свежей ${base}, но не проходят проверки ${failedScripts}, Claude не смог их починить`
+                : `Не проходят проверки ${failedScripts}, Claude не смог их починить. Ветка не изменилась`;
+            return finish({ status: 'checks-failed', message, hook: brief(failures.join('\n\n'), 30), checks: checksSummary, rebase });
         }
-        return finish({ status: 'nothing', message: unchanged, checks: checksSummary, rebase });
+        return finish({ status: 'nothing', message: rebaseOnly ? `Ветка уже на свежей ${base}` : 'Правок не понадобилось, ветка не изменилась', checks: checksSummary, rebase });
     }
 
     if (failures.length) {
