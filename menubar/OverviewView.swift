@@ -452,6 +452,29 @@ struct PullRequestRow: View {
     var dimmed = false
     @ObservedObject var prompts: FixPrompts
 
+    // Модели только для ручного запуска не в счёт; без фоновых моделей галочку ставить не на чем
+    private var reviewedClean: Bool {
+        let auto = model.agentIds.filter { model.config.agents[$0]?.isAuto != false }
+        return pr.threads == 0 && !auto.isEmpty && auto.allSatisfy { model.reviewState(repo: repo, pr: pr, agent: $0) == .done }
+    }
+
+    @ViewBuilder private var threadsCounter: some View {
+        if reviewedClean {
+            Image(systemName: "checkmark.bubble.fill")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.green)
+                .help("Модели проверили последний коммит и замечаний не нашли")
+        } else {
+            HStack(spacing: 3) {
+                Image(systemName: pr.threads > 0 && pr.resolved == pr.threads ? "checkmark.bubble" : "bubble.left")
+                Text(verbatim: pr.threadsLabel).monospacedDigit()
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(pr.threads == 0 ? AnyShapeStyle(.tertiary) : pr.resolved == pr.threads ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+            .help(pr.threads == 0 ? "Комментариев нет" : "Тредов закрыто \(pr.resolved) из \(pr.threads), всего комментариев \(pr.commentCount)")
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             HStack(spacing: 2) {
@@ -481,13 +504,7 @@ struct PullRequestRow: View {
             .buttonStyle(.plain)
             .help("Открыть PR в Bitbucket")
             badges
-            HStack(spacing: 3) {
-                Image(systemName: pr.threads > 0 && pr.resolved == pr.threads ? "checkmark.bubble" : "bubble.left")
-                Text(verbatim: pr.threadsLabel).monospacedDigit()
-            }
-            .font(.system(size: 12))
-            .foregroundStyle(pr.threads == 0 ? AnyShapeStyle(.tertiary) : pr.resolved == pr.threads ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
-            .help(pr.threads == 0 ? "Комментариев нет" : "Тредов закрыто \(pr.resolved) из \(pr.threads), всего комментариев \(pr.commentCount)")
+            threadsCounter
             FixButton(
                 fix: model.fix(repo: repo, pr: pr.id),
                 openThreads: pr.threads - pr.resolved,
