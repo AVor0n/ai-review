@@ -52,6 +52,11 @@ export const setBacklogStatus = (id, status, text = '') => {
     item.updatedAt = new Date().toISOString();
     if (status === 'filed') item.ticket = text || null;
     if (status === 'dropped') item.note = text || null;
+    // Вернули в ожидание — прежний номер задачи и причина отклонения больше не про эту запись
+    if (status === 'open') {
+        item.ticket = null;
+        item.note = null;
+    }
     saveBacklog(items);
     return item;
 };
