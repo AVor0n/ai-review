@@ -145,6 +145,12 @@ export const prDiff = (dir, destinationBranch, commit, exclude = []) => {
     return git(dir, [...DIFF_ARGS, base, commit, ...pathspec(exclude)]);
 };
 
+// Пустой дифф без исключённых файлов — не всегда пустой PR: изменения могут быть только в lock-файлах и снапшотах
+export const emptyDiffReason = (dir, destinationBranch, commit, exclude = []) =>
+    exclude.length && prDiff(dir, destinationBranch, commit).trim()
+        ? 'в PR изменены только исключённые файлы (ignorePaths) — разбирать нечего'
+        : 'в PR нет изменений относительно целевой ветки';
+
 export const rangeDiff = (dir, from, to, exclude = []) => git(dir, [...DIFF_ARGS, from, to, ...pathspec(exclude)]);
 
 // Отпечаток изменений PR без учёта номеров строк и пробелов: после rebase на свежий develop он не меняется

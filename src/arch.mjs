@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:
 import { join } from 'node:path';
 import { killAgents, runStructured } from './agents.mjs';
 import { renderComments } from './comments.mjs';
-import { INPUT_DIR_NAME, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
+import { INPUT_DIR_NAME, emptyDiffReason, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
@@ -161,7 +161,7 @@ const runArch = async ({ config, bitbucket, repo, prId, onActivity }) => {
 
     const exclude = config.ignorePaths ?? [];
     const diff = prDiff(dir, base, commit, exclude);
-    if (!diff.trim()) throw new Error('в PR нет изменений относительно целевой ветки');
+    if (!diff.trim()) throw new Error(emptyDiffReason(dir, base, commit, exclude));
     const mergeBase = git(dir, 'merge-base', `origin/${base}`, commit);
     const description = pr.description?.trim() ?? '';
     const inputDir = join(dir, INPUT_DIR_NAME);

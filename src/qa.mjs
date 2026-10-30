@@ -6,7 +6,7 @@ import { killAgents, runStructured } from './agents.mjs';
 import { loadArchState, renderArchReport } from './arch.mjs';
 import { renderComments } from './comments.mjs';
 import { ensureDependencies } from './fix.mjs';
-import { INPUT_DIR_NAME, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
+import { INPUT_DIR_NAME, emptyDiffReason, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
@@ -152,7 +152,7 @@ const prCommit = (clone, pr) => {
 const writeInputs = async ({ dir, config, bitbucket, repo, pr, commit }) => {
     const base = pr.destination.branch.name;
     const diff = prDiff(dir, base, commit, config.ignorePaths ?? []);
-    if (!diff.trim()) throw new Error('в PR нет изменений относительно целевой ветки');
+    if (!diff.trim()) throw new Error(emptyDiffReason(dir, base, commit, config.ignorePaths ?? []));
     const inputDir = join(dir, INPUT_DIR_NAME);
     mkdirSync(inputDir, { recursive: true });
     writeFileSync(join(inputDir, 'diff.patch'), diff);
