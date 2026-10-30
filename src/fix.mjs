@@ -419,8 +419,20 @@ export const fixWorker = async ({ loadConfig, createBitbucket }) => {
     onStopRequest(STOP_FILE, abort);
 
     try {
-        const config = loadConfig();
-        const bitbucket = createBitbucket(config.bitbucket);
+        let config;
+        let bitbucket;
+        try {
+            config = loadConfig();
+            bitbucket = createBitbucket(config.bitbucket);
+        } catch (error) {
+            // Иначе заявки так и висели бы «в очереди» без объяснения
+            for (const name of existsSync(QUEUE_DIR) ? readdirSync(QUEUE_DIR).filter((file) => file.endsWith('.json')) : []) {
+                const request = readJson(join(QUEUE_DIR, name), null);
+                rmSync(join(QUEUE_DIR, name), { force: true });
+                if (request) setState(request.repo, request.pr, { state: 'failed', step: null, activity: null, error: error.message, finishedAt: new Date().toISOString() });
+            }
+            throw error;
+        }
         for (;;) {
             const next = existsSync(QUEUE_DIR) ? readdirSync(QUEUE_DIR).filter((name) => name.endsWith('.json')).sort()[0] : null;
             if (!next) break;
