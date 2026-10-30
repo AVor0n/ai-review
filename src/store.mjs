@@ -69,6 +69,13 @@ export const saveState = (state) => writeJson(STATE_FILE, state);
 
 export const loadStatus = () => readJson(STATUS_FILE, { phase: 'idle', current: null, recent: [] });
 export const updateStatus = (patch) => writeJson(STATUS_FILE, { ...loadStatus(), ...patch });
+// Текущие ревью — по одному на дорожку репозитория, по времени начала; current — первое из них для тех, кто знает только одно
+export const setRunning = (slug, current) => {
+    const running = (loadStatus().running ?? []).filter((entry) => entry.repo !== slug);
+    if (current) running.push(current);
+    running.sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+    updateStatus({ phase: 'running', running, current: running[0] ?? null });
+};
 export const pushRecent = (entry) => {
     const status = loadStatus();
     writeJson(STATUS_FILE, { ...status, recent: [entry, ...(status.recent ?? [])].slice(0, RECENT_LIMIT) });

@@ -13,6 +13,7 @@ import { addLesson, collectFeedback, learn, loadMemory, removeLesson, updateLess
 import { applyMemoryPlan, discardMemoryPlan, isPlanOutdated, lessonUsage, loadMemoryPlan, renderMemoryHistory, renderMemoryPlan, restoreMemory, reviewMemory, usageLine } from './memory-review.mjs';
 import { loadMemoryHistory } from './memory.mjs';
 import { addRepo, cloneRepo, listRepos, pruneMissingSources, removeRepo, setRepoPaused } from './repos.mjs';
+import { runPool } from './pool.mjs';
 import { reviewRepo, reviewRequested } from './review.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { refreshLimits } from './limits.mjs';
@@ -41,6 +42,7 @@ import {
     requestStop,
     rotateLog,
     saveState,
+    setRunning,
     setPaused,
     takeRunRequest,
     writeJson,
@@ -60,17 +62,19 @@ const STOP_FILE = join(DATA_DIR, 'stop-requested');
 const kickstartWorker = () => execFileSync('launchctl', ['kickstart', `gui/${process.getuid()}/${WORKER_LABEL}`]);
 
 // Заявки из окна обзора; новые могут прийти, пока идёт ревью, поэтому читаем очередь до опустошения
-const drainQueue = async (ctx) => {
-    for (let queue = listQueue(); queue.length; queue = listQueue()) {
+// slug — только заявки этого репозитория: их разбирает его дорожка, не дожидаясь чужих репозиториев
+const drainQueue = async (ctx, slug = null) => {
+    const pending = () => listQueue().filter((request) => !slug || request.repo === slug);
+    for (let queue = pending(); queue.length; queue = pending()) {
         const bySlug = Map.groupBy(queue, (request) => request.repo);
-        for (const [slug, requests] of bySlug) {
-            const repo = ctx.config.repos.find((candidate) => candidate.slug === slug);
+        for (const [repoSlug, requests] of bySlug) {
+            const repo = ctx.config.repos.find((candidate) => candidate.slug === repoSlug);
             try {
                 if (repo) await reviewRequested(ctx, repo, requests);
-                else log(`${slug}: репозиторий не подключён, заявки сняты`);
+                else log(`${repoSlug}: репозиторий не подключён, заявки сняты`);
             } catch (error) {
-                ctx.errors.push(`${slug}: ${error.message}`);
-                logError(`${slug}: ${error.stack ?? error.message}`);
+                ctx.errors.push(`${repoSlug}: ${error.message}`);
+                logError(`${repoSlug}: ${error.stack ?? error.message}`);
             } finally {
                 // Снимаем и после ошибки: иначе сломанная заявка зациклила бы воркер
                 requests.forEach(dequeueReview);
@@ -78,6 +82,7 @@ const drainQueue = async (ctx) => {
         }
     }
 };
+
 
 // Небольшой допуск: launchd будит раз в минуту, и без него проход при интервале 15 мин сползал бы на 16-ю минуту
 const INTERVAL_TOLERANCE_MS = 30_000;
@@ -120,7 +125,7 @@ const run = async () => {
         errors: [],
         workDir: join(DATA_DIR, 'tmp'),
         save: () => !dryRun && saveState(state),
-        setCurrent: (current) => !dryRun && updateStatus({ phase: 'running', current }),
+        setCurrent: (current) => !dryRun && setRunning(current.repo, current),
     };
     mkdirSync(ctx.workDir, { recursive: true });
     // Не даём маку уснуть по бездействию посреди ревью; caffeinate завершится вместе с процессом
@@ -128,7 +133,7 @@ const run = async () => {
 
     const abort = () => {
         killAgents();
-        if (!dryRun) updateStatus({ phase: 'idle', current: null, lastError: 'ревью прервано' });
+        if (!dryRun) updateStatus({ phase: 'idle', current: null, running: [], lastError: 'ревью прервано' });
         releaseLock();
         process.exit(143);
     };
@@ -137,20 +142,30 @@ const run = async () => {
     onStopRequest(STOP_FILE, abort);
 
     const startedAt = new Date().toISOString();
-    if (!dryRun) updateStatus({ phase: 'running', current: null, lastStartAt: startedAt, ...(automatic ? { lastPassAt: startedAt } : {}) });
+    if (!dryRun) updateStatus({ phase: 'running', current: null, running: [], lastStartAt: startedAt, ...(automatic ? { lastPassAt: startedAt } : {}) });
     try {
         ctx.bitbucket = createBitbucket(config.bitbucket);
-        if (!dryRun) await drainQueue(ctx);
         const repos = automatic ? config.repos.filter((repo) => !option('--repo') || repo.slug === option('--repo')) : [];
-        for (const repo of repos) {
+        const queued = new Set(dryRun ? [] : listQueue().map((request) => request.repo));
+        const lanes = config.repos.filter((repo) => repos.includes(repo) || queued.has(repo.slug));
+        // Репозитории идут параллельно, внутри репозитория — по очереди. У каждой дорожки свой workDir:
+        // в нём файлы ответа моделей, которые иначе перезаписывали бы друг друга
+        await runPool(lanes, Math.max(1, config.parallelRepos ?? 3), async (repo) => {
+            const lane = { ...ctx, workDir: join(ctx.workDir, repo.slug) };
+            mkdirSync(lane.workDir, { recursive: true });
             try {
-                await reviewRepo(ctx, repo);
+                if (!dryRun) await drainQueue(lane, repo.slug);
+                if (repos.includes(repo)) await reviewRepo(lane, repo);
+                if (!dryRun) await drainQueue(lane, repo.slug);
             } catch (error) {
                 ctx.errors.push(`${repo.slug}: ${error.message}`);
                 logError(`${repo.slug}: ${error.stack ?? error.message}`);
+            } finally {
+                if (!dryRun) setRunning(repo.slug, null);
             }
-            if (!dryRun) await drainQueue(ctx);
-        }
+        });
+        // Заявки, пришедшие в конце, и заявки на неподключённые репозитории
+        if (!dryRun) await drainQueue(ctx);
     } catch (error) {
         ctx.errors.push(error.message);
         logError(error.message);
@@ -160,7 +175,7 @@ const run = async () => {
             state.errorStreak = lastError ? (state.errorStreak ?? 0) + 1 : 0;
             saveState(state);
             // errorStreak — номер ошибки подряд: окно уведомляет только о первой, протухший токен не должен напоминать каждые 10 минут
-            updateStatus({ phase: lastError ? 'error' : 'idle', current: null, lastRunAt: new Date().toISOString(), lastError, errorStreak: state.errorStreak });
+            updateStatus({ phase: lastError ? 'error' : 'idle', current: null, running: [], lastRunAt: new Date().toISOString(), lastError, errorStreak: state.errorStreak });
         } else if (lastError) {
             console.error(`\nОшибки:\n${ctx.errors.join('\n')}`);
         }
@@ -577,7 +592,7 @@ const repoCommand = async () => {
         setRepoPaused(target, action === 'pause');
         console.log(action === 'pause' ? `Фоновое ревью ${target} на паузе, явные запуски работают` : `Ревью ${target} возобновлено`);
     } else if (action === 'remove') {
-        if (readWorkerPid() && loadStatus().current?.repo === target) throw new Error(`Сейчас идёт ревью в ${target}, сначала прервите его`);
+        if (readWorkerPid() && (loadStatus().running ?? []).some((entry) => entry.repo === target)) throw new Error(`Сейчас идёт ревью в ${target}, сначала прервите его`);
         removeRepo(target);
         console.log(`${target} отключён, служебный клон удалён`);
     } else {
@@ -597,7 +612,7 @@ const printStatus = () => {
     const status = loadStatus();
     const pid = readWorkerPid();
     console.log(`Состояние: ${isPaused() ? 'пауза' : pid ? 'идёт ревью' : status.phase}`);
-    if (pid && status.current) console.log(`Сейчас: ${status.current.repo}#${status.current.pr} · ${status.current.agent} (${status.current.role})`);
+    for (const current of pid ? (status.running ?? []) : []) console.log(`Сейчас: ${current.repo}#${current.pr} · ${current.agent} (${current.role})`);
     if (status.lastRunAt) console.log(`Последний запуск: ${new Date(status.lastRunAt).toLocaleString('ru-RU')}`);
     if (status.lastError) console.log(`Последняя ошибка: ${status.lastError}`);
     for (const entry of (status.recent ?? []).slice(0, 10)) {

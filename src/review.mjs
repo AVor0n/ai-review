@@ -385,7 +385,9 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     }
 
     const fullRound = !forced && autoIds.length > 1 && needsReview.length === autoIds.length;
-    const order = forced ? [forced] : autoIds.includes(state.nextFirst) ? [state.nextFirst, ...autoIds.filter((id) => id !== state.nextFirst)] : autoIds;
+    // Кто первым — свой у каждого репозитория: параллельные дорожки иначе запускали бы первой одну и ту же модель
+    const nextFirst = repoState.nextFirst ?? state.nextFirst;
+    const order = forced ? [forced] : autoIds.includes(nextFirst) ? [nextFirst, ...autoIds.filter((id) => id !== nextFirst)] : autoIds;
 
     for (const agentId of order) {
         const review = needsReview.includes(agentId);
@@ -492,7 +494,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
 
     if (fullRound && autoIds.every((id) => prState.reviewed[id] === head)) {
         // Первым по очереди ходит каждая модель: при трёх и больше «следующая за текущей», а не просто вторая в списке
-        state.nextFirst = autoIds[(autoIds.indexOf(order[0]) + 1) % autoIds.length];
+        repoState.nextFirst = autoIds[(autoIds.indexOf(order[0]) + 1) % autoIds.length];
         ctx.save();
     }
     rmSync(inputDir, { recursive: true, force: true });
