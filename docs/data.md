@@ -91,6 +91,5 @@
 | `pr-reviewer-bitbucket`, аккаунт — `bitbucket.email` | API-токен Atlassian |
 | `pr-reviewer-claude` | Токен `claude setup-token` |
 | `pr-reviewer-cursor` | API-ключ Cursor (если Cursor используется) |
-| `cursor-access-token` | Токен входа самого Cursor CLI; сервис только читает его, чтобы узнать остаток лимита |
 
 Имена первых трёх записей задаются полями `keychainService` в [config.md](config.md). Как их создать — в [install.md](install.md).
