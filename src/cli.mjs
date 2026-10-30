@@ -636,7 +636,8 @@ const commands = {
                  поставить явное ревью одной моделью в очередь (работает и на паузе)
   sync           обновить список открытых PR для окна обзора
   fix --repo <slug> --pr <id> [--rebase] | fix stop
-                 доработка PR по открытым замечаниям: правки Claude, коммит, rebase на базу, push --force-with-lease
+                 доработка PR по открытым замечаниям: rebase на базу, зависимости, правки Claude и коммит, проверки, push --force-with-lease;
+                 --rebase — то же без правок
   ignore list | add <шаблон> | remove <шаблон>
                  файлы, которые вырезаются из диффа перед ревью (glob, например **/yarn.lock)
   memory list <slug> [--json] | add <slug> <текст> | edit <slug> <id> <текст> | remove <slug> <id>
@@ -677,8 +678,9 @@ const commands = {
   token <bitbucket|claude|cursor> <дней|never>
                  срок жизни токена, выбранный при выпуске; окно предупреждает за 14 дней до истечения
   limits         обновить остатки лимитов подписок (Claude обновляет их сам при каждом запуске)
-  agent set <claude|codex> [--model <id>] [--effort <уровень>|default] [--label <название>] [--auto on|off]
-                 модель и уровень reasoning; --auto off убирает модель из фонового ревью, ручной запуск остаётся
+  agent set <claude|codex|cursor> [--model <id>] [--effort <уровень>|default] [--label <название>] [--auto on|off]
+                 модель и уровень reasoning (у Cursor уровень входит в id модели, --effort нет); --auto off убирает модель
+                 из фонового ревью, ручной запуск остаётся
   repo list [--json] | add <ссылка> [--source <путь>] [--json] | clone <slug> | pause|resume <slug> | remove <slug>
                  подключённые репозитории; add проверяет доступ и скачивает клон (с --json только подключает)
   stop           прервать текущий проход и очистить очередь заявок
