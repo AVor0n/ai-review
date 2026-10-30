@@ -100,6 +100,8 @@ struct OverviewView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                // Полный текст паузы не помещается рядом с кнопкой «Включить» и капсулами
+                .help(model.isPaused && !model.isRunning ? "Фоновое ревью выключено, работают только запуски по иконкам" : "")
             if model.isPaused && !model.isRunning {
                 Button("Включить") { model.setServicePaused(false) }
                     .buttonStyle(.plain)
@@ -401,7 +403,7 @@ struct OverviewView: View {
         if model.isRunning, let current = model.status?.current {
             return "Идёт ревью \(current.repo) #\(current.pr) · \(model.agentName(current.agent))"
         }
-        if model.isPaused { return "Фоновое ревью выключено, работают только запуски по иконкам" }
+        if model.isPaused { return "Фоновое ревью выключено" }
         guard let next = model.nextPassAt else { return "Ожидание" }
         let minutes = Int((next.timeIntervalSinceNow / 60).rounded(.up))
         return minutes <= 1 ? "Ожидание · проверка в течение минуты" : "Ожидание · следующая проверка через \(minutes) мин"
@@ -497,7 +499,8 @@ struct PullRequestRow: View {
         if pr.draft { return "Черновик — фоновое ревью черновики пропускает. \(manual)" }
         if !model.config.isTaskBranch(pr.source) { return "Ветка вне шаблона веток задач — фоновое ревью её пропускает. \(manual)" }
         let auto = autoAgents
-        if !auto.isEmpty && auto.allSatisfy({ model.availability($0).isLimitExhausted }) {
+        if auto.isEmpty { return "Все модели запускаются только вручную — фоновое ревью этот PR не возьмёт. \(manual)" }
+        if auto.allSatisfy({ model.availability($0).isLimitExhausted }) {
             return "Все фоновые модели упёрлись в лимит. Ревью будет после сброса"
         }
         if model.isRunning { return "Ревью ещё не было: идёт проход" }
