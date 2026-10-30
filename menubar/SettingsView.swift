@@ -274,12 +274,16 @@ private struct RepoRow: View {
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .tint(.green)
-                // Пока весь сервис на паузе, переключатель репозитория ни на что не влияет — показываем его приглушённым, как зависимые настройки в iOS
+                // Пока весь сервис на паузе, переключатель репозитория ни на что не влияет — показываем его приглушённым, как зависимые настройки в iOS,
+                // и не даём переключить: иначе случайный клик молча менял бы конфиг
                 .opacity(model.isPaused ? 0.45 : 1)
+                .disabled(model.isPaused)
                 .help(model.isPaused ? "Сначала включите фоновое ревью наверху" : repo.isPaused ? "Фоновое ревью репозитория выключено" : "Фоновое ревью репозитория включено")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        // У неактивного переключателя подсказка может не показаться — дублируем её на всю строку
+        .help(model.isPaused ? "Сначала включите фоновое ревью наверху" : "")
     }
 
     private var subtitle: String {
@@ -1033,10 +1037,11 @@ private struct IntervalRow: View {
                 .foregroundStyle(.secondary)
             Stepper("Интервал", onIncrement: { step(1) }, onDecrement: { step(-1) })
                 .labelsHidden()
+                .disabled(model.isPaused)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .help("Как часто искать новые коммиты и ответы в тредах. Действует со следующей минуты")
+        .help(model.isPaused ? "Сначала включите фоновое ревью наверху" : "Как часто искать новые коммиты и ответы в тредах. Действует со следующей минуты")
     }
 }
 
