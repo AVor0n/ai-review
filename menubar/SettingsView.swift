@@ -431,22 +431,19 @@ private struct AgentRow: View {
         let name = model.agentName(id)
         let updatedAt = Dates.parse(limit.at)
         if let resetsAt = Dates.parse(limit.resetsAt), resetsAt <= Date() {
-            Text("лимит сброшен, обновится после ревью \(name)")
+            Text("лимит сброшен")
                 .font(.system(size: 11))
+                .lineLimit(1)
                 .foregroundStyle(.secondary)
+                .help("Лимит сбросился \(Dates.resetFull(resetsAt)). Новый остаток появится после ближайшего ревью \(name)")
         } else {
-            let old = updatedAt.map { Date().timeIntervalSince($0) >= 3600 } ?? false
+            // Время данных — только в подсказке: в строке оно не помещается в колонку
             HStack(spacing: 6) {
                 LimitBar(remaining: limit.remaining)
-                HStack(spacing: 0) {
-                    Text("\(Int(limit.remaining.rounded()))% \(limit.window == "month" ? "месяца" : "недели") осталось\(Dates.parse(limit.resetsAt).map { " · до \(Self.resetFormat.string(from: $0))" } ?? "")")
-                        .foregroundStyle(limit.remaining < 15 ? Color.orange : .secondary)
-                    if old, let updatedAt {
-                        Text(" · на \(Dates.moment(updatedAt))").foregroundStyle(.tertiary)
-                    }
-                }
-                .font(.system(size: 11).monospacedDigit())
-                .lineLimit(1)
+                Text("\(Int(limit.remaining.rounded()))% \(limit.window == "month" ? "месяца" : "недели") осталось\(Dates.parse(limit.resetsAt).map { " · до \(Self.resetFormat.string(from: $0))" } ?? "")")
+                    .font(.system(size: 11).monospacedDigit())
+                    .lineLimit(1)
+                    .foregroundStyle(limit.remaining < 15 ? Color.orange : .secondary)
             }
             .help("Остаток на \(updatedAt.map(Dates.momentFull) ?? "—") — после последнего ревью \(name). Отдельно лимит \(name) не опрашивается; подписку тратят и другие сессии \(name), поэтому сейчас остаток может быть меньше")
         }
