@@ -160,6 +160,7 @@ struct OverviewView: View {
         var result: [Banner] = []
         if let stall = workerStall() { result.append(Banner(id: "stall", view: AnyView(stallBanner(stall)))) }
         if let error = model.syncError ?? lastRunError { result.append(Banner(id: "error", view: AnyView(errorBanner(error)))) }
+        if !model.unreadableFiles.isEmpty { result.append(Banner(id: "unreadable", view: AnyView(unreadableBanner(model.unreadableFiles)))) }
         let tokens = model.tokenBanners
         result += tokens.filter(\.isExpired).map { Banner(id: "token-\($0.id)", view: AnyView(tokenBanner($0))) }
         result += model.memoryBroken.sorted { $0.key < $1.key }.map { Banner(id: "broken-\($0.key)", view: AnyView(brokenMemoryBanner(slug: $0.key, reason: $0.value))) }
@@ -360,6 +361,45 @@ struct OverviewView: View {
                 .buttonStyle(.plain)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.red)
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+    }
+
+    private static func fileContents(_ name: String) -> String {
+        if name.hasPrefix("prs/") { return "список PR репозитория" }
+        return [
+            "config.json": "настройки",
+            "status.json": "состояние сервиса",
+            "state.json": "что проверено моделями",
+            "limits.json": "лимиты моделей",
+            "backlog.json": "бэклог",
+        ][name] ?? "данные сервиса"
+    }
+
+    // Крестика нет: баннер уходит сам, когда файл снова прочитается
+    private func unreadableBanner(_ files: [UnreadableFile]) -> some View {
+        let reasons = Array(NSOrderedSet(array: files.map(\.reason))).compactMap { $0 as? String }.joined(separator: ", ")
+        let what = files.count == 1
+            ? "\(files[0].name) — \(Self.fileContents(files[0].name)): \(files[0].reason)"
+            : "\(files.map(\.name).joined(separator: ", ")): \(reasons)"
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Не удалось прочитать данные сервиса")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(verbatim: "\(what). Пока файл не прочитается, на вкладках показаны последние прочитанные данные")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button("Показать в Finder") { NSWorkspace.shared.activateFileViewerSelecting(files.map(\.url)) }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
         }
         .padding(12)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))

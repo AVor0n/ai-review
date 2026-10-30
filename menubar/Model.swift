@@ -1087,6 +1087,43 @@ func readJSONLines<T: Decodable>(_ type: T.Type, _ url: URL) -> [T] {
     return text.split(separator: "\n").compactMap { try? decoder.decode(type, from: Data($0.utf8)) }
 }
 
+// Отсутствующий файл — обычное дело (сервис его ещё не создал), а не прочитавшийся надо показать: иначе вкладка молча пустеет
+enum ReadOutcome<T> {
+    case missing
+    case loaded(T)
+    case failed(String)
+
+    func value(missing: T?, previous: T?) -> T? {
+        switch self {
+        case .loaded(let value): value
+        case .missing: missing
+        case .failed: previous
+        }
+    }
+}
+
+func readOutcome<T: Decodable>(_ type: T.Type, _ url: URL) -> ReadOutcome<T> {
+    let data: Data
+    do {
+        data = try Data(contentsOf: url)
+    } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+        return .missing
+    } catch let error as CocoaError where error.code == .fileReadNoPermission {
+        return .failed("нет доступа")
+    } catch {
+        return .failed("ошибка чтения")
+    }
+    guard let value = try? JSONDecoder().decode(type, from: data) else { return .failed("ошибка формата") }
+    return .loaded(value)
+}
+
+struct UnreadableFile: Identifiable {
+    let name: String
+    let url: URL
+    let reason: String
+    var id: String { name }
+}
+
 func loadSnapshot(_ slug: String) -> PrSnapshot? {
     readJSON(PrSnapshot.self, Paths.prs.appendingPathComponent("\(slug).json"))
 }
@@ -1163,16 +1200,38 @@ final class AppModel: ObservableObject {
         timer = nil
     }
 
+    // Файлы, которые не прочитались два обновления подряд: один сбой бывает и при записи файла сервисом
+    @Published private(set) var unreadableFiles: [UnreadableFile] = []
+    private var readFailures: [String: (url: URL, reason: String, count: Int)] = [:]
+    private var failedThisReload: [String: (url: URL, reason: String)] = [:]
+
+    private func track<T: Decodable>(_ type: T.Type, _ url: URL, name: String) -> ReadOutcome<T> {
+        let outcome = readOutcome(type, url)
+        if case .failed(let reason) = outcome { failedThisReload[name] = (url, reason) }
+        return outcome
+    }
+
+    private func finishTracking() {
+        readFailures = failedThisReload.reduce(into: [:]) { result, item in
+            result[item.key] = (item.value.url, item.value.reason, (readFailures[item.key]?.count ?? 0) + 1)
+        }
+        unreadableFiles = readFailures.filter { $0.value.count >= 2 }.sorted { $0.key < $1.key }
+            .map { UnreadableFile(name: $0.key, url: $0.value.url, reason: $0.value.reason) }
+        failedThisReload = [:]
+    }
+
+    // При сбое чтения остаётся прошлое значение: баннер говорит, что на вкладках последние прочитанные данные
     func reload() {
-        if let loaded = readJSON(AppConfig.self, Paths.config) { config = loaded }
-        status = readJSON(Status.self, Paths.status)
+        if case .loaded(let loaded) = track(AppConfig.self, Paths.config, name: "config.json") { config = loaded }
+        status = track(Status.self, Paths.status, name: "status.json").value(missing: nil, previous: status)
         tokens = TokenInfo.load(config)
-        state = readJSON(WorkerState.self, Paths.state) ?? WorkerState(repos: nil)
+        state = track(WorkerState.self, Paths.state, name: "state.json").value(missing: WorkerState(repos: nil), previous: state) ?? WorkerState(repos: nil)
         isRunning = workerIsRunning
         isPaused = workerIsPaused
         var loaded: [String: PrSnapshot] = [:]
         for repo in config.repos {
-            loaded[repo.slug] = loadSnapshot(repo.slug)
+            loaded[repo.slug] = track(PrSnapshot.self, Paths.prs.appendingPathComponent("\(repo.slug).json"), name: "prs/\(repo.slug).json")
+                .value(missing: nil, previous: snapshots[repo.slug])
         }
         snapshots = loaded
         let memoryFiles = config.repos.map { ($0.slug, readMemoryFile($0.slug)) }
@@ -1193,10 +1252,11 @@ final class AppModel: ObservableObject {
         reloadFixes()
         reloadArchs()
         reloadQas()
-        limits = readJSON([String: AgentLimit].self, Paths.data.appendingPathComponent("limits.json")) ?? [:]
-        backlog = readJSON(BacklogFile.self, Paths.backlog)?.items ?? []
+        limits = track([String: AgentLimit].self, Paths.data.appendingPathComponent("limits.json"), name: "limits.json").value(missing: [:], previous: limits) ?? [:]
+        backlog = track(BacklogFile.self, Paths.backlog, name: "backlog.json").value(missing: BacklogFile(items: []), previous: BacklogFile(items: backlog))?.items ?? []
         backlogJob = readJSON(BacklogJob.self, Paths.backlogJob)
         backlogScan = readJSON(BacklogScan.self, Paths.backlogScan)
+        finishTracking()
     }
 
     // jsonl-файлы только растут, поэтому перечитываем их, лишь когда файл изменился
