@@ -1,0 +1,96 @@
+# Установка, обновление и удаление
+
+## Что нужно
+
+- macOS, Node 22 или новее, `git`.
+- `swiftc` — Xcode или Command Line Tools: приложение в строке меню собирается из исходников.
+- CLI моделей в `PATH`: `claude` (Claude Code) и `codex` (Codex CLI, вход через `codex login`). Без них `install.sh` останавливается.
+- `cursor-agent` — необязательно: без него ревью идут Claude и Codex.
+- Docker — только для тестирования в браузере (см. [qa.md](qa.md)).
+- Atlassian API-токен с доступом к Bitbucket и SSH-доступ к репозиториям (служебные клоны качаются по SSH).
+
+## Первая установка
+
+1. **Конфиг.** `cp config.example.json config.json` — или сразу запустите `./install.sh`: при первом запуске он сам скопирует пример и остановится. В `config.json` заполните:
+   - `bitbucket.email` — email аккаунта Atlassian;
+   - `repos` — репозитории: `workspace`, `slug`, `remote` (SSH-адрес) и необязательный `source` (ваша локальная копия, с неё быстрее первый клон). Можно оставить пустой список `[]` и подключить репозитории потом в настройках окна.
+
+   Пока в конфиге остаются плейсхолдеры примера (`you@example.com`, `your-workspace`, `/path/to/…`), `install.sh` не установит сервис. Все поля — в [config.md](config.md).
+
+2. **Токен Bitbucket.** Создайте [API-токен Atlassian](https://id.atlassian.com/manage-profile/security/api-tokens) со scope `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket` и сохраните в Keychain:
+
+   ```bash
+   read -rs 'TOKEN?Токен Bitbucket: ' && security add-generic-password -U -s pr-reviewer-bitbucket -a <email> -T /usr/bin/security -w "$TOKEN"; unset TOKEN
+   ```
+
+   Не используйте `security … -w` без значения: интерактивный запрос молча обрезает ввод до 128 символов, а токен Atlassian длиннее — Bitbucket потом отвечает 401.
+
+3. **Токен Claude.** Обычная сессия Claude в фоне протухает, поэтому нужен долгоживущий токен:
+
+   ```bash
+   claude setup-token
+   ```
+
+   ```bash
+   read -rs 'TOKEN?Токен Claude: ' && security add-generic-password -U -s pr-reviewer-claude -a claude -T /usr/bin/security -w "$TOKEN"; unset TOKEN
+   ```
+
+4. **Ключ Cursor (необязательно).** Выпустите API-ключ в [настройках Cursor](https://cursor.com/dashboard?tab=integrations) и сохраните так же, с `-s pr-reviewer-cursor`. Без ключа ревью Cursor падает с ошибкой «нет API-ключа в Keychain». Если Cursor не нужен, выключите его из фонового ревью: `bin/pr-reviewer agent set cursor --auto off` после установки, или удалите `agents.cursor` из конфига.
+
+5. **Установка.**
+
+   ```bash
+   ./install.sh
+   ```
+
+   Скрипт:
+   - проверяет, что нужные CLI есть, конфиг заполнен, а токены Bitbucket и Claude лежат в Keychain;
+   - создаёт `bin/pr-reviewer` с зашитыми путями к `node`, `claude`, `codex` и `cursor-agent` — у агентов launchd почти пустой `PATH`;
+   - собирает приложение `~/Applications/PR Reviewer.app`;
+   - регистрирует два агента launchd: воркер (раз в минуту) и приложение (при входе в систему, с перезапуском после сбоя).
+
+   Первая установка оставляет сервис **на паузе**.
+
+6. **Проверка без публикации.**
+
+   ```bash
+   bin/pr-reviewer run --dry-run --pr <id>
+   ```
+
+   Комментарии печатаются в терминал, в Bitbucket ничего не уходит. Модели при этом запускаются по-настоящему.
+
+7. **Включение.** Переключатель «Фоновое ревью» в настройках окна или:
+
+   ```bash
+   bin/pr-reviewer resume
+   ```
+
+## Обновление
+
+Изменения в `src/` и `schema/` действуют сразу: CLI читает код при каждом запуске. Изменения в `menubar/` видны только после пересборки приложения:
+
+```bash
+./install.sh
+```
+
+Повторный запуск безопасен: он пересобирает приложение и перезагружает оба агента launchd, а паузу, данные и конфиг не трогает. Его же нужно запустить, если `node`, `claude`, `codex` или `cursor-agent` переехали на другой путь.
+
+Иконка приложения лежит в `assets/AppIcon.icns`; она рисуется кодом в `assets/make-icon.swift`, команда пересборки — в его первых строках.
+
+## Сроки токенов
+
+Срок в самом токене прочитать нельзя, поэтому окно считает его от даты сохранения записи в Keychain плюс срок, выбранный при выпуске (`tokenLifetimeDays`; у Atlassian и `claude setup-token` по умолчанию год, у Cursor — как выбрали). За 14 дней до истечения в обзоре появляется жёлтый баннер, после — красный. Новый токен сохраняется той же командой `security add-generic-password -U …`, дата обновится сама. Подробно — «Настройки» → «Дополнительно» → «Токены» и [window.md](window.md).
+
+## Удаление
+
+```bash
+./uninstall.sh
+```
+
+Удаляет агентов launchd, приложение и `bin/`. Состояние, статистика, журналы и служебные клоны остаются.
+
+```bash
+./uninstall.sh --purge
+```
+
+Удаляет ещё `~/Library/Application Support/pr-reviewer/` и журналы. Служебные клоны в `~/.pr-reviewer/` и записи Keychain не удаляет ни один вариант — их можно убрать вручную (см. [data.md](data.md)).
