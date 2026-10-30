@@ -880,8 +880,18 @@ struct AgentLimit: Decodable {
     let usedPercent: Double
     let resetsAt: String?
     let at: String?
+    // Последний опрос не удался: остаток выше — с прошлого удачного
+    let error: LimitError?
+    let errorAt: String?
 
     var remaining: Double { max(0, 100 - usedPercent) }
+}
+
+struct LimitError: Decodable {
+    let code: Int?
+    let text: String
+
+    var description: String { [401, 403].contains(code ?? 0) ? "ошибка \(code ?? 0), \(text)" : text }
 }
 
 struct FixStep: Decodable {
@@ -982,6 +992,16 @@ enum Dates {
     }
 
     static func resetFull(_ date: Date) -> String { dayTime.string(from: date) }
+
+    private static let dayTimePlain = formatter("d MMMM HH:mm")
+    private static let dayShortTime = formatter("d MMM HH:mm", template: true)
+
+    // «11:09» сегодня, иначе «29 окт. 11:09»
+    static func moment(_ date: Date) -> String {
+        Calendar.current.isDateInToday(date) ? time.string(from: date) : dayShortTime.string(from: date)
+    }
+
+    static func momentFull(_ date: Date) -> String { dayTimePlain.string(from: date) }
 
     // Явная локаль: formatted() берёт язык системы, а не окна
     static let russian = Locale(identifier: "ru_RU")

@@ -379,9 +379,60 @@ private struct AgentRow: View {
         return formatter
     }()
 
+    private func staleMark() -> some View {
+        Image(systemName: "exclamationmark.triangle.fill")
+            .font(.system(size: 9))
+            .foregroundStyle(Color.orange)
+    }
+
+    // Неудачный опрос не стирает прошлый остаток, поэтому старое значение помечается, а после сброса не показывается вовсе
+    @ViewBuilder
+    private func staleLimitLine(_ limit: AgentLimit) -> some View {
+        let updatedAt = Dates.parse(limit.at)
+        let resetsAt = Dates.parse(limit.resetsAt)
+        let errorAt = Dates.parse(limit.errorAt).map { "Последняя попытка — \(Dates.moment($0))" } ?? ""
+        let percent = "\(Int(limit.remaining.rounded()))%"
+        if let resetsAt, resetsAt <= Date() {
+            if let error = limit.error {
+                HStack(spacing: 4) {
+                    staleMark()
+                    Text("лимит сброшен · не обновляется")
+                }
+                .help("Лимит сбросился \(Dates.resetFull(resetsAt)), а новый остаток получить не удалось: \(error.description). \(errorAt)")
+            } else {
+                Text("лимит сброшен, остаток обновится")
+            }
+        } else if let error = limit.error {
+            HStack(spacing: 6) {
+                LimitBar(remaining: limit.remaining, stale: true)
+                staleMark()
+                Text("\(percent) на \(updatedAt.map(Dates.moment) ?? "—") · не обновляется")
+            }
+            .help("Не удалось обновить лимит: \(error.description). \(errorAt). Показан остаток на \(updatedAt.map(Dates.momentFull) ?? "—"), сейчас он может быть другим")
+        } else {
+            HStack(spacing: 6) {
+                LimitBar(remaining: limit.remaining, stale: true)
+                Text("\(percent) · данные от \(updatedAt.map(Dates.moment) ?? "—")")
+            }
+            .help("Остаток на \(updatedAt.map(Dates.momentFull) ?? "—"), обновится при следующем запросе. Сейчас он может быть другим")
+        }
+    }
+
+    // То же правило свежести, что у бейджа лимита в обзоре: опрос за последний час и сброс ещё впереди
+    private func isFresh(_ limit: AgentLimit) -> Bool {
+        limit.error == nil
+            && Dates.parse(limit.at).map { Date().timeIntervalSince($0) < 3600 } == true
+            && Dates.parse(limit.resetsAt).map { $0 > Date() } != false
+    }
+
     @ViewBuilder
     private var limitLine: some View {
-        if let limit = model.limits[id] {
+        if let limit = model.limits[id], !isFresh(limit) {
+            staleLimitLine(limit)
+                .font(.system(size: 11).monospacedDigit())
+                .lineLimit(1)
+                .foregroundStyle(.secondary)
+        } else if let limit = model.limits[id] {
             HStack(spacing: 6) {
                 LimitBar(remaining: limit.remaining)
                 Text("\(Int(limit.remaining.rounded()))% \(limit.window == "month" ? "месяца" : "недели") осталось\(Dates.parse(limit.resetsAt).map { " · до \(Self.resetFormat.string(from: $0))" } ?? "")")
@@ -440,12 +491,13 @@ private struct AgentRow: View {
 // Остаток лимита: зелёный, жёлтый ближе к концу, оранжевый, когда почти исчерпан
 private struct LimitBar: View {
     let remaining: Double
+    var stale = false
 
     var body: some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Theme.track)
             Capsule()
-                .fill(remaining < 15 ? Color.orange : remaining < 40 ? Color.yellow : Color.green)
+                .fill(stale ? Color.secondary.opacity(0.4) : remaining < 15 ? Color.orange : remaining < 40 ? Color.yellow : Color.green)
                 .frame(width: 36 * remaining / 100)
         }
         .frame(width: 36, height: 4)

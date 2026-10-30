@@ -21,13 +21,18 @@ export const rememberClaudeLimits = (event) => {
 
 const fetchJson = async (url, init) => {
     const response = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000) });
-    if (!response.ok) throw new Error(`${response.status}`);
+    if (!response.ok) throw Object.assign(new Error(`${response.status}`), { status: response.status });
     return response.json();
 };
 
 // Тот же запрос, которым /status в Codex CLI показывает лимиты; токен CLI сам обновляет при каждом запуске
 const codexLimits = async () => {
-    const tokens = JSON.parse(readFileSync(join(homedir(), '.codex/auth.json'), 'utf8')).tokens ?? {};
+    let tokens;
+    try {
+        tokens = JSON.parse(readFileSync(join(homedir(), '.codex/auth.json'), 'utf8')).tokens ?? {};
+    } catch {
+        throw new Error('нет входа Codex (codex login)');
+    }
     const usage = await fetchJson('https://chatgpt.com/backend-api/wham/usage', {
         headers: { Authorization: `Bearer ${tokens.access_token}`, 'ChatGPT-Account-Id': tokens.account_id ?? '', 'User-Agent': 'codex-cli' },
     });
@@ -39,7 +44,12 @@ const codexLimits = async () => {
 // Токен входа Cursor (cursor-access-token) живёт час и обновляется, только когда запускается сам CLI,
 // поэтому каждый опрос сам обменивает API-ключ на свежий токен — тем же запросом, что делает cursor-agent
 const cursorToken = async (keychainService) => {
-    const key = execFileSync('security', ['find-generic-password', '-s', keychainService, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    let key;
+    try {
+        key = execFileSync('security', ['find-generic-password', '-s', keychainService, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch {
+        throw new Error(`нет API-ключа в Keychain (${keychainService})`);
+    }
     const { accessToken } = await fetchJson('https://api2.cursor.sh/auth/exchange_user_api_key', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
@@ -67,6 +77,21 @@ const cursorLimits = async ({ model, keychainService = 'pr-reviewer-cursor' }) =
     };
 };
 
+// Коротко для окна: оно пишет «ошибка 401, нет доступа» или «сервер не ответил»
+const describeError = (error) => {
+    if (error.status) return { code: error.status, text: [401, 403].includes(error.status) ? 'нет доступа' : `ошибка ${error.status}` };
+    if (error.name === 'TimeoutError') return { code: null, text: 'сервер не ответил' };
+    return { code: null, text: error.message };
+};
+
+// Прошлый остаток не стирается: окно показывает его с пометкой, что он не обновляется. Успешный опрос (save) убирает ошибку.
+// Без прошлого остатка запись не создаём — окну нечего показывать, кроме «лимит недоступен»
+const saveError = (agent, error) => {
+    const limits = readJson(LIMITS_FILE, {});
+    if (!limits[agent]) return;
+    writeJson(LIMITS_FILE, { ...limits, [agent]: { ...limits[agent], error: describeError(error), errorAt: new Date().toISOString() } });
+};
+
 export const refreshLimits = async (config) => {
     const jobs = {
         codex: config.agents.codex && codexLimits,
@@ -80,6 +105,7 @@ export const refreshLimits = async (config) => {
             if (value) save(agent, value);
             result[agent] = value;
         } catch (error) {
+            saveError(agent, error);
             result[agent] = { error: error.message };
         }
     }
