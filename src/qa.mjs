@@ -679,7 +679,10 @@ export const qaWorker = async ({ loadConfig, createBitbucket }) => {
     const abort = () => {
         killAgents();
         runCleanup();
-        if (current) setState(current.repo, current.pr, { state: 'failed', step: null, activity: null, error: 'тестирование прервано', finishedAt: new Date().toISOString() });
+        if (current) {
+            const planning = current.stage === 'plan';
+            setState(current.repo, current.pr, { state: planning ? 'plan-failed' : 'failed', step: null, activity: null, error: planning ? 'план прерван' : 'тестирование прервано', finishedAt: new Date().toISOString() });
+        }
         rmSync(PID_FILE, { force: true });
         process.exit(143);
     };
