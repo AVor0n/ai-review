@@ -426,8 +426,9 @@ struct OverviewView: View {
                             Image(systemName: "pause.circle.fill").foregroundStyle(Color.orange)
                             Text("фоновое ревью выключено")
                         }
-                        .textCase(nil)
+                        // Подсказка внутри textCase(nil): иначе заголовок секции переводит её в капслок
                         .help("Фоновое ревью этого репозитория выключено в настройках. Ручной запуск по значку модели работает")
+                        .textCase(nil)
                     }
                     Spacer()
                     if let snapshot {
