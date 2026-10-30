@@ -228,7 +228,7 @@ struct StatsData {
             let tracked = model.stats.filter { $0.repo == slug && $0.appliedLessons != nil }
             guard let first = tracked.first.flatMap({ Dates.parse($0.at) }) else { continue }
             memory.since = min(memory.since ?? first, first)
-            let alias = Dictionary(lessons.flatMap { lesson in (lesson.source?.mergedFrom ?? []).map { ($0, lesson.id) } }, uniquingKeysWith: { first, _ in first })
+            let alias = Dictionary(lessons.flatMap { lesson in lesson.mergedIds.map { ($0, lesson.id) } }, uniquingKeysWith: { first, _ in first })
             let fired = Set(tracked.flatMap { $0.appliedLessons ?? [] }.map { alias[$0] ?? $0 })
             memory.idle = (memory.idle ?? 0) + lessons.filter { !fired.contains($0.id) }.count
         }

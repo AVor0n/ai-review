@@ -371,6 +371,10 @@ struct Lesson: Decodable, Identifiable {
     let manual: Bool?
     let edited: Bool?
     let source: LessonSource?
+    // Склеенное только из добавленных вручную: источника нет, список исходных правил лежит здесь
+    let mergedFrom: [String]?
+
+    var mergedIds: [String] { source?.mergedFrom ?? mergedFrom ?? [] }
 }
 
 // Сколько раз правило повлияло на ревью и чем кончились основанные на нём замечания

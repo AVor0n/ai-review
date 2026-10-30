@@ -20,6 +20,9 @@ const fingerprint = (lessons) =>
         .update(JSON.stringify(lessons.map((lesson) => [lesson.id, lesson.text])))
         .digest('hex');
 
+// У правил, склеенных из добавленных вручную, источника нет — тогда список склеенных лежит в самом правиле
+const mergedFrom = (lesson) => lesson.source?.mergedFrom ?? lesson.mergedFrom ?? [];
+
 // Сколько раз правило повлияло на ревью и чем кончились замечания, которые на нём основаны
 export const lessonUsage = (slug) => {
     const usage = new Map();
@@ -28,7 +31,7 @@ export const lessonUsage = (slug) => {
         return usage.get(id);
     };
     // Склеенное правило наследует срабатывания тех, из которых его собрали
-    const alias = new Map(loadMemory(slug).flatMap((lesson) => (lesson.source?.mergedFrom ?? []).map((old) => [old, lesson.id])));
+    const alias = new Map(loadMemory(slug).flatMap((lesson) => mergedFrom(lesson).map((old) => [old, lesson.id])));
     const current = (id) => alias.get(id) ?? id;
     const stats = loadStats().filter((entry) => entry.repo === slug && Array.isArray(entry.appliedLessons));
     for (const entry of stats) for (const id of new Set(entry.appliedLessons.map(current))) row(id).applied++;
@@ -199,7 +202,9 @@ export const applyMemoryPlan = (slug) => {
         if (action.type === 'merge') {
             // Источник склеенного правила — первый из склеенных с источником: окно показывает по нему ссылку на PR
             const source = action.ids.map((id) => byId.get(id).source).find(Boolean);
-            replace.set(action.ids[0], { id: newId(), text: action.text.trim(), at, ...(source ? { source: { ...source, mergedFrom: action.ids } } : {}) });
+            // Вместе с id склеенных — и те, из которых склеены они сами: иначе повторная склейка теряла бы их срабатывания
+            const merged = [...new Set(action.ids.flatMap((id) => [id, ...mergedFrom(byId.get(id))]))];
+            replace.set(action.ids[0], { id: newId(), text: action.text.trim(), at, ...(source ? { source: { ...source, mergedFrom: merged } } : { mergedFrom: merged }) });
             action.ids.slice(1).forEach((id) => remove.add(id));
         }
     }
