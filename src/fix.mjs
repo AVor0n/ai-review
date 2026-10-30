@@ -43,19 +43,37 @@ const runningPid = () => {
 
 // Заявка + отдельный фоновый процесс: доработка идёт десятки минут и не должна держать очередь ревью.
 // mode: fix — правки по замечаниям и rebase; rebase — только перенос ветки на свежую базу
+const startWorker = () => {
+    if (!runningPid()) spawn(process.execPath, [join(TOOL_DIR, 'src/cli.mjs'), 'fix-worker'], { detached: true, stdio: 'ignore', env: process.env }).unref();
+};
+const hasQueue = () => existsSync(QUEUE_DIR) && readdirSync(QUEUE_DIR).some((name) => name.endsWith('.json'));
+
 export const requestFix = (repo, pr, mode = 'fix') => {
     mkdirSync(QUEUE_DIR, { recursive: true });
     writeJson(join(QUEUE_DIR, `${key(repo, pr)}.json`), { repo, pr, mode, at: new Date().toISOString() });
     setState(repo, pr, { state: 'queued', mode, error: null, report: null });
-    if (!runningPid()) {
-        spawn(process.execPath, [join(TOOL_DIR, 'src/cli.mjs'), 'fix-worker'], { detached: true, stdio: 'ignore', env: process.env }).unref();
-    }
+    startWorker();
 };
 
-export const stopFix = () => {
+// «Прервать» у PR касается только этого PR: снимает его заявку из очереди или прерывает его идущую доработку.
+// Заявки других PR остаются — обработчик после прерывания продолжает очередь. Без PR — прервать то, что идёт сейчас
+export const stopFix = (repo = null, pr = null) => {
     const pid = runningPid();
-    if (pid) requestStop(pid, STOP_FILE);
-    return pid;
+    if (!repo) {
+        if (pid) requestStop(pid, STOP_FILE);
+        return Boolean(pid);
+    }
+    const queued = join(QUEUE_DIR, `${key(repo, pr)}.json`);
+    if (existsSync(queued)) {
+        rmSync(queued, { force: true });
+        setState(repo, pr, { state: 'failed', step: null, activity: null, error: 'доработка прервана', finishedAt: new Date().toISOString() });
+        return true;
+    }
+    if (pid && readJson(fixStateFile(repo, pr), {}).state === 'running') {
+        requestStop(pid, STOP_FILE);
+        return true;
+    }
+    return false;
 };
 
 const sh = (cwd, command, args, options = {}) => {
@@ -389,6 +407,8 @@ export const fixWorker = async ({ loadConfig, createBitbucket }) => {
         killAgents();
         if (current) setState(current.repo, current.pr, { state: 'failed', step: null, activity: null, error: 'доработка прервана', finishedAt: new Date().toISOString() });
         rmSync(PID_FILE, { force: true });
+        // Прерывают одну доработку, а не очередь: заявки других PR подхватит новый обработчик
+        if (hasQueue()) startWorker();
         process.exit(143);
     };
     process.on('SIGTERM', abort);

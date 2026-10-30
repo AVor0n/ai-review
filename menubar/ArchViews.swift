@@ -163,7 +163,7 @@ struct ArchReportSheet: View {
                 .disabled(arch?.result == nil)
                 Spacer()
                 if arch?.isActive == true {
-                    Button("Прервать", role: .destructive) { model.stopArch() }
+                    Button("Прервать", role: .destructive) { model.stopArch(repo: target.repo, pr: target.pr.id) }
                 } else if arch?.isStale(for: pr) == true {
                     Button("Перезапустить") {
                         dismiss()

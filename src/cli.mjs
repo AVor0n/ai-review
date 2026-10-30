@@ -303,8 +303,19 @@ const ignoreCommand = () => {
     console.log(action === 'add' ? `Исключено ${pattern}` : `Больше не исключается ${pattern}`);
 };
 
+// stop с --repo и --pr касается только этого PR: снимает заявку из очереди или прерывает его идущую задачу
+const stopTarget = () => {
+    if (!option('--repo')) return [null, null];
+    const pr = Number(option('--pr'));
+    if (!pr) throw new Error('Нужен --pr <id>');
+    return [requireRepo(option('--repo')).slug, pr];
+};
+
 const fixCommand = () => {
-    if (args[0] === 'stop') return console.log(stopFix() ? 'Доработка прервана' : 'Доработка сейчас не идёт');
+    if (args[0] === 'stop') {
+        const [slug, pr] = stopTarget();
+        return console.log(stopFix(slug, pr) ? `Доработка${slug ? ` ${slug}#${pr}` : ''} прервана` : `Доработка${slug ? ` ${slug}#${pr}` : ''} сейчас не идёт и не ждёт в очереди`);
+    }
     const repo = requireRepo(option('--repo'));
     const pr = Number(option('--pr'));
     if (!pr) throw new Error('Нужен --pr <id>');
@@ -429,7 +440,10 @@ const ARCH_STATES = { queued: 'в очереди', running: 'идёт', done: '�
 
 const archCommand = () => {
     const action = args[0] && !args[0].startsWith('--') ? args[0] : 'request';
-    if (action === 'stop') return console.log(stopArch() ? 'Архитектурное ревью прервано' : 'Архитектурное ревью сейчас не идёт');
+    if (action === 'stop') {
+        const [slug, pr] = stopTarget();
+        return console.log(stopArch(slug, pr) ? `Архитектурное ревью${slug ? ` ${slug}#${pr}` : ''} прервано` : `Архитектурное ревью${slug ? ` ${slug}#${pr}` : ''} сейчас не идёт и не ждёт в очереди`);
+    }
     if (action === 'list') {
         const states = listArchStates();
         if (hasFlag('--json')) return console.log(JSON.stringify(states, null, 2));
@@ -448,19 +462,22 @@ const archCommand = () => {
         if (!state) throw new Error(`Для ${repo.slug}#${pr} архитектурного ревью ещё не было`);
         return console.log(hasFlag('--json') ? JSON.stringify(state, null, 2) : renderArchReport(state));
     }
-    if (action !== 'request') throw new Error('pr-reviewer arch --repo <slug> --pr <id> | arch show --repo <slug> --pr <id> [--json] | arch list [--json] | arch stop');
+    if (action !== 'request') throw new Error('pr-reviewer arch --repo <slug> --pr <id> | arch show --repo <slug> --pr <id> [--json] | arch list [--json] | arch stop [--repo <slug> --pr <id>]');
     requestArch(repo.slug, pr);
     console.log(`Архитектурное ревью ${repo.slug}#${pr} поставлено в очередь; отчёт — pr-reviewer arch show --repo ${repo.slug} --pr ${pr}`);
 };
 
-const QA_USAGE = 'pr-reviewer qa plan --repo <slug> --pr <id> [--note <текст>] | qa run --repo <slug> --pr <id> [--only C1,C3] [--skip C2] [--add <кейс>]… [--note <текст>] | qa show --repo <slug> --pr <id> [--plan] [--json] | qa save --repo <slug> --pr <id> | qa list [--json] | qa stop';
+const QA_USAGE = 'pr-reviewer qa plan --repo <slug> --pr <id> [--note <текст>] | qa run --repo <slug> --pr <id> [--only C1,C3] [--skip C2] [--add <кейс>]… [--note <текст>] | qa show --repo <slug> --pr <id> [--plan] [--json] | qa save --repo <slug> --pr <id> | qa list [--json] | qa stop [--repo <slug> --pr <id>]';
 
 const optionList = (name) => args.flatMap((arg, index) => (arg === name && args[index + 1] !== undefined ? [args[index + 1]] : []));
 const idList = (name) => (option(name) ?? '').split(',').map((id) => id.trim().toUpperCase()).filter(Boolean);
 
 const qaCommand = () => {
     const [action] = args;
-    if (action === 'stop') return console.log(stopQa() ? 'Тестирование прервано, окружение останавливается' : 'Тестирование сейчас не идёт');
+    if (action === 'stop') {
+        const [slug, pr] = stopTarget();
+        return console.log(stopQa(slug, pr) ? `Тестирование${slug ? ` ${slug}#${pr}` : ''} прервано` : `Тестирование${slug ? ` ${slug}#${pr}` : ''} сейчас не идёт и не ждёт в очереди`);
+    }
     if (action === 'list') {
         const states = listQaStates();
         if (hasFlag('--json')) return console.log(JSON.stringify(states, null, 2));
@@ -641,7 +658,7 @@ const commands = {
   review --repo <slug> --pr <id> --agent <id>
                  поставить явное ревью одной моделью в очередь (работает и на паузе)
   sync           обновить список открытых PR для окна обзора
-  fix --repo <slug> --pr <id> [--rebase] | fix stop
+  fix --repo <slug> --pr <id> [--rebase] | fix stop [--repo <slug> --pr <id>]
                  доработка PR по открытым замечаниям: rebase на базу, зависимости, правки Claude и коммит, проверки, push --force-with-lease;
                  --rebase — то же без правок
   ignore list | add <шаблон> | remove <шаблон>
@@ -659,12 +676,12 @@ const commands = {
   arch --repo <slug> --pr <id>
                  архитектурное ревью: цель PR, альтернативы с плюсами и минусами, где проще, серьёзные риски;
                  отчёт только локальный, в PR не публикуется
-  arch show --repo <slug> --pr <id> [--json] | arch list [--json] | arch stop
+  arch show --repo <slug> --pr <id> [--json] | arch list [--json] | arch stop [--repo <slug> --pr <id>]
   qa plan --repo <slug> --pr <id> [--note <текст>]
                  тестирование PR, этап 1: план — опасные места и кейсы (юнит, компонентные, e2e); --note — свои кейсы и на что смотреть
   qa run --repo <slug> --pr <id> [--only C1,C3] [--skip C2] [--add <кейс>]… [--note <текст>]
                  этап 2: тесты на Vitest; для e2e — локальный бэкенд в Docker, фронтенд из ветки PR, Playwright с видео и скриншотами
-  qa show --repo <slug> --pr <id> [--plan] [--json] | qa list [--json] | qa stop
+  qa show --repo <slug> --pr <id> [--plan] [--json] | qa list [--json] | qa stop [--repo <slug> --pr <id>]
   qa save --repo <slug> --pr <id>
                  тесты последнего прогона — в локальную копию репозитория (source), без коммита
   backlog list|export [--repo <slug>] [--all] [--json]

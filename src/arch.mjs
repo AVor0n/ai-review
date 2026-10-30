@@ -49,20 +49,37 @@ const runningPid = () => {
     return pid && isAlive(pid) ? pid : null;
 };
 
+const startWorker = () => {
+    if (!runningPid()) spawn(process.execPath, [join(TOOL_DIR, 'src/cli.mjs'), 'arch-worker'], { detached: true, stdio: 'ignore', env: process.env }).unref();
+};
+const hasQueue = () => existsSync(QUEUE_DIR) && readdirSync(QUEUE_DIR).some((name) => name.endsWith('.json'));
+
 export const requestArch = (repo, pr) => {
     mkdirSync(QUEUE_DIR, { recursive: true });
     writeJson(join(QUEUE_DIR, `${key(repo, pr)}.json`), { repo, pr, at: new Date().toISOString() });
     // Прошлый отчёт остаётся виден, пока не готов новый
     setState(repo, pr, { state: 'queued', error: null });
-    if (!runningPid()) {
-        spawn(process.execPath, [join(TOOL_DIR, 'src/cli.mjs'), 'arch-worker'], { detached: true, stdio: 'ignore', env: process.env }).unref();
-    }
+    startWorker();
 };
 
-export const stopArch = () => {
+// Как у доработки: «Прервать» у PR снимает его заявку или прерывает его запуск, очередь других PR идёт дальше
+export const stopArch = (repo = null, pr = null) => {
     const pid = runningPid();
-    if (pid) requestStop(pid, STOP_FILE);
-    return pid;
+    if (!repo) {
+        if (pid) requestStop(pid, STOP_FILE);
+        return Boolean(pid);
+    }
+    const queued = join(QUEUE_DIR, `${key(repo, pr)}.json`);
+    if (existsSync(queued)) {
+        rmSync(queued, { force: true });
+        setState(repo, pr, { state: 'failed', activity: null, error: 'архитектурное ревью прервано', finishedAt: new Date().toISOString() });
+        return true;
+    }
+    if (pid && loadArchState(repo, pr)?.state === 'running') {
+        requestStop(pid, STOP_FILE);
+        return true;
+    }
+    return false;
 };
 
 const git = (cwd, ...args) => {
@@ -185,6 +202,7 @@ export const archWorker = async ({ loadConfig, createBitbucket }) => {
         killAgents();
         if (current) setState(current.repo, current.pr, { state: 'failed', activity: null, error: 'архитектурное ревью прервано', finishedAt: new Date().toISOString() });
         rmSync(PID_FILE, { force: true });
+        if (hasQueue()) startWorker();
         process.exit(143);
     };
     process.on('SIGTERM', abort);

@@ -828,8 +828,8 @@ struct QaSheet: View {
                 }
             }
             Spacer()
-            if qa?.state == "planning" || qa?.state == "running" {
-                Button("Прервать", role: .destructive) { model.stopQa() }
+            if ["planning-queued", "planning", "run-queued", "running"].contains(qa?.state ?? "") {
+                Button("Прервать", role: .destructive) { model.stopQa(repo: target.repo, pr: pr.id) }
             } else if onReport {
                 Button("Новый прогон…") { form.tab = .plan }
                     .disabled(qa?.plan == nil || qa?.isActive == true)

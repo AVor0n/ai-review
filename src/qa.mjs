@@ -71,6 +71,7 @@ const runningPid = () => {
 const startWorker = () => {
     if (!runningPid()) spawn(process.execPath, [join(TOOL_DIR, 'src/cli.mjs'), 'qa-worker'], { detached: true, stdio: 'ignore', env: process.env }).unref();
 };
+const queueFiles = () => (existsSync(QUEUE_DIR) ? readdirSync(QUEUE_DIR).filter((name) => name.endsWith('.json')) : []);
 
 const enqueue = (request) => {
     mkdirSync(QUEUE_DIR, { recursive: true });
@@ -94,10 +95,25 @@ export const requestQaRun = (repo, pr, { only = [], skip = [], extra = [], note 
     enqueue({ stage: 'run', repo, pr, only, skip, extra, note });
 };
 
-export const stopQa = () => {
+// Как у доработки: «Прервать» у PR снимает его заявки или прерывает его план или прогон, очередь других PR идёт дальше
+export const stopQa = (repo = null, pr = null) => {
     const pid = runningPid();
-    if (pid) requestStop(pid, STOP_FILE);
-    return pid;
+    if (!repo) {
+        if (pid) requestStop(pid, STOP_FILE);
+        return Boolean(pid);
+    }
+    const queued = queueFiles().filter((name) => name.endsWith(`__${key(repo, pr)}.json`));
+    if (queued.length) {
+        const planning = queued.every((name) => readJson(join(QUEUE_DIR, name), {}).stage === 'plan');
+        for (const name of queued) rmSync(join(QUEUE_DIR, name), { force: true });
+        setState(repo, pr, { state: planning ? 'plan-failed' : 'failed', step: null, activity: null, error: planning ? 'план прерван' : 'тестирование прервано', finishedAt: new Date().toISOString() });
+        return true;
+    }
+    if (pid && ['planning', 'running'].includes(loadQaState(repo, pr)?.state)) {
+        requestStop(pid, STOP_FILE);
+        return true;
+    }
+    return false;
 };
 
 const run = (cwd, command, args, { timeout = 10 * 60_000, env } = {}) => {
@@ -685,6 +701,7 @@ export const qaWorker = async ({ loadConfig, createBitbucket }) => {
             setState(current.repo, current.pr, { state: planning ? 'plan-failed' : 'failed', step: null, activity: null, error: planning ? 'план прерван' : 'тестирование прервано', finishedAt: new Date().toISOString() });
         }
         rmSync(PID_FILE, { force: true });
+        if (queueFiles().length) startWorker();
         process.exit(143);
     };
     process.on('SIGTERM', abort);

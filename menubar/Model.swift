@@ -1245,8 +1245,9 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func stopFix() {
-        CLI.run(["fix", "stop"]) { _, _ in self.reload() }
+    // Только этот PR: его заявка снимается из очереди или его доработка прерывается; очередь других PR идёт дальше
+    func stopFix(repo: String, pr: Int) {
+        CLI.run(["fix", "stop", "--repo", repo, "--pr", String(pr)]) { _, _ in self.reload() }
     }
 
     // MARK: Архитектурное ревью
@@ -1280,8 +1281,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func stopArch() {
-        CLI.run(["arch", "stop"]) { _, _ in self.reload() }
+    func stopArch(repo: String, pr: Int) {
+        CLI.run(["arch", "stop", "--repo", repo, "--pr", String(pr)]) { _, _ in self.reload() }
     }
 
     func copyArchMarkdown(repo: String, pr: Int, completion: @escaping (Bool) -> Void) {
@@ -1357,8 +1358,8 @@ final class AppModel: ObservableObject {
         queueQa(repo: repo, pr: pr, state: "run-queued", arguments)
     }
 
-    func stopQa() {
-        CLI.run(["qa", "stop"]) { _, _ in self.reload() }
+    func stopQa(repo: String, pr: Int) {
+        CLI.run(["qa", "stop", "--repo", repo, "--pr", String(pr)]) { _, _ in self.reload() }
     }
 
     @Published private(set) var qaSaving: Set<String> = []

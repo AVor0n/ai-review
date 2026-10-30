@@ -150,7 +150,7 @@ struct FixReportSheet: View {
                 }
                 Spacer()
                 if fix?.isActive == true {
-                    Button("Прервать", role: .destructive) { model.stopFix() }
+                    Button("Прервать", role: .destructive) { model.stopFix(repo: target.repo, pr: target.pr.id) }
                 } else {
                     Button("Запустить снова") {
                         dismiss()
