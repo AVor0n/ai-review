@@ -2,6 +2,7 @@
 # Устанавливает воркер (launchd, раз в intervalMinutes) и иконку в строке состояния.
 # Повторный запуск безопасен: пересобирает и перезагружает оба агента.
 # ./install.sh --app-only — пересобрать и перезапустить только приложение.
+# Полная установка перезапускает воркер, поэтому ждёт конца идущего прохода; ./install.sh --now — не ждать, проход прервётся.
 set -euo pipefail
 
 TOOL_DIR="${0:A:h}"
@@ -59,6 +60,41 @@ EOF
     touch "$APP_DIR"
 }
 
+worker_pid() {
+    local pid
+    pid=$(cat "$DATA_DIR/worker.pid" 2>/dev/null) || return 1
+    [[ $pid == <-> ]] && kill -0 $pid 2>/dev/null
+}
+
+describe_pass() {
+    local file="$DATA_DIR/status.json" repo pr agent
+    repo=$(plutil -extract current.repo raw -o - "$file" 2>/dev/null) || { echo "идёт проход ревью"; return; }
+    pr=$(plutil -extract current.pr raw -o - "$file" 2>/dev/null || true)
+    agent=$(plutil -extract current.agent raw -o - "$file" 2>/dev/null || true)
+    echo "идёт ревью $repo #$pr · $agent"
+}
+
+# Перезагрузка воркера прерывает идущий проход («ревью прервано»), поэтому без --now ждём его окончания
+wait_for_pass() {
+    [[ $INSTALL_NOW == 1 ]] && return
+    worker_pid || return 0
+    local current shown
+    shown=$(describe_pass)
+    echo "Сейчас $shown. Установка продолжится, когда проход закончится. Ctrl+C — отменить, ./install.sh --now — поставить сразу, прервав проход."
+    while worker_pid; do
+        current=$(describe_pass)
+        if [[ $current != $shown ]]; then
+            echo "  теперь $current"
+            shown=$current
+        fi
+        sleep 5
+    done
+    echo "Проход закончился, продолжаю установку."
+}
+
+INSTALL_NOW=0
+[[ ${1:-} == --now ]] && INSTALL_NOW=1
+
 # --app-only: только приложение — без проверки токенов и конфига; воркер и его идущий проход не трогаются
 if [[ ${1:-} == --app-only ]]; then
     command -v swiftc >/dev/null || { echo "Не найден swiftc в PATH"; exit 1; }
@@ -82,6 +118,9 @@ CLAUDE_BIN=$(command -v claude)
 CODEX_BIN=$(command -v codex)
 # Cursor — необязательная третья модель: без него ревью идёт Claude и Codex
 CURSOR_BIN=$(command -v cursor-agent || true)
+
+# Ждём до любых изменений: Ctrl+C во время ожидания ничего не оставляет наполовину
+wait_for_pass
 
 CONFIG="$TOOL_DIR/config.json"
 if [[ ! -f $CONFIG ]]; then
@@ -195,6 +234,8 @@ reload_agent() {
     launchctl bootstrap "$GUI_DOMAIN" "$AGENTS_DIR/$label.plist"
 }
 
+# Проход мог начаться, пока собиралось приложение
+wait_for_pass
 for label in $WORKER_LABEL $MENUBAR_LABEL; do
     reload_agent $label
 done
