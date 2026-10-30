@@ -1,0 +1,140 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "kind",
+        "testable",
+        "summary",
+        "expected",
+        "risks",
+        "cases",
+        "notTestable"
+    ],
+    "properties": {
+        "kind": {
+            "type": "string",
+            "enum": [
+                "bug",
+                "feature",
+                "refactor",
+                "other"
+            ]
+        },
+        "testable": {
+            "type": "boolean"
+        },
+        "summary": {
+            "type": "string"
+        },
+        "expected": {
+            "type": "string"
+        },
+        "risks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "title",
+                    "details",
+                    "path"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "details": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "cases": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "title",
+                    "source",
+                    "priority",
+                    "level",
+                    "target",
+                    "preconditions",
+                    "steps",
+                    "expect"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "source": {
+                        "type": "string",
+                        "enum": [
+                            "user",
+                            "change",
+                            "regression"
+                        ]
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                        ]
+                    },
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "e2e",
+                            "component",
+                            "unit"
+                        ]
+                    },
+                    "target": {
+                        "type": "string"
+                    },
+                    "preconditions": {
+                        "type": "string"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "expect": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "notTestable": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "what",
+                    "why"
+                ],
+                "properties": {
+                    "what": {
+                        "type": "string"
+                    },
+                    "why": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

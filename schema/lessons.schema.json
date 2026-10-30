@@ -1,0 +1,19 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["lessons"],
+    "properties": {
+        "lessons": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["text", "commentIds"],
+                "properties": {
+                    "text": { "type": "string" },
+                    "commentIds": { "type": "array", "items": { "type": "integer" } }
+                }
+            }
+        }
+    }
+}

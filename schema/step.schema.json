@@ -1,0 +1,9 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["ok", "details"],
+    "properties": {
+        "ok": { "type": "boolean" },
+        "details": { "type": "string" }
+    }
+}

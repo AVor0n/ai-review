@@ -1,0 +1,504 @@
+import SwiftUI
+
+// Подтверждения и отчёты доработки, архитектурного ревью и тестирования; @State здесь недоступен (макрос), поэтому ObservableObject
+final class FixPrompts: ObservableObject {
+    @Published var confirm: FixTarget?
+    @Published var report: FixTarget?
+    @Published var archConfirm: FixTarget?
+    @Published var archReport: FixTarget?
+    @Published var qa: FixTarget?
+}
+
+struct OverviewView: View {
+    @EnvironmentObject private var model: AppModel
+    @AppStorage("collapsedRepos") private var collapsedStorage = ""
+    @StateObject private var prompts = FixPrompts()
+    let openRepos: () -> Void
+    let openLog: () -> Void
+    let openMemory: (String) -> Void
+    let openTokens: () -> Void
+
+    private var collapsed: Set<String> { Set(collapsedStorage.split(separator: ",").map(String.init)) }
+
+    private func toggle(_ slug: String) {
+        var next = collapsed
+        if next.contains(slug) { next.remove(slug) } else { next.insert(slug) }
+        withAnimation(.easeOut(duration: 0.15)) { collapsedStorage = next.sorted().joined(separator: ",") }
+    }
+
+    var body: some View {
+        content
+            .alert(
+                prompts.confirm.map { $0.rebase ? "Сделать rebase #\($0.pr.id) на \($0.pr.destination)?" : "Доработать #\($0.pr.id) по замечаниям?" } ?? "",
+                isPresented: Binding(get: { prompts.confirm != nil }, set: { if !$0 { prompts.confirm = nil } }),
+                presenting: prompts.confirm
+            ) { target in
+                Button(target.rebase ? "Rebase" : "Доработать") { model.requestFix(repo: target.repo, pr: target.pr.id, rebase: target.rebase) }
+                Button("Отмена", role: .cancel) {}
+            } message: { target in
+                if target.rebase {
+                    Text(verbatim: "Ветка \(target.pr.source) отстала от \(target.pr.destination) на \(target.behind) коммит(ов)\(target.pr.conflicts == true ? ", будут конфликты — их разрешит Claude Opus, а если вариант неочевиден, rebase отменится" : ""). После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.")
+                } else {
+                    Text(verbatim: "Claude Opus исправит открытые замечания (\(target.openThreads)) в ветке \(target.pr.source), закоммитит, сделает rebase на \(target.pr.destination) и push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.")
+                }
+            }
+            .sheet(item: $prompts.report) { target in
+                FixReportSheet(target: target) { prompts.confirm = target }
+            }
+            .alert(
+                prompts.archConfirm.map { "Архитектурное ревью #\($0.pr.id)?" } ?? "",
+                isPresented: Binding(get: { prompts.archConfirm != nil }, set: { if !$0 { prompts.archConfirm = nil } }),
+                presenting: prompts.archConfirm
+            ) { target in
+                Button("Запустить") { model.requestArch(repo: target.repo, pr: target.pr.id) }
+                Button("Отмена", role: .cancel) {}
+            } message: { _ in
+                Text(verbatim: "\(model.archAgentName) оценит решение целиком: цель, альтернативы с ценой переделки, где можно проще, серьёзные риски. Это займёт до часа. Отчёт останется только здесь, в PR ничего не публикуется.")
+            }
+            .sheet(item: $prompts.archReport) { target in
+                ArchReportSheet(target: target) { prompts.archConfirm = target }
+            }
+            .sheet(item: $prompts.qa) { target in
+                QaSheet(target: target)
+            }
+    }
+
+    private var content: some View {
+        VStack(spacing: 0) {
+            statusBar
+            if let stall = workerStall() {
+                stallBanner(stall)
+            }
+            if let error = model.syncError ?? lastRunError {
+                errorBanner(error)
+            }
+            ForEach(model.tokenBanners) { token in
+                tokenBanner(token)
+            }
+            ForEach(model.memoryBroken.sorted { $0.key < $1.key }, id: \.key) { slug, reason in
+                brokenMemoryBanner(slug: slug, reason: reason)
+            }
+            ForEach(model.memoryNearlyFull, id: \.slug) { item in
+                memoryBanner(slug: item.slug, count: item.count)
+            }
+            ForEach(model.newMemoryBanners, id: \.slug) { item in
+                newLessonsBanner(slug: item.slug, lessons: item.lessons)
+            }
+            if model.config.repos.isEmpty {
+                ContentUnavailableView {
+                    Label("Нет репозиториев", systemImage: "tray")
+                } description: {
+                    Text("Подключите репозиторий, чтобы видеть его PR")
+                } actions: {
+                    Button("Подключить…", action: openRepos)
+                }
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        ForEach(model.config.repos) { repo in
+                            repoSection(repo)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+                }
+            }
+        }
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(model.isRunning ? Color.blue : model.isPaused ? Color.orange : Color.green)
+                .frame(width: 7, height: 7)
+            Text(headline)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            if model.isPaused && !model.isRunning {
+                Button("Включить") { model.setServicePaused(false) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color.accentColor)
+            }
+            Spacer()
+            if model.isRunning {
+                Button {
+                    model.stopReview()
+                } label: {
+                    Image(systemName: "stop.circle")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Прервать ревью и очистить очередь")
+            } else if !model.isPaused {
+                Button {
+                    model.runNow()
+                } label: {
+                    Image(systemName: "play.circle")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Запустить фоновую проверку сейчас, не дожидаясь 15 минут")
+            }
+            if model.syncing {
+                ProgressView().controlSize(.small)
+            } else {
+                Button {
+                    model.sync()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Обновить список PR")
+            }
+        }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 8)
+    }
+
+    private var lastRunError: String? {
+        model.isRunning || model.status?.phase != "error" ? nil : model.status?.lastError
+    }
+
+    private func memoryBanner(slug: String, count: Int) -> some View {
+        let full = count >= model.memoryLimit
+        let color: Color = full ? .red : .yellow
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "brain")
+                .foregroundStyle(full ? Color.red : Color.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(full ? "Память \(slug) заполнена: \(count) из \(model.memoryLimit)" : "Память \(slug) почти заполнена: \(count) из \(model.memoryLimit)")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(full
+                    ? "Новые правила вытесняют старые автоматические. Удалите лишние или поправьте нужные — исправленные вручную не вытесняются."
+                    : "Скоро новые правила начнут вытеснять старые. Просмотрите память: удалите лишнее, поправьте нужное — исправленные вручную правила не вытесняются.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Проверить правила") { openMemory(slug) }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(12)
+        .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func brokenMemoryBanner(slug: String, reason: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "brain")
+                .foregroundStyle(.red)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Память \(slug) повреждена — ревью идёт без её правил")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(reason)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button("Открыть в VS Code") { openInCodeEditor(Paths.memory(slug)) }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(12)
+        .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    // Синий — информация, а не проблема: ревьюеры выучили что-то новое из ответов команды
+    private func newLessonsBanner(slug: String, lessons: [Lesson]) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "brain")
+                .foregroundStyle(Color.accentColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Новые правила в памяти \(slug): \(lessons.count)")
+                    .font(.system(size: 12, weight: .semibold))
+                if let latest = lessons.max(by: { $0.at < $1.at }) {
+                    Text(LocalizedStringKey(latest.text))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            Button("Посмотреть") { openMemory(slug) }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+            Button { model.closeMemoryBanner(slug) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Скрыть баннер. Подсветка памяти в настройках останется, пока вы её не откроете")
+        }
+        .padding(12)
+        .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func tokenBanner(_ token: TokenInfo) -> some View {
+        let date = token.expiresAt.map { TokenInfo.date($0) } ?? ""
+        let title = token.isExpired
+            ? "Токен \(token.title) истёк \(date)"
+            : token.daysLeft == 0 ? "Токен \(token.title) истекает сегодня" : "Токен \(token.title) истекает через \(token.daysLeft ?? 0) дн. — \(date)"
+        let impact = token.id == "bitbucket"
+            ? "Без него фоновое ревью не видит PR и не публикует комментарии."
+            : "Без него \(token.title) не сможет ревьюить в фоне."
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "key.fill")
+                .foregroundStyle(token.isExpired ? Color.red : Color.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 12, weight: .semibold))
+                Text("\(impact) Выпустите новый и сохраните в Keychain — срок обновится сам.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Обновить…", action: openTokens)
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+            if !token.isExpired {
+                Button { model.closeTokenBanner(token.id) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 18)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Скрыть до завтра")
+            }
+        }
+        .padding(12)
+        .background((token.isExpired ? Color.red : Color.yellow).opacity(token.isExpired ? 0.1 : 0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func stallBanner(_ stall: (since: Date, minutes: Int)) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "hourglass")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Проход ревью не продвигается \(stall.minutes >= 60 ? "\(stall.minutes / 60) ч \(stall.minutes % 60) мин" : "\(stall.minutes) мин")")
+                    .font(.system(size: 12, weight: .semibold))
+                Text("В журнале нет записей с \(stall.since.formatted(date: .omitted, time: .shortened)): похоже, завис git или модель. «Прервать» остановит этот проход, следующий начнётся по расписанию.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            Button("Журнал", action: openLog)
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+            Button("Прервать") { model.stopReview() }
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.red)
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private func errorBanner(_ error: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.syncError != nil ? "Не удалось выполнить команду" : "Последний запуск завершился с ошибкой")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(error.trimmingCharacters(in: .whitespacesAndNewlines))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .textSelection(.enabled)
+            }
+            Spacer()
+            Button("Журнал", action: openLog)
+                .buttonStyle(.plain)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+    }
+
+    private var headline: String {
+        if model.isRunning, let current = model.status?.current {
+            return "Идёт ревью \(current.repo) #\(current.pr) · \(model.agentName(current.agent))"
+        }
+        if model.isPaused { return "Фоновое ревью выключено, работают только запуски по иконкам" }
+        guard let next = model.nextPassAt else { return "Ожидание" }
+        let minutes = Int((next.timeIntervalSinceNow / 60).rounded(.up))
+        return minutes <= 1 ? "Ожидание · проверка в течение минуты" : "Ожидание · следующая проверка через \(minutes) мин"
+    }
+
+    private func repoSection(_ repo: RepoConfig) -> some View {
+        let snapshot = model.snapshots[repo.slug]
+        let isExpanded = !collapsed.contains(repo.slug)
+        return GroupedSection {
+            Button {
+                toggle(repo.slug)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    Text(repo.slug)
+                    if let snapshot { Text("· \(snapshot.prs.count)") }
+                    Spacer()
+                    if let snapshot {
+                        Text("обновлено \(Dates.ago(snapshot.fetchedAt))").textCase(nil)
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        } content: {
+            if isExpanded { prRows(repo, snapshot) }
+        }
+    }
+
+    @ViewBuilder
+    private func prRows(_ repo: RepoConfig, _ snapshot: PrSnapshot?) -> some View {
+        if let snapshot, !snapshot.prs.isEmpty {
+            // Черновики уходят вниз и приглушаются: фоновое ревью их пропускает, и они только отвлекают.
+            // Ветки не по задачам остаются на месте с тегом: такой PR часто хочется посмотреть вручную
+            let sorted = snapshot.prs.sorted { a, b in
+                a.draft != b.draft ? !a.draft : (a.updatedOn ?? "") > (b.updatedOn ?? "")
+            }
+            ForEach(Array(sorted.enumerated()), id: \.element.id) { index, pr in
+                if index > 0 { RowDivider(inset: 64) }
+                PullRequestRow(repo: repo.slug, pr: pr, dimmed: pr.draft, prompts: prompts)
+            }
+        } else {
+            Text(snapshot != nil ? "Открытых PR нет" : model.syncing ? "Загружаю список PR…" : "Список PR ещё не загружен")
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+        }
+    }
+}
+
+struct PullRequestRow: View {
+    @EnvironmentObject private var model: AppModel
+    @StateObject private var hover = HoverState()
+    let repo: String
+    let pr: PullRequest
+    var dimmed = false
+    @ObservedObject var prompts: FixPrompts
+
+    var body: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 2) {
+                ForEach(model.agentIds, id: \.self) { agent in
+                    AgentReviewButton(agent: agent, name: model.agentName(agent), state: model.reviewState(repo: repo, pr: pr, agent: agent), manualOnly: model.config.agents[agent]?.isAuto == false) {
+                        model.requestReview(repo: repo, pr: pr.id, agent: agent)
+                    }
+                }
+            }
+            Button {
+                if let url = URL(string: pr.url) { NSWorkspace.shared.open(url) }
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(verbatim: "#\(pr.id)").foregroundStyle(.secondary)
+                        Text(pr.title).lineLimit(1)
+                    }
+                    .font(.system(size: 13))
+                    Text([pr.author, "\(pr.source) → \(pr.destination)"].compactMap { $0 }.joined(separator: " · "))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("Открыть PR в Bitbucket")
+            badges
+            HStack(spacing: 3) {
+                Image(systemName: pr.threads > 0 && pr.resolved == pr.threads ? "checkmark.bubble" : "bubble.left")
+                Text(verbatim: pr.threadsLabel).monospacedDigit()
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(pr.threads == 0 ? AnyShapeStyle(.tertiary) : pr.resolved == pr.threads ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
+            .help(pr.threads == 0 ? "Комментариев нет" : "Тредов закрыто \(pr.resolved) из \(pr.threads), всего комментариев \(pr.commentCount)")
+            FixButton(
+                fix: model.fix(repo: repo, pr: pr.id),
+                openThreads: pr.threads - pr.resolved,
+                newThreads: model.fix(repo: repo, pr: pr.id)?.newThreads(in: pr).count ?? 0,
+                behind: pr.behind ?? 0,
+                conflicts: pr.conflicts == true,
+                start: { rebase in prompts.confirm = FixTarget(repo: repo, pr: pr, rebase: rebase) },
+                showReport: { prompts.report = FixTarget(repo: repo, pr: pr, rebase: model.fix(repo: repo, pr: pr.id)?.isRebase == true) }
+            )
+            ArchButton(
+                arch: model.arch(repo: repo, pr: pr.id),
+                pr: pr,
+                start: { prompts.archConfirm = FixTarget(repo: repo, pr: pr) },
+                showReport: { prompts.archReport = FixTarget(repo: repo, pr: pr) }
+            )
+            if model.canTest(repo: repo) {
+                QaButton(qa: model.qa(repo: repo, pr: pr.id)) { prompts.qa = FixTarget(repo: repo, pr: pr) }
+            }
+            Text(Dates.ago(pr.updatedOn))
+                .font(.system(size: 12).monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(width: 92, alignment: .trailing)
+                .help("Обновлён \(pr.updatedOn.flatMap(Dates.parse).map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "—")")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        // Приглушённая строка проявляется под курсором, чтобы с ней было удобно работать
+        .opacity(dimmed && !hover.isHovered ? 0.45 : 1)
+        .background(hover.isHovered ? Theme.hover : .clear)
+        .onHover { hover.isHovered = $0 }
+    }
+
+    @ViewBuilder
+    private var badges: some View {
+        let important = model.importantFindings(repo: repo, pr: pr.id)
+        if let worst = important.min(by: { $0.level < $1.level }) {
+            Button {
+                if let url = OpenFinding(repo: repo, pr: pr, finding: worst).url { NSWorkspace.shared.open(url) }
+            } label: {
+                Tag(text: important.count > 1 ? "\(worst.level) +\(important.count - 1)" : worst.level, color: worst.level == "P0" ? .red : .orange)
+            }
+            .buttonStyle(.plain)
+            .help(important.map { "\($0.level) · \(model.agentName($0.agent)): \($0.title)" }.joined(separator: "\n") + "\n\nСтроки ещё не правили. Нажмите, чтобы открыть замечание")
+        }
+        if pr.draft {
+            Tag(text: "Draft")
+        } else if !model.config.isTaskBranch(pr.source) {
+            Tag(text: "Untracked")
+                .help("Ветка \(pr.source) не подходит под шаблон веток задач, поэтому фоновое ревью этот PR пропускает. Запустить ревью можно кликом по иконке модели. Шаблон — в настройках")
+        }
+    }
+}

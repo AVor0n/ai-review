@@ -1,0 +1,25 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["rootId", "level", "likelihood", "path", "line", "title", "scenario", "fix"],
+                "properties": {
+                    "rootId": { "type": "integer" },
+                    "level": { "type": "string", "enum": ["P0", "P1", "P2", "P3"] },
+                    "likelihood": { "type": "string", "enum": ["usual", "rare", "race"] },
+                    "path": { "type": "string" },
+                    "line": { "type": "integer" },
+                    "title": { "type": "string" },
+                    "scenario": { "type": "string" },
+                    "fix": { "type": "string" }
+                }
+            }
+        }
+    }
+}

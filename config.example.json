@@ -1,0 +1,101 @@
+{
+    "$schema": "./schema/config.schema.json",
+    "intervalMinutes": 5,
+    "branchPattern": ".",
+    "fix": {
+        "model": "claude-opus-5-5",
+        "effort": "high",
+        "timeoutMinutes": 60
+    },
+    "memory": {
+        "maxLessons": 60
+    },
+    "bitbucket": {
+        "email": "you@example.com",
+        "keychainService": "pr-reviewer-bitbucket",
+        "tokenLifetimeDays": 90
+    },
+    "repos": [
+        {
+            "workspace": "your-workspace",
+            "slug": "your-repo",
+            "remote": "git@bitbucket.org:your-workspace/your-repo.git",
+            "source": "/path/to/your-repo"
+        }
+    ],
+    "agents": {
+        "claude": {
+            "shortName": "Claude",
+            "marker": "Generated with [Claude",
+            "signature": "🤖 Generated with [Claude Opus 5.5](https://claude.com/claude-code)",
+            "model": "claude-opus-5-5",
+            "keychainService": "pr-reviewer-claude",
+            "timeoutMinutes": 40,
+            "effort": "high"
+        },
+        "codex": {
+            "shortName": "Codex",
+            "marker": "Generated with [Codex",
+            "signature": "🤖 Generated with [Codex Astra 6](https://openai.com/codex/)",
+            "model": "gpt-6-astra",
+            "reasoningEffort": "high",
+            "timeoutMinutes": 40,
+            "pricing": {
+                "inputPerMTok": 10,
+                "cachedInputPerMTok": 1,
+                "outputPerMTok": 50
+            }
+        },
+        "cursor": {
+            "shortName": "Cursor",
+            "marker": "Generated with [Cursor",
+            "signature": "🤖 Generated with [Cursor Composer 2.5](https://cursor.com/cli)",
+            "model": "composer-2.5",
+            "keychainService": "pr-reviewer-cursor",
+            "timeoutMinutes": 40,
+            "tokenLifetimeDays": 0,
+            "modelPricing": {
+                "composer-2.5": {
+                    "inputPerMTok": 0.5,
+                    "cachedInputPerMTok": 0.2,
+                    "outputPerMTok": 2.5
+                },
+                "composer-2.5-fast": {
+                    "inputPerMTok": 3,
+                    "cachedInputPerMTok": 0.5,
+                    "outputPerMTok": 15
+                },
+                "grok-4.7": {
+                    "inputPerMTok": 2,
+                    "cachedInputPerMTok": 0.5,
+                    "outputPerMTok": 6
+                },
+                "grok-4.7-fast": {
+                    "inputPerMTok": 4,
+                    "cachedInputPerMTok": 1,
+                    "outputPerMTok": 12
+                }
+            }
+        }
+    },
+    "ignorePaths": [
+        "**/package-lock.json",
+        "**/yarn.lock",
+        "**/pnpm-lock.yaml",
+        "**/*.snap",
+        "**/*.min.js",
+        "**/*.map",
+        "**/mvnw",
+        "**/mvnw.cmd",
+        "**/.mvn/wrapper/**",
+        "**/gradlew",
+        "**/gradlew.bat",
+        "**/gradle/wrapper/**",
+        "**/*.lockfile",
+        "**/target/**",
+        "**/build/**",
+        "**/generated/**",
+        "**/generated-sources/**",
+        "**/__generated__/**"
+    ]
+}

@@ -1,0 +1,163 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "findings",
+        "replies",
+        "resolutions",
+        "appliedLessons"
+    ],
+    "properties": {
+        "findings": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "level",
+                    "path",
+                    "line",
+                    "side",
+                    "origin",
+                    "likelihood",
+                    "title",
+                    "scenario",
+                    "fix",
+                    "lessons"
+                ],
+                "properties": {
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "P0",
+                            "P1",
+                            "P2",
+                            "P3"
+                        ]
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer"
+                    },
+                    "side": {
+                        "type": "string",
+                        "enum": [
+                            "new",
+                            "old"
+                        ]
+                    },
+                    "origin": {
+                        "type": "string",
+                        "enum": [
+                            "pr",
+                            "preexisting"
+                        ]
+                    },
+                    "likelihood": {
+                        "type": "string",
+                        "enum": [
+                            "usual",
+                            "rare",
+                            "race"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "scenario": {
+                        "type": "string"
+                    },
+                    "fix": {
+                        "type": "string"
+                    },
+                    "lessons": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "replies": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "commentId",
+                    "verdict",
+                    "reason",
+                    "comment",
+                    "agreesWith"
+                ],
+                "properties": {
+                    "commentId": {
+                        "type": "integer"
+                    },
+                    "verdict": {
+                        "type": "string",
+                        "enum": [
+                            "agree",
+                            "disagree",
+                            "skip"
+                        ]
+                    },
+                    "reason": {
+                        "type": "string",
+                        "enum": [
+                            "none",
+                            "wrong",
+                            "fixed",
+                            "preexisting",
+                            "unlikely"
+                        ]
+                    },
+                    "comment": {
+                        "type": "string"
+                    },
+                    "agreesWith": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "resolutions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "commentId",
+                    "status",
+                    "note"
+                ],
+                "properties": {
+                    "commentId": {
+                        "type": "integer"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "fixed",
+                            "dismissed",
+                            "deferred",
+                            "open"
+                        ]
+                    },
+                    "note": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "appliedLessons": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}

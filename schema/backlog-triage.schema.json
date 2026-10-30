@@ -1,0 +1,22 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["items"],
+    "properties": {
+        "items": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "verdict", "reason", "path", "line"],
+                "properties": {
+                    "id": { "type": "string" },
+                    "verdict": { "type": "string", "enum": ["actual", "fixed", "gone", "invalid", "unclear"] },
+                    "reason": { "type": "string" },
+                    "path": { "type": "string" },
+                    "line": { "type": "integer" }
+                }
+            }
+        }
+    }
+}

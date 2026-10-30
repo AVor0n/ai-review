@@ -1,0 +1,88 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "summary",
+        "cases",
+        "envNotes"
+    ],
+    "properties": {
+        "summary": {
+            "type": "string"
+        },
+        "cases": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "id",
+                    "status",
+                    "level",
+                    "testFile",
+                    "savePath",
+                    "checked",
+                    "notes",
+                    "bug"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "passed",
+                            "failed",
+                            "blocked",
+                            "skipped"
+                        ]
+                    },
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "e2e",
+                            "component",
+                            "unit"
+                        ]
+                    },
+                    "testFile": {
+                        "type": "string"
+                    },
+                    "savePath": {
+                        "type": "string"
+                    },
+                    "checked": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": "string"
+                    },
+                    "bug": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "found",
+                            "title",
+                            "details"
+                        ],
+                        "properties": {
+                            "found": {
+                                "type": "boolean"
+                            },
+                            "title": {
+                                "type": "string"
+                            },
+                            "details": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "envNotes": {
+            "type": "string"
+        }
+    }
+}

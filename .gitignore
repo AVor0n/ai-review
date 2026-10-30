@@ -1,0 +1,15 @@
+.DS_Store
+.claude/
+
+# Личный конфиг: email, репозитории, пути. В репозитории — config.example.json
+config.json
+
+# Генерирует install.sh с PATH этой машины; удаляет uninstall.sh
+bin/
+
+# Артефакты сборки и служебные папки
+.build/
+*.app/
+.pr-review/
+node_modules/
+*.tmp

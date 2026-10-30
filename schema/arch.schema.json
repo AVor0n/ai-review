@@ -1,0 +1,156 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "goal",
+        "goalClarity",
+        "approach",
+        "alternatives",
+        "simpler",
+        "risks",
+        "verdict",
+        "summary",
+        "questions"
+    ],
+    "properties": {
+        "goal": {
+            "type": "string"
+        },
+        "goalClarity": {
+            "type": "string",
+            "enum": [
+                "stated",
+                "inferred",
+                "unclear"
+            ]
+        },
+        "approach": {
+            "type": "string"
+        },
+        "alternatives": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "title",
+                    "idea",
+                    "pros",
+                    "cons",
+                    "switchCost",
+                    "better"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "idea": {
+                        "type": "string"
+                    },
+                    "pros": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "cons": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "switchCost": {
+                        "type": "string",
+                        "enum": [
+                            "low",
+                            "medium",
+                            "high"
+                        ]
+                    },
+                    "better": {
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        "simpler": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "title",
+                    "details",
+                    "path",
+                    "line"
+                ],
+                "properties": {
+                    "title": {
+                        "type": "string"
+                    },
+                    "details": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "risks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "level",
+                    "title",
+                    "details",
+                    "path",
+                    "line"
+                ],
+                "properties": {
+                    "level": {
+                        "type": "string",
+                        "enum": [
+                            "P0",
+                            "P1"
+                        ]
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "details": {
+                        "type": "string"
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "line": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "verdict": {
+            "type": "string",
+            "enum": [
+                "keep",
+                "discuss",
+                "rework"
+            ]
+        },
+        "summary": {
+            "type": "string"
+        },
+        "questions": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    }
+}
