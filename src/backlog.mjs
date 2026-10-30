@@ -78,13 +78,16 @@ export const setBacklogTriage = (id, triage, location = null) => {
 
 const byPriority = (a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level) || b.sources.length - a.sources.length;
 
+// Проблема может быть без файла: её вынесли из общего комментария PR
+export const itemPlace = (item) => (item.path ? `${item.path}${item.line ? `:${item.line}` : ''}` : 'без файла');
+
 // Список для модели: чтобы она не возвращала то, что уже известно, — в том числе отклонённое на разборе
 export const renderBacklogForPrompt = (slug) =>
     loadBacklog()
         .filter((item) => item.repo === slug)
         .sort(byPriority)
         .slice(0, 100)
-        .map((item) => `- \`${item.path}${item.line ? `:${item.line}` : ''}\` — ${item.title}`)
+        .map((item) => (item.path ? `- \`${itemPlace(item)}\` — ${item.title}` : `- (без файла) — ${item.title}`))
         .join('\n');
 
 const prLinks = (item) => item.sources.map((source) => `[#${source.pr}](${source.url})`).filter((link, index, all) => all.indexOf(link) === index);
@@ -96,7 +99,7 @@ export const renderBacklog = (items) => {
         .map(([repo, group]) => {
             const entries = group.sort(byPriority).map((item) => {
                 const meta = [
-                    `${item.path}${item.line ? `:${item.line}` : ''}`,
+                    itemPlace(item),
                     `найдено в ${prLinks(item).join(', ')}`,
                     item.status !== 'open' ? STATUSES[item.status] + (item.ticket ? ` (${item.ticket})` : '') : null,
                 ].filter(Boolean);

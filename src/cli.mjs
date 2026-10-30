@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { killAgents, listCursorModels } from './agents.mjs';
 import { archWorker, listArchStates, loadArchState, renderArchReport, requestArch, stopArch } from './arch.mjs';
-import { STATUSES, loadBacklog, renderBacklog, setBacklogStatus } from './backlog.mjs';
+import { STATUSES, itemPlace, loadBacklog, renderBacklog, setBacklogStatus } from './backlog.mjs';
 import { QA_STATES, listQaStates, loadQaState, qaSettings, qaWorker, renderQaPlan, renderQaReport, requestQaPlan, requestQaRun, saveQaTests, stopQa } from './qa.mjs';
 import { STALE, VERDICTS, learnBacklog, startInBackground, stopJob, triageBacklog } from './backlog-jobs.mjs';
 import { cloneDir, isCloned } from './git.mjs';
@@ -543,7 +543,7 @@ const backlogCommand = () => {
         if (!items.length) return console.log('Бэклог пуст');
         for (const item of items.sort((a, b) => a.repo.localeCompare(b.repo) || a.level.localeCompare(b.level))) {
             const prs = [...new Set(item.sources.map((source) => `#${source.pr}`))].join(', ');
-            console.log(`${item.id} · ${item.repo} · [${item.level}] ${item.title} · ${item.path}${item.line ? `:${item.line}` : ''} · PR ${prs} · ${STATUSES[item.status]}`);
+            console.log(`${item.id} · ${item.repo} · [${item.level}] ${item.title} · ${itemPlace(item)} · PR ${prs} · ${STATUSES[item.status]}`);
         }
         return;
     }
