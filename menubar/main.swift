@@ -50,10 +50,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return main
     }
 
-    // Всё управление живёт в поповере; в меню по правому клику — только быстрое выключение уведомлений и выход.
-    // Меню собирается при каждом показе: в нём срок, до которого уведомления выключены
+    // Меню по правому клику: чем занят сервис и частые действия из шапки обзора, уведомления и выход.
+    // Меню собирается при каждом показе: в нём текущее состояние и срок, до которого уведомления выключены
     private func rebuildMenu() {
         menu.removeAllItems()
+        menu.addItem(NSMenuItem(title: statusLine(), action: nil, keyEquivalent: ""))
+        menu.addItem(.separator())
+        // Как кнопки ■ и ▶ в шапке обзора: явное ревью по иконке идёт и при выключенном фоновом, его тоже можно прервать
+        if isRunning {
+            addAction("Прервать ревью", #selector(stopClicked))
+        } else if !isPaused {
+            addAction("Проверить сейчас", #selector(runNowClicked))
+        }
+        addAction(isPaused ? "Включить фоновое ревью" : "Выключить фоновое ревью", #selector(togglePauseClicked))
+        menu.addItem(.separator())
         let settings = NotificationStore.shared.settings
         if settings.isMuted {
             menu.addItem(NSMenuItem(title: "Уведомления: \(settings.muteSummary.lowercased())", action: nil, keyEquivalent: ""))
@@ -74,6 +84,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Выйти из PR Reviewer", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
+
+    private func addAction(_ title: String, _ action: Selector) {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+    }
+
+    // Порядок проверок — как у подсказки значка в refreshIcon()
+    private func statusLine() -> String {
+        let status = loadStatus()
+        if let stall = workerStall() { return "Проход не продвигается \(stall.minutes) мин" }
+        if isRunning { return status?.current.map { "Идёт ревью: \(reviewTarget($0))" } ?? "Идёт проверка PR" }
+        if fixIsRunning { return "Идёт доработка · Claude" }
+        if isPaused { return "Фоновое ревью выключено" }
+        if status?.phase == "error" { return "Последний проход завершился с ошибкой" }
+        guard let last = Dates.parse(status?.lastPassAt) else { return "Ожидание" }
+        let interval = readJSON(AppConfig.self, Paths.config)?.intervalMinutes ?? 15
+        let minutes = Int((last.addingTimeInterval(TimeInterval(interval * 60)).timeIntervalSinceNow / 60).rounded(.up))
+        return minutes <= 1 ? "Следующий проход в течение минуты" : "Следующий проход через \(minutes) мин"
+    }
+
+    private func runCommand(_ arguments: [String]) {
+        CLI.run(arguments) { _, _ in self.refreshIcon() }
+    }
+
+    @objc private func stopClicked() { runCommand(["stop"]) }
+
+    @objc private func runNowClicked() { runCommand(["run-now"]) }
+
+    // pause в CLI заодно прерывает идущее ревью
+    @objc private func togglePauseClicked() { runCommand([isPaused ? "resume" : "pause"]) }
 
     @objc private func muteClicked(_ sender: NSMenuItem) {
         guard let period = MutePeriod.all.first(where: { $0.id == sender.tag }) else { return }
@@ -200,8 +241,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func currentText(_ current: Current?) -> String {
         guard let current else { return "идёт проверка PR" }
+        return "ревью \(reviewTarget(current))"
+    }
+
+    private func reviewTarget(_ current: Current) -> String {
         let agent = agentNames[current.agent] ?? current.agent
-        return "ревью \(shortRepo(current.repo)) #\(current.pr) · \(agent) (\(roleNames[current.role] ?? current.role))"
+        return "\(shortRepo(current.repo)) #\(current.pr) · \(agent) (\(roleNames[current.role] ?? current.role))"
     }
 
     private func shortRepo(_ slug: String) -> String {
