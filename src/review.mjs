@@ -143,6 +143,7 @@ const publish = async (ctx, { repo, pr, agentId, role, pass, commit, result, fil
     const synthetic = [];
     const tracked = [];
     const postedRoots = [];
+    let postedReplies = 0;
     let dropped = 0;
     let backlogged = 0;
     let filtered = 0;
@@ -210,13 +211,14 @@ const publish = async (ctx, { repo, pr, agentId, role, pass, commit, result, fil
         }
         const raw = formatReply(reply, agent);
         if (await post(ctx, repo, pr, { content: { raw }, parent: { id: reply.commentId } }, failures)) {
+            postedReplies++;
             synthetic.push({ id: -1 - synthetic.length, parent: { id: reply.commentId }, content: { raw } });
         }
     }
     // Без этого тред, который модель проигнорировала, перезапускал бы её каждые 15 минут
     if (unanswered.size) log(`${repo.slug}#${pr.id} ${agentId}: нет ответа на треды ${[...unanswered].join(', ')}, помечены обработанными`);
 
-    return { counts, verdicts, failures, dropped, backlogged, filtered, synthetic, tracked, postedRoots, handledIds: pendingIds };
+    return { counts, verdicts, failures, dropped, backlogged, filtered, synthetic, tracked, postedRoots, postedReplies, handledIds: pendingIds };
 };
 
 const EFFORT_ORDER = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max'];
@@ -466,6 +468,8 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
             backlogged: outcome.backlogged,
             filtered: outcome.filtered,
             verdicts: outcome.verdicts,
+            // Голое «согласен» отдельным ответом не публикуется — график комментариев считает только опубликованные
+            postedReplies: outcome.postedReplies,
             closedThreads: closing.closed,
             // Только известные id: модель может ошибиться в id, а статистика правил по ним считает срабатывания
             appliedLessons: (result.appliedLessons ?? []).filter((id) => lessonIds.has(id)),

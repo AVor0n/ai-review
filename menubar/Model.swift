@@ -58,11 +58,13 @@ struct StatEntry: Decodable {
     let backlogged: Int?
     let filtered: Int?
     let appliedLessons: [String]?
+    // Опубликованные ответы в тредах; в записях до этого поля — все вердикты, кроме skip, вместе с голыми согласиями
+    let postedReplies: Int?
 
     var findingCount: Int { findings.values.reduce(0, +) }
 
     var postedComments: Int {
-        findings.values.reduce(0, +) + verdicts.filter { $0.verdict != "skip" }.count
+        findings.values.reduce(0, +) + (postedReplies ?? verdicts.filter { $0.verdict != "skip" }.count)
     }
 }
 
