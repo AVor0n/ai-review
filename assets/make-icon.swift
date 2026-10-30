@@ -41,29 +41,28 @@ private struct Checkmark: Shape {
     }
 }
 
-// Сетка иконок macOS: холст 1024, плитка 824 с радиусом 185 и тенью снизу
+// Градиент на весь холст 1024 без своей плитки, обводки и тени: macOS 26+ сама скругляет иконку,
+// а иконку с прозрачными краями показывает уменьшенной на серой подложке
 private struct AppIcon: View {
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 185, style: .continuous)
+            Rectangle()
                 .fill(LinearGradient(colors: [rgb(0x4b8df8), rgb(0x1d4ed8)], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 185, style: .continuous).strokeBorder(.white.opacity(0.2), lineWidth: 3))
-                .shadow(color: .black.opacity(0.3), radius: 20, y: 12)
-                .frame(width: 824, height: 824)
             PullRequestGlyph()
-                .stroke(.white, style: StrokeStyle(lineWidth: 44, lineCap: .round, lineJoin: .round))
-                .frame(width: 440, height: 440)
-                .offset(x: -50, y: -40)
+                .stroke(.white, style: StrokeStyle(lineWidth: 55, lineCap: .round, lineJoin: .round))
+                .frame(width: 548, height: 548)
+                .offset(x: -62, y: -50)
+            // Смещение меньше пропорционального, чтобы бейдж не касался скруглённого угла маски
             Circle()
                 .fill(LinearGradient(colors: [rgb(0x34d058), rgb(0x16a34a)], startPoint: .top, endPoint: .bottom))
-                .overlay(Circle().strokeBorder(.white, lineWidth: 16))
+                .overlay(Circle().strokeBorder(.white, lineWidth: 20))
                 .overlay(
                     Checkmark()
-                        .stroke(.white, style: StrokeStyle(lineWidth: 32, lineCap: .round, lineJoin: .round))
-                        .frame(width: 160, height: 160)
+                        .stroke(.white, style: StrokeStyle(lineWidth: 40, lineCap: .round, lineJoin: .round))
+                        .frame(width: 200, height: 200)
                 )
-                .frame(width: 270, height: 270)
-                .offset(x: 215, y: 215)
+                .frame(width: 336, height: 336)
+                .offset(x: 240, y: 240)
         }
         .frame(width: 1024, height: 1024)
     }
