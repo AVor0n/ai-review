@@ -36,9 +36,22 @@ const codexLimits = async () => {
     return { window: window.limit_window_seconds >= 6 * 86_400 ? 'week' : 'window', usedPercent: window.used_percent, resetsAt: isoFromSeconds(window.reset_at) };
 };
 
+// Токен входа Cursor (cursor-access-token) живёт час и обновляется, только когда запускается сам CLI,
+// поэтому каждый опрос сам обменивает API-ключ на свежий токен — тем же запросом, что делает cursor-agent
+const cursorToken = async (keychainService) => {
+    const key = execFileSync('security', ['find-generic-password', '-s', keychainService, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const { accessToken } = await fetchJson('https://api2.cursor.sh/auth/exchange_user_api_key', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: '{}',
+    });
+    if (!accessToken) throw new Error('Cursor не выдал токен по API-ключу');
+    return accessToken;
+};
+
 // У Cursor на Pro лимит месячный и разный для «авто»-моделей (Composer и др.) и именных моделей по API
-const cursorLimits = async (model) => {
-    const token = execFileSync('security', ['find-generic-password', '-s', 'cursor-access-token', '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const cursorLimits = async ({ model, keychainService = 'pr-reviewer-cursor' }) => {
+    const token = await cursorToken(keychainService);
     const usage = await fetchJson('https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Connect-Protocol-Version': '1' },
@@ -57,7 +70,7 @@ const cursorLimits = async (model) => {
 export const refreshLimits = async (config) => {
     const jobs = {
         codex: config.agents.codex && codexLimits,
-        cursor: config.agents.cursor && (() => cursorLimits(config.agents.cursor.model)),
+        cursor: config.agents.cursor && (() => cursorLimits(config.agents.cursor)),
     };
     const result = {};
     for (const [agent, job] of Object.entries(jobs)) {
