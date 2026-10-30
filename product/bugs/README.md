@@ -54,7 +54,7 @@
 | [BUG-025](BUG-025-comments-per-day-counts-bare-agree.md) | «Комментарии по дням» считают неопубликованные согласия | S4 | закрыт |
 | [BUG-026](BUG-026-backlog-json-lost-update.md) | backlog.json без блокировки — возможна потеря изменения | S4 | отложен |
 | [BUG-027](BUG-027-fix-worker-startup-error-leaves-queue.md) | Сбой обработчика доработок на старте — заявки вечно «в очереди» | S4 | закрыт |
-| [BUG-028](BUG-028-cursor-limit-401-silent.md) | Лимит Cursor молча устаревает: опрос получает 401 | S3 | частично: опрос исправлен, показ ошибки — ждёт designer |
+| [BUG-028](BUG-028-cursor-limit-401-silent.md) | Лимит Cursor молча устаревает: опрос получает 401 | S3 | закрыт |
 | [BUG-029](BUG-029-pr-number-grouped-in-alert-titles.md) | Номер PR в заголовках подтверждений с пробелом: «#2 058» | S4 | закрыт |
 | [BUG-030](BUG-030-dates-in-system-locale.md) | Даты в части подсказок и листов по-английски («30 Oct 2026 at 14:08») | S4 | закрыт |
 
