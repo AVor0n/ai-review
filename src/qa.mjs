@@ -230,7 +230,7 @@ const ensureDocker = () => {
     if (info.status !== 0) throw new Error(`Docker недоступен: ${(info.stderr || info.error?.message || '').trim().split('\n')[0]}`);
 };
 
-const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step }) => {
+const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, onCompose }) => {
     const settings = qaSettings(config);
     const backendRepo = config.repos.find((candidate) => candidate.slug === settings.backend);
     if (!backendRepo) throw new Error(`репозиторий ${settings.backend} не подключён`);
@@ -248,6 +248,8 @@ const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step })
     step('Запуск бэкенда и тестовой базы');
     // База каждый раз восстанавливается из дампа заново: в томе могла остаться схема от другой версии бэкенда.
     // down заодно убирает контейнеры прошлого прогона, если тот оборвался
+    // Остановку регистрируем до up: прерывание или ошибка посреди up иначе оставили бы контейнеры работать
+    onCompose();
     run(frontendDir, 'docker', [...compose(), 'down', '--remove-orphans', '--volumes']);
     onActivity('docker compose up backend');
     run(frontendDir, 'docker', [...compose(), 'up', '-d', '--wait', '--wait-timeout', '900', '--no-build', 'backend'], { timeout: 20 * 60_000 });
@@ -567,8 +569,7 @@ const runQa = async ({ config, bitbucket, request, onActivity, step, cleanup }) 
     if (browser) {
         onActivity('yarn playwright install chromium');
         run(dir, 'yarn', ['playwright', 'install', 'chromium'], { timeout: 15 * 60_000 });
-        backend = startBackend({ config, frontendDir: dir, frontendBranch: pr.source.branch.name, onActivity, step });
-        cleanup.push(() => stopBackend(dir));
+        backend = startBackend({ config, frontendDir: dir, frontendBranch: pr.source.branch.name, onActivity, step, onCompose: () => cleanup.push(() => stopBackend(dir)) });
         step('Запуск фронтенда');
         const frontend = await startFrontend(dir);
         cleanup.push(() => stopProcess(frontend.child));
