@@ -281,5 +281,6 @@ export const renderArchReport = (state) => {
     if (report.risks.length) sections.push(`## Серьёзные риски\n\n${report.risks.map((risk) => `- **[${risk.level}] ${risk.title}**${place(risk)} — ${risk.details}`).join('\n')}`);
     if (report.questions.length) sections.push(`## Вопросы автору\n\n${report.questions.map((question) => `- ${question}`).join('\n')}`);
     if (state.state === 'queued' || state.state === 'running') sections.unshift(`> Идёт новое архитектурное ревью, ниже — прошлый отчёт.`);
+    if (state.state === 'failed') sections.unshift(`> Последний запуск не удался: ${state.error}. Ниже — прошлый отчёт.`);
     return `${sections.join('\n\n')}\n`;
 };
