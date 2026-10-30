@@ -19,6 +19,25 @@
 - **S3 — средне**: работает неправильно, но есть обход или последствия малы.
 - **S4 — мелочь**: текст, вёрстка, косметика.
 
+## Реестр
+
+| № | Суть | Сер. | Статус |
+|---|---|---|---|
+| [BUG-001](BUG-001-own-threads-recheck-same-head.md) | Повторная платная проверка своих тредов на той же голове | S3 | передан dev |
+| [BUG-002](BUG-002-broken-memory-paid-learn-loop.md) | Битая память — платный запуск модели памяти каждый проход | S3 | передан dev |
+| [BUG-003](BUG-003-arch-show-stale-after-failed-rerun.md) | `arch show` молча показывает старый отчёт после ошибки | S4 | передан dev |
+| [BUG-004](BUG-004-memory-agent-rejected-by-schema.md) | `memory.agent` запрещён схемой конфига | S3 | передан dev |
+| [BUG-005](BUG-005-stop-leaves-queued-requests.md) | «Прервать» оставляет заявки в очереди | S3 | передан dev |
+| [BUG-006](BUG-006-stop-delayed-during-sync-steps.md) | «Прервать» не срабатывает на синхронных шагах | S3 | передан dev |
+| [BUG-007](BUG-007-aborted-qa-plan-shown-as-run-failed.md) | Прерванный план — «Прогон не удался» | S4 | передан dev |
+| [BUG-008](BUG-008-codex-cursor-limits-stale.md) | Лимиты Codex и Cursor не обновляются | S3 | передан dev |
+| [BUG-009](BUG-009-codex-short-window-labeled-week.md) | Короткое окно Codex подписано как неделя | S4 | передан dev |
+| [BUG-010](BUG-010-outdated-ui-and-prompt-texts.md) | Устаревшие тексты в окне и промпте памяти | S4 | передан dev |
+| [BUG-011](BUG-011-token-issue-command-claude-only.md) | `claude setup-token` для любой модели кроме Cursor | S4 | передан dev |
+| [BUG-012](BUG-012-log-expanded-entry-jumps.md) | В журнале раскрытая запись перескакивает | S4 | передан dev |
+| [BUG-013](BUG-013-stats-cost-per-addressed-understated.md) | Цена за исправленное занижена в `stats` | S4 | передан dev |
+| [BUG-014](BUG-014-remerge-loses-lesson-usage.md) | Повторная склейка теряет срабатывания правил | S4 | передан dev |
+
 ## Шаблон
 
 ```markdown
