@@ -346,7 +346,7 @@ struct OverviewView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Проход ревью не продвигается \(minutesText(stall.minutes))")
                     .font(.system(size: 12, weight: .semibold))
-                Text("Сервис не подаёт признаков жизни, последняя запись в журнале — в \(stall.since.formatted(date: .omitted, time: .shortened)). Похоже, завис git или сеть. «Прервать» остановит этот проход, следующий начнётся по расписанию.")
+                Text("Сервис не подаёт признаков жизни, последняя запись в журнале — в \(Dates.format(stall.since, date: .omitted)). Похоже, завис git или сеть. «Прервать» остановит этот проход, следующий начнётся по расписанию.")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -586,7 +586,7 @@ struct PullRequestRow: View {
                 .font(.system(size: 12).monospacedDigit())
                 .foregroundStyle(.secondary)
                 .frame(width: 92, alignment: .trailing)
-                .help("Обновлён \(pr.updatedOn.flatMap(Dates.parse).map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "—")")
+                .help("Обновлён \(pr.updatedOn.flatMap(Dates.parse).map { Dates.format($0) } ?? "—")")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

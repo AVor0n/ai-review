@@ -348,7 +348,7 @@ struct ArchReportSheet: View {
         let rows: [(String, String)] = [
             ("Модель", model.agentName(result.agent) + (result.model.map { " · \($0)" } ?? "")),
             ("Коммит", result.head),
-            ("Снят", arch?.finishedAt.flatMap(Dates.parse).map { $0.formatted(date: .abbreviated, time: .shortened) }),
+            ("Снят", arch?.finishedAt.flatMap(Dates.parse).map { Dates.format($0) }),
             ("Цена и время", [
                 result.usage?.costUsd.map { String(format: "$%.2f", $0) },
                 result.durationSec.map { FixTimeline.duration(TimeInterval($0)) },

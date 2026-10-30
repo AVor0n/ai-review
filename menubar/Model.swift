@@ -982,6 +982,13 @@ enum Dates {
     }
 
     static func resetFull(_ date: Date) -> String { dayTime.string(from: date) }
+
+    // Явная локаль: formatted() берёт язык системы, а не окна
+    static let russian = Locale(identifier: "ru_RU")
+
+    static func format(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle = .abbreviated, time: Date.FormatStyle.TimeStyle = .shortened) -> String {
+        date.formatted(Date.FormatStyle(date: dateStyle, time: time, locale: russian))
+    }
 }
 
 enum CLI {

@@ -456,7 +456,7 @@ struct QaSheet: View {
         }
         details([
             ("Коммит плана", qa?.planHead),
-            ("Составлен", qa?.isPlanning == true ? nil : qa?.finishedAt.flatMap(Dates.parse).map { $0.formatted(date: .abbreviated, time: .shortened) }),
+            ("Составлен", qa?.isPlanning == true ? nil : qa?.finishedAt.flatMap(Dates.parse).map { Dates.format($0) }),
             ("Цена плана", qa?.usage?.costUsd.map { String(format: "$%.2f", $0) }),
         ])
     }
@@ -630,7 +630,7 @@ struct QaSheet: View {
         details([
             ("Фронтенд", run.head),
             ("Бэкенд", run.backend.map { "\($0.ref.replacingOccurrences(of: "origin/", with: "")) · \($0.commit)" }),
-            ("Снят", qa?.finishedAt.flatMap(Dates.parse).map { $0.formatted(date: .abbreviated, time: .shortened) }),
+            ("Снят", qa?.finishedAt.flatMap(Dates.parse).map { Dates.format($0) }),
             ("Цена и время", [
                 run.usage?.costUsd.map { String(format: "$%.2f", $0) },
                 run.durationSec.map { FixTimeline.duration(TimeInterval($0)) },
@@ -976,7 +976,7 @@ struct QaMediaBrowser: View {
                     .keyboardShortcut(.rightArrow, modifiers: [])
                     .disabled(state.index >= state.files.count - 1)
                 if state.isVideo {
-                    SegmentedPicker(options: [0.5, 1, 1.5, 2], selection: $state.rate, title: { "\($0.formatted(.number.precision(.fractionLength(0...1))))×" }, segmentWidth: 48)
+                    SegmentedPicker(options: [0.5, 1, 1.5, 2], selection: $state.rate, title: { "\($0.formatted(.number.precision(.fractionLength(0...1)).locale(Dates.russian)))×" }, segmentWidth: 48)
                         .help("Скорость видео")
                 } else {
                     Text("Щипок или двойной клик — увеличить")

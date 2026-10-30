@@ -94,7 +94,7 @@ struct NotificationSettings: Codable, Equatable {
     // «Выключены до 14:30»; бессрочно — просто «Выключены»
     var muteSummary: String {
         guard let until = mutedUntil, until != .distantFuture else { return "Выключены" }
-        return "Выключены до \(until.formatted(date: Calendar.current.isDateInToday(until) ? .omitted : .abbreviated, time: .shortened))"
+        return "Выключены до \(Dates.format(until, date: Calendar.current.isDateInToday(until) ? .omitted : .abbreviated))"
     }
 
     func rules(_ repo: String) -> NotificationRules { repos[repo] ?? all }
