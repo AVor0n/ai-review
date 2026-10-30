@@ -246,6 +246,17 @@ const ensureDocker = () => {
     if (info.status !== 0) throw new Error(`Docker недоступен: ${(info.stderr || info.error?.message || '').trim().split('\n')[0]}`);
 };
 
+// Образ бэкенда весит ~600 МБ, а нужен только тот, что под текущий прогон. Тестирование идёт по одному,
+// поэтому остальные образы ничьи; занятый контейнером docker без -f удалить не даст
+const pruneBackendImages = (keep) => {
+    const list = spawnSync('docker', ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}', 'pr-reviewer-qa-backend'], { encoding: 'utf8' });
+    const old = list.status === 0 ? list.stdout.split('\n').filter((image) => image && image !== keep && !image.endsWith(':<none>')) : [];
+    if (!old.length) return;
+    const result = spawnSync('docker', ['image', 'rm', ...old], { encoding: 'utf8' });
+    if (result.status === 0) log(`тестирование: удалены старые образы бэкенда — ${old.join(', ')}`);
+    else logError(`тестирование: не удалось удалить старые образы бэкенда — ${result.stderr.trim()}`);
+};
+
 const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, onCompose }) => {
     const settings = qaSettings(config);
     const backendRepo = config.repos.find((candidate) => candidate.slug === settings.backend);
@@ -259,6 +270,7 @@ const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, o
         onActivity(`docker build ${image}`);
         const backendDir = ensureWorkspace(backendRepo, backendClone, backend.commit);
         run(frontendDir, 'docker', ['build', '--file', join(frontendDir, 'docker/backend.e2e.Dockerfile'), '--tag', image, backendDir], { timeout: 40 * 60_000 });
+        pruneBackendImages(image);
     }
     writeFileSync(join(frontendDir, QA_INPUT, 'compose.qa.yml'), composeOverride(image));
     step('Запуск бэкенда и тестовой базы');
