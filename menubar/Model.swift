@@ -1152,11 +1152,13 @@ final class AppModel: ObservableObject {
         logModified = modified
         defer { try? handle.close() }
         let size = (try? handle.seekToEnd()) ?? 0
-        try? handle.seek(toOffset: size > UInt64(Self.logLimit) ? size - UInt64(Self.logLimit) : 0)
-        let text = String(decoding: handle.readDataToEndOfFile(), as: UTF8.self)
+        let start = size > UInt64(Self.logLimit) ? size - UInt64(Self.logLimit) : 0
+        try? handle.seek(toOffset: start)
+        let data = handle.readDataToEndOfFile()
 
         var entries: [LogEntry] = []
-        var current: (date: Date?, lines: [String])?
+        // id записи — её смещение в файле: номер в хвосте съезжал бы с каждой новой записью, и раскрытой оказывалась бы другая
+        var current: (id: Int, date: Date?, lines: [String])?
         func flush() {
             guard let current else { return }
             var message = current.lines.joined(separator: "\n")
@@ -1164,16 +1166,19 @@ final class AppModel: ObservableObject {
             if marked { message.removeFirst("ERROR ".count) }
             // Записи до появления метки ERROR узнаём по тексту
             let isError = marked || message.contains("Error:") || message.contains(": ошибка") || message.hasPrefix("ошибка")
-            entries.append(LogEntry(id: entries.count, date: current.date, message: message, isError: isError))
+            entries.append(LogEntry(id: current.id, date: current.date, message: message, isError: isError))
         }
-        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+        var offset = Int(start)
+        for bytes in data.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false) {
+            let line = String(decoding: bytes, as: UTF8.self)
             // Запись начинается с ISO-времени; строки без него — продолжение (стек, вывод git)
             if let space = line.firstIndex(of: " "), let date = Dates.parse(String(line[..<space])) {
                 flush()
-                current = (date, [String(line[line.index(after: space)...])])
+                current = (offset, date, [String(line[line.index(after: space)...])])
             } else if current != nil, !line.isEmpty {
-                current?.lines.append(String(line))
+                current?.lines.append(line)
             }
+            offset += bytes.count + 1
         }
         flush()
         logEntries = entries.reversed()
