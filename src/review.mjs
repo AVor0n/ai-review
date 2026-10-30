@@ -366,6 +366,8 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
         }
         if (unchanged.length) {
             const reason = patch !== null ? 'rebase' : excludedBytes ? 'ignored' : 'empty';
+            // Окно отличает голову, отмеченную без ревью, от настоящего ревью: запись живёт до следующего ревью модели
+            prState.skipped = { ...prState.skipped, ...Object.fromEntries(unchanged.map((id) => [id, { head, reason }])) };
             const reasonText = {
                 rebase: 'изменения те же, что на прошлом ревью (rebase или слияние целевой ветки)',
                 ignored: 'в диффе только исключённые файлы',
@@ -443,6 +445,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
         if (review) {
             prState.reviewed[agentId] = head;
             prState.patch[agentId] = patch;
+            if (prState.skipped) delete prState.skipped[agentId];
         }
         (prState.findings ??= []).push(...outcome.tracked);
         prState.handled[agentId].push(...outcome.handledIds);
