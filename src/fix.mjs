@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { killAgents, runStructured } from './agents.mjs';
 import { buildThreads, renderComments } from './comments.mjs';
-import { INPUT_DIR_NAME, ensureClone, fetchOrigin } from './git.mjs';
+import { INPUT_DIR_NAME, cloneDir, ensureClone, fetchOrigin, isCloned } from './git.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, loadJsonl, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
 const FIX_DIR = join(DATA_DIR, 'fixes');
@@ -53,6 +53,34 @@ export const requestFix = (repo, pr, mode = 'fix') => {
     writeJson(join(QUEUE_DIR, `${key(repo, pr)}.json`), { repo, pr, mode, at: new Date().toISOString() });
     setState(repo, pr, { state: 'queued', mode, error: null, report: null });
     startWorker();
+};
+
+const FIX_REF = /^(?:backup|pr-reviewer-fix)\/(.+)-\d{8}-\d{4}$/;
+
+// Откат и сохранённые правки нужны, пока PR открыт. Удаляются только ветки, созданные доработкой:
+// backup/…, pr-reviewer-fix/… и локальная копия ветки PR, рядом с которой они лежат
+export const pruneFixBranches = (repo, open) => {
+    if (runningPid() || !isCloned(repo.slug)) return;
+    try {
+        const clone = cloneDir(repo.slug);
+        const openBranches = new Set(open.map((pr) => pr.source.branch.name));
+        const refs = git(clone, 'for-each-ref', '--format=%(refname:short)', 'refs/heads').split('\n').filter(Boolean);
+        const fixed = new Set(refs.map((ref) => FIX_REF.exec(ref)?.[1]).filter(Boolean));
+        const stale = refs.filter((ref) => {
+            const branch = FIX_REF.exec(ref)?.[1] ?? (fixed.has(ref) ? ref : null);
+            return branch && !openBranches.has(branch);
+        });
+        if (!stale.length) return;
+        // Ветку, на которой стоит рабочая копия доработки, git удалить не даст
+        const dir = join(WORKSPACES, repo.slug);
+        if (existsSync(join(dir, '.git')) && stale.includes(gitTry(dir, 'branch', '--show-current').stdout.trim())) {
+            git(dir, 'checkout', '-q', '--detach');
+        }
+        git(clone, 'branch', '-D', ...stale);
+        log(`${repo.slug}: удалены ветки доработки закрытых PR — ${stale.join(', ')}`);
+    } catch (error) {
+        logError(`${repo.slug}: не удалось удалить ветки доработки закрытых PR — ${error.message}`);
+    }
 };
 
 // «Прервать» у PR касается только этого PR: снимает его заявку из очереди или прерывает его идущую доработку.

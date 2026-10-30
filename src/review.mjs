@@ -8,6 +8,7 @@ import { closingLine, confirmationLine, formatFinding, formatReply, splitConfirm
 import { INPUT_DIR_NAME, checkoutDetached, ensureClone, fetchOrigin, isAncestor, patchId, prDiff, rangeDiff, resolveCommit } from './git.mjs';
 import { collectFeedback, learn, loadMemory } from './memory.mjs';
 import { closeOutcomes, markResolved, recordClosed, trackOutcomes } from './outcomes.mjs';
+import { pruneFixBranches } from './fix.mjs';
 import { buildPrompt } from './prompt.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { appendSkip, appendStats, log, logError, pushRecent } from './store.mjs';
@@ -294,6 +295,7 @@ const syncRepo = async (ctx, repo) => {
         delete repoState.prs[id];
         ctx.save();
     }
+    if (!ctx.dryRun) pruneFixBranches(repo, open);
     return { open, repoState, comments };
 };
 
