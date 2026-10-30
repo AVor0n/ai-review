@@ -390,7 +390,7 @@ struct OverviewView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Не удалось прочитать данные сервиса")
                     .font(.system(size: 12, weight: .semibold))
-                Text(verbatim: "\(what). Пока файл не прочитается, на вкладках показаны последние прочитанные данные")
+                Text(verbatim: "\(what). Пока \(files.count == 1 ? "файл не прочитается" : "файлы не прочитаются"), на вкладках показаны последние прочитанные данные")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
