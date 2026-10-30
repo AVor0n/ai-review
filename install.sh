@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Устанавливает воркер (launchd, раз в intervalMinutes) и иконку в строке состояния.
 # Повторный запуск безопасен: пересобирает и перезагружает оба агента.
+# ./install.sh --app-only — пересобрать и перезапустить только приложение.
 set -euo pipefail
 
 TOOL_DIR="${0:A:h}"
@@ -11,6 +12,67 @@ APP_DIR="$HOME/Applications/PR Reviewer.app"
 WORKER_LABEL=com.avoronin.pr-reviewer
 MENUBAR_LABEL=com.avoronin.pr-reviewer.menubar
 GUI_DOMAIN="gui/$(id -u)"
+
+# Бандл собирается рядом и подменяет установленный только целиком: упавшая сборка не ломает работающее приложение
+build_app() {
+    local staging="$APP_DIR.new" previous="$APP_DIR.old"
+    rm -rf "$staging" "$previous"
+    mkdir -p "$staging/Contents/MacOS" "$staging/Contents/Resources"
+    if ! swiftc -O -swift-version 5 -o "$staging/Contents/MacOS/PRReviewer" "$TOOL_DIR"/menubar/*.swift; then
+        rm -rf "$staging"
+        echo "Сборка приложения не удалась, установленное приложение не тронуто"
+        return 1
+    fi
+    cp "$TOOL_DIR/assets/AppIcon.icns" "$staging/Contents/Resources/AppIcon.icns"
+    # Коммит сборки виден внизу настроек окна. Незакоммиченные правки считаются только в том, из чего собран бандл
+    local commit dirty=false
+    commit=$(git -C "$TOOL_DIR" rev-parse HEAD 2>/dev/null || true)
+    if [[ -n $commit && -n $(git -C "$TOOL_DIR" status --porcelain -- menubar assets install.sh 2>/dev/null) ]]; then
+        dirty=true
+    fi
+    cat > "$staging/Contents/Info.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key><string>$MENUBAR_LABEL</string>
+    <key>CFBundleName</key><string>PR Reviewer</string>
+    <key>CFBundleExecutable</key><string>PRReviewer</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>LSUIElement</key><true/>
+    <key>PRReviewerCLI</key><string>$TOOL_DIR/bin/pr-reviewer</string>
+    <key>PRReviewerBuildCommit</key><string>$commit</string>
+    <key>PRReviewerBuildDate</key><string>$(date -u +%Y-%m-%dT%H:%M:%SZ)</string>
+    <key>PRReviewerBuildDirty</key><$dirty/>
+</dict>
+</plist>
+EOF
+    codesign --force --sign - "$staging" >/dev/null 2>&1 || true
+    if [[ -d $APP_DIR ]]; then
+        mv "$APP_DIR" "$previous"
+    fi
+    mv "$staging" "$APP_DIR"
+    rm -rf "$previous"
+    # Finder и Spotlight кэшируют иконку бандла; новая дата изменения заставляет их перечитать её
+    touch "$APP_DIR"
+}
+
+# --app-only: только приложение — без проверки токенов и конфига; воркер и его идущий проход не трогаются
+if [[ ${1:-} == --app-only ]]; then
+    command -v swiftc >/dev/null || { echo "Не найден swiftc в PATH"; exit 1; }
+    if ! launchctl print "$GUI_DOMAIN/$MENUBAR_LABEL" >/dev/null 2>&1; then
+        echo "Приложение ещё не установлено: сначала запустите ./install.sh"
+        exit 1
+    fi
+    mkdir -p "${APP_DIR:h}"
+    build_app
+    # kickstart -k перезапускает приложение, даже если из него вышли
+    launchctl kickstart -k "$GUI_DOMAIN/$MENUBAR_LABEL"
+    echo "Приложение пересобрано и перезапущено, фоновый сервис не тронут."
+    exit 0
+fi
 
 for binary in node claude codex git swiftc; do
     command -v "$binary" >/dev/null || { echo "Не найден $binary в PATH"; exit 1; }
@@ -56,7 +118,7 @@ if ! security find-generic-password -s "$CLAUDE_KEYCHAIN_SERVICE" >/dev/null 2>&
     exit 1
 fi
 
-mkdir -p "$TOOL_DIR/bin" "$DATA_DIR" "$LOG_DIR" "$AGENTS_DIR" "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+mkdir -p "$TOOL_DIR/bin" "$DATA_DIR" "$LOG_DIR" "$AGENTS_DIR" "${APP_DIR:h}"
 
 # У агентов launchd почти пустой PATH, поэтому пути к node/claude/codex фиксируем при установке
 cat > "$TOOL_DIR/bin/pr-reviewer" <<EOF
@@ -96,27 +158,7 @@ cat > "$AGENTS_DIR/$WORKER_LABEL.plist" <<EOF
 </plist>
 EOF
 
-swiftc -O -swift-version 5 -o "$APP_DIR/Contents/MacOS/PRReviewer" "$TOOL_DIR"/menubar/*.swift
-cp "$TOOL_DIR/assets/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
-cat > "$APP_DIR/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIdentifier</key><string>$MENUBAR_LABEL</string>
-    <key>CFBundleName</key><string>PR Reviewer</string>
-    <key>CFBundleExecutable</key><string>PRReviewer</string>
-    <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.0</string>
-    <key>LSUIElement</key><true/>
-    <key>PRReviewerCLI</key><string>$TOOL_DIR/bin/pr-reviewer</string>
-</dict>
-</plist>
-EOF
-codesign --force --sign - "$APP_DIR" >/dev/null 2>&1 || true
-# Finder и Spotlight кэшируют иконку бандла; новая дата изменения заставляет их перечитать её
-touch "$APP_DIR"
+build_app
 
 cat > "$AGENTS_DIR/$MENUBAR_LABEL.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>

@@ -158,6 +158,8 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .hoverHighlight()
                 }
+
+                BuildInfoRow()
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
@@ -1757,5 +1759,40 @@ struct ConfigSheet: View {
         .frame(width: 660)
         .background(Theme.background)
         .onAppear(perform: load)
+    }
+}
+
+// Из какого коммита собрано приложение — install.sh пишет это в Info.plist при каждой сборке
+private struct BuildInfoRow: View {
+    private static let info = Bundle.main.infoDictionary ?? [:]
+    private static let commit = (info["PRReviewerBuildCommit"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+    private static let date = Dates.parse(info["PRReviewerBuildDate"] as? String)
+    private static let dirty = info["PRReviewerBuildDirty"] as? Bool ?? false
+
+    private static func format(_ template: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = template
+        return formatter
+    }
+    private static let short = format("dd.MM HH:mm")
+    private static let withYear = format("dd.MM.yyyy HH:mm")
+    private static let full = format("d MMMM yyyy 'в' HH:mm")
+
+    var body: some View {
+        if let date = Self.date {
+            let when = (Calendar.current.isDate(date, equalTo: Date(), toGranularity: .year) ? Self.short : Self.withYear).string(from: date)
+            HStack(spacing: 6) {
+                Text(Self.commit.map { "Сборка \($0.prefix(7)) · \(when)" } ?? "Сборка от \(when)")
+                    .font(.system(size: 11).monospacedDigit())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+                if Self.commit != nil && Self.dirty {
+                    Tag(text: "правки не закоммичены", color: .orange)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .help("Собрано \(Self.full.string(from: date))\(Self.commit.map { " из коммита \($0)" } ?? "")\(Self.commit != nil && Self.dirty ? " + незакоммиченные правки" : "")")
+        }
     }
 }
