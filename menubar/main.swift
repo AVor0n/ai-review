@@ -58,7 +58,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             menu.addItem(NSMenuItem(title: "Идут \(reviews.count) ревью:", action: nil, keyEquivalent: ""))
             for review in reviews {
                 let item = NSMenuItem(title: reviewTarget(review), action: nil, keyEquivalent: "")
-                item.image = StatusMark.colored(agent: review.agent, size: 12)
+                // Неактивным пунктам меню строки меню система картинку (item.image) не рисует, поэтому значок — вложением в текст
+                let attachment = NSTextAttachment()
+                attachment.image = StatusMark.colored(agent: review.agent, size: 12)
+                attachment.bounds = NSRect(x: 0, y: -2, width: 12, height: 12)
+                let title = NSMutableAttributedString(attachment: attachment)
+                title.append(NSAttributedString(string: " \(reviewTarget(review))"))
+                title.addAttributes([.font: NSFont.menuFont(ofSize: 0), .foregroundColor: NSColor.disabledControlTextColor], range: NSRange(location: 0, length: title.length))
+                item.attributedTitle = title
                 menu.addItem(item)
             }
             if fixIsRunning { menu.addItem(NSMenuItem(title: "Идёт доработка · Claude", action: nil, keyEquivalent: "")) }
