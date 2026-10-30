@@ -169,6 +169,12 @@ const buildPrompt = (repo, lessons, exchanges) =>
 // Возвращает обработанные обмены — их больше не показываем модели; при ошибке пусто, повторим на следующем проходе
 export const learn = async (ctx, repo, exchanges) => {
     if (!exchanges.length || ctx.dryRun) return [];
+    // Правила из битого файла всё равно не сохранить — не тратим запуск модели, обсуждения подождут исправления файла
+    const { broken } = readMemory(repo.slug);
+    if (broken) {
+        logError(`${broken}; разбор обсуждений в память отложен (ждут: ${exchanges.length})`);
+        return [];
+    }
     const agentId = ctx.config.memory?.agent ?? 'claude';
     const agent = ctx.config.agents[agentId];
     const batch = exchanges.slice(0, MAX_EXCHANGES);
