@@ -13,6 +13,8 @@ struct OverviewView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage("collapsedRepos") private var collapsedStorage = ""
     @StateObject private var prompts = FixPrompts()
+    // Раскрытые баннеры — только пока открыт поповер: при закрытии PanelController сворачивает их
+    @Binding var bannersExpanded: Bool
     let openRepos: () -> Void
     let openLog: () -> Void
     let openMemory: (String) -> Void
@@ -66,24 +68,7 @@ struct OverviewView: View {
     private var content: some View {
         VStack(spacing: 0) {
             statusBar
-            if let stall = workerStall() {
-                stallBanner(stall)
-            }
-            if let error = model.syncError ?? lastRunError {
-                errorBanner(error)
-            }
-            ForEach(model.tokenBanners) { token in
-                tokenBanner(token)
-            }
-            ForEach(model.memoryBroken.sorted { $0.key < $1.key }, id: \.key) { slug, reason in
-                brokenMemoryBanner(slug: slug, reason: reason)
-            }
-            ForEach(model.memoryNearlyFull, id: \.slug) { item in
-                memoryBanner(slug: item.slug, count: item.count)
-            }
-            ForEach(model.newMemoryBanners, id: \.slug) { item in
-                newLessonsBanner(slug: item.slug, lessons: item.lessons)
-            }
+            bannerStack
             if model.config.repos.isEmpty {
                 ContentUnavailableView {
                     Label("Нет репозиториев", systemImage: "tray")
@@ -161,6 +146,65 @@ struct OverviewView: View {
         .padding(.vertical, 8)
     }
 
+    private struct Banner: Identifiable {
+        let id: String
+        let view: AnyView
+    }
+
+    // По важности: свёрнутым виден только первый, остальные — под строкой «Ещё N сообщений»
+    private var banners: [Banner] {
+        var result: [Banner] = []
+        if let stall = workerStall() { result.append(Banner(id: "stall", view: AnyView(stallBanner(stall)))) }
+        if let error = model.syncError ?? lastRunError { result.append(Banner(id: "error", view: AnyView(errorBanner(error)))) }
+        let tokens = model.tokenBanners
+        result += tokens.filter(\.isExpired).map { Banner(id: "token-\($0.id)", view: AnyView(tokenBanner($0))) }
+        result += model.memoryBroken.sorted { $0.key < $1.key }.map { Banner(id: "broken-\($0.key)", view: AnyView(brokenMemoryBanner(slug: $0.key, reason: $0.value))) }
+        result += tokens.filter { !$0.isExpired }.map { Banner(id: "token-\($0.id)", view: AnyView(tokenBanner($0))) }
+        let memory = model.memoryNearlyFull
+        result += memory.filter { $0.count >= model.memoryLimit }.map { Banner(id: "memory-\($0.slug)", view: AnyView(memoryBanner(slug: $0.slug, count: $0.count))) }
+        result += memory.filter { $0.count < model.memoryLimit }.map { Banner(id: "memory-\($0.slug)", view: AnyView(memoryBanner(slug: $0.slug, count: $0.count))) }
+        result += model.newMemoryBanners.map { Banner(id: "lessons-\($0.slug)", view: AnyView(newLessonsBanner(slug: $0.slug, lessons: $0.lessons))) }
+        return result
+    }
+
+    @ViewBuilder
+    private var bannerStack: some View {
+        let all = banners
+        let shown = bannersExpanded ? all : Array(all.prefix(1))
+        ForEach(Array(shown.enumerated()), id: \.element.id) { index, banner in
+            banner.view
+                .padding(.bottom, all.count > 1 && index == shown.count - 1 ? 4 : 12)
+        }
+        if all.count > 1 {
+            Button {
+                withAnimation(.easeOut(duration: 0.15)) { bannersExpanded.toggle() }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(bannersExpanded ? "Свернуть" : Self.moreMessages(all.count - 1))
+                        .font(.system(size: 12))
+                    Image(systemName: bannersExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                    Spacer()
+                }
+                .foregroundStyle(.secondary)
+                .frame(height: 20)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.leading, 28)
+            .padding(.trailing, 16)
+            .padding(.bottom, 12)
+        }
+    }
+
+    // Ещё 1 сообщение, ещё 2 сообщения, ещё 5 сообщений
+    private static func moreMessages(_ count: Int) -> String {
+        let mod10 = count % 10, mod100 = count % 100
+        if mod10 == 1 && mod100 != 11 { return "Ещё \(count) сообщение" }
+        if (2...4).contains(mod10) && !(12...14).contains(mod100) { return "Ещё \(count) сообщения" }
+        return "Ещё \(count) сообщений"
+    }
+
     private var lastRunError: String? {
         model.isRunning || model.status?.phase != "error" ? nil : model.status?.lastError
     }
@@ -190,7 +234,6 @@ struct OverviewView: View {
         .padding(12)
         .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private func brokenMemoryBanner(slug: String, reason: String) -> some View {
@@ -215,7 +258,6 @@ struct OverviewView: View {
         .padding(12)
         .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     // Синий — информация, а не проблема: ревьюеры выучили что-то новое из ответов команды
@@ -251,7 +293,6 @@ struct OverviewView: View {
         .padding(12)
         .background(Color.accentColor.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private func tokenBanner(_ token: TokenInfo) -> some View {
@@ -292,7 +333,6 @@ struct OverviewView: View {
         .padding(12)
         .background((token.isExpired ? Color.red : Color.yellow).opacity(token.isExpired ? 0.1 : 0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private func stallBanner(_ stall: (since: Date, minutes: Int)) -> some View {
@@ -320,7 +360,6 @@ struct OverviewView: View {
         .padding(12)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private func errorBanner(_ error: String) -> some View {
@@ -345,7 +384,6 @@ struct OverviewView: View {
         .padding(12)
         .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         .padding(.horizontal, 16)
-        .padding(.bottom, 12)
     }
 
     private var headline: String {

@@ -20,6 +20,7 @@ final class TabSelection: ObservableObject {
     @Published var memoryRepo: String?
     // Открыть лист токенов при переходе в настройки
     @Published var tokens = false
+    @Published var bannersExpanded = false
 }
 
 struct MainView: View {
@@ -33,6 +34,7 @@ struct MainView: View {
             switch selection.tab {
             case .overview:
                 OverviewView(
+                    bannersExpanded: $selection.bannersExpanded,
                     openRepos: { selection.tab = .settings },
                     openLog: { selection.tab = .log },
                     openMemory: { slug in
@@ -139,6 +141,7 @@ final class PanelController: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        selection.bannersExpanded = false
         QaMediaWindow.shared.lower()
         monitors.forEach(NSEvent.removeMonitor)
         monitors = []
