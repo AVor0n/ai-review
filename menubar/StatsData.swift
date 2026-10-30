@@ -283,6 +283,19 @@ struct StatsData {
 
     var overallFate: Fate { fate { _, _, _ in "" }.first?.fate ?? Fate() }
 
+    // Исправленные замечания из PR, где у модели были запуски с ценой. Цену ревью делим только на них:
+    // замечания запусков без цены (Codex и Cursor до тарифов) занижали бы цену исправленного
+    func pricedAddressed(agent: String? = nil) -> Int {
+        let priced = Set(entries.compactMap { item -> String? in
+            guard item.entry.usage?.costUsd != nil, let pr = item.entry.pr else { return nil }
+            return "\(item.entry.repo)#\(pr)#\(item.entry.agent)"
+        })
+        return outcomes.filter { outcome in
+            guard outcome.outcome == "addressed", agent == nil || outcome.agent == agent, let repo = outcome.repo, let pr = outcome.pr else { return false }
+            return priced.contains("\(repo)#\(pr)#\(outcome.agent)")
+        }.count
+    }
+
     // Ревью кода по дням, без запусков «только ответы в тредах»: видно, что работа шла, даже если замечаний не было
     var reviewsPerDay: [Date: Int] {
         var result: [Date: Int] = [:]

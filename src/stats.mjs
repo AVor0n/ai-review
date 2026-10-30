@@ -10,7 +10,7 @@ const createRow = () => ({
     given: { agree: 0, disagree: 0, skip: 0 },
     received: { agree: 0, disagree: 0 },
     outcomes: { addressed: 0, dismissed: 0, disputed: 0, open: 0 },
-    usage: { runs: 0, seconds: 0, tokens: 0, costUsd: 0, priced: 0, pricedFindings: 0 },
+    usage: { runs: 0, seconds: 0, tokens: 0, costUsd: 0, priced: 0, pricedFindings: 0, pricedAddressed: 0 },
 });
 
 const sum = (counts) => LEVELS.reduce((total, level) => total + counts[level], 0);
@@ -32,13 +32,15 @@ const usageLine = ({ usage, outcomes }) => {
     if (usage.priced) {
         parts.push(`${money(usage.costUsd / usage.priced)} за запуск`);
         if (usage.pricedFindings) parts.push(`${money(usage.costUsd / usage.pricedFindings)} за замечание`);
-        if (outcomes.addressed) parts.push(`${money(usage.costUsd / outcomes.addressed)} за исправленное`);
+        if (usage.pricedAddressed) parts.push(`${money(usage.costUsd / usage.pricedAddressed)} за исправленное`);
     }
     return parts.join(', ');
 };
 
 export const formatStats = (entries, outcomes, state, agents) => {
     const rows = Object.fromEntries(Object.keys(agents).map((id) => [id, createRow()]));
+    // PR, где у модели были запуски с ценой: цену за исправленное делим только на их замечания
+    const pricedPrs = new Set(entries.filter((entry) => entry.usage?.costUsd != null).map((entry) => `${entry.repo}#${entry.pr}#${entry.agent}`));
     for (const entry of entries) {
         const row = rows[entry.agent];
         if (!row) continue;
@@ -65,6 +67,7 @@ export const formatStats = (entries, outcomes, state, agents) => {
         // Прежний исход «влили без правки, тред открыт» теперь тоже считается отклонённым
         const kind = outcome.outcome === 'unchanged' ? 'dismissed' : outcome.outcome;
         if (rows[outcome.agent] && kind in rows[outcome.agent].outcomes) rows[outcome.agent].outcomes[kind]++;
+        if (rows[outcome.agent] && kind === 'addressed' && pricedPrs.has(`${outcome.repo}#${outcome.pr}#${outcome.agent}`)) rows[outcome.agent].usage.pricedAddressed++;
         if (rows[outcome.agent] && kind === 'dismissed' && outcome.disputed) rows[outcome.agent].outcomes.disputed++;
     }
     for (const repo of Object.values(state.repos ?? {})) {

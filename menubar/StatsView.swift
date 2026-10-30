@@ -280,13 +280,14 @@ struct StatsView: View {
         let reviewCost = data.totalCost
         let perPr = data.prSpend
         let fate = data.overallFate
+        let pricedAddressed = data.pricedAddressed()
         let byKind = data.costByKind
         let kinds = WorkKind.allCases.filter { (byKind[$0]?.runs ?? 0) > 0 }.sorted { byKind[$0]!.cost > byKind[$1]!.cost }
         SectionTitle(title: "Стоимость", icon: "dollarsign.circle")
         HStack(spacing: 10) {
             KpiTile(title: "Потрачено", value: money(total), detail: "\(data.spendings.count) запусков моделей")
             KpiTile(title: "За PR", value: perPr.prs > 0 ? money(perPr.cost / Double(perPr.prs)) : "—", detail: "\(perPr.prs) PR, всё, что делали по PR")
-            KpiTile(title: "За исправленное замечание", value: fate.addressed > 0 ? money(reviewCost / Double(fate.addressed)) : "—", detail: "цена ревью · \(fate.addressed) исправлено")
+            KpiTile(title: "За исправленное замечание", value: pricedAddressed > 0 ? money(reviewCost / Double(pricedAddressed)) : "—", detail: "цена ревью · \(fate.addressed) исправлено")
         }
         GroupedSection("По видам работы", footer: "Цена по тарифам API: Claude сообщает её сам, для Codex и Cursor она считается по токенам и тарифам из config.json — agents.<модель>.modelPricing для выбранной модели или agents.<модель>.pricing. С токеном подписки это не реальное списание. Траты памяти и бэклога до 19.10.2026 перенесены из лога с точностью до цента. Фильтр автора действует на всё, что привязано к PR, фильтр типа ревью — только на ревью и ответы в тредах.") {
             if kinds.isEmpty {
@@ -620,7 +621,8 @@ struct StatsView: View {
             ComparisonRow(title: "Цена запуска", values: values { money(costs[$0]?.costPerRun) })
             RowDivider()
             ComparisonRow(title: "Цена исправленного замечания", values: values { agent in
-                guard let cost = costs[agent], cost.pricedRuns > 0, let addressed = fates[agent]?.addressed, addressed > 0 else { return "—" }
+                let addressed = data.pricedAddressed(agent: agent)
+                guard let cost = costs[agent], cost.pricedRuns > 0, addressed > 0 else { return "—" }
                 return money(cost.cost / Double(addressed))
             })
         }
