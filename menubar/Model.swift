@@ -6,6 +6,16 @@ struct Current: Decodable {
     let pr: Int
     let agent: String
     let role: String
+    let title: String?
+}
+
+// Имя репозитория без общего префикса — для тесных мест: меню, подсказка значка, шапка с несколькими ревью
+func shortRepoName(_ slug: String) -> String {
+    slug.hasPrefix("project-") ? String(slug.dropFirst("project-".count)) : slug
+}
+
+func roleName(_ role: String) -> String {
+    ["first": "первым", "second": "следом", "replies": "ответы"][role] ?? role
 }
 
 struct Verdict: Decodable {
@@ -71,12 +81,17 @@ struct StatEntry: Decodable {
 struct Status: Decodable {
     let phase: String?
     let current: Current?
+    // Ревью идут параллельно по репозиториям; running упорядочен по времени начала, current — первое из них
+    let running: [Current]?
     let lastRunAt: String?
     let lastPassAt: String?
     let lastError: String?
     // Номер ошибки подряд: уведомление — только о первой в серии
     let errorStreak: Int?
     let recent: [Recent]?
+
+    // Сервис до параллельных ревью писал только current
+    var reviews: [Current] { running ?? current.map { [$0] } ?? [] }
 }
 
 struct AgentConfig: Decodable {
@@ -1370,7 +1385,7 @@ final class AppModel: ObservableObject {
     }
 
     func reviewState(repo: String, pr: PullRequest, agent: String) -> ReviewState {
-        if isRunning, let current = status?.current, current.repo == repo, current.pr == pr.id, current.agent == agent { return .running }
+        if isRunning, status?.reviews.contains(where: { $0.repo == repo && $0.pr == pr.id && $0.agent == agent }) == true { return .running }
         if queued.contains(key(repo, pr.id, agent)) { return .queued }
         guard let head = state.repos?[repo]?.prs[String(pr.id)]?.reviewed[agent] else { return .none }
         return head == pr.head ? .done : .stale

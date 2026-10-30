@@ -81,10 +81,15 @@ struct CursorMark: Shape {
 
 // Значок модели для строки меню: шаблонное изображение (macOS сама красит его под тему), повёрнутое на angle
 enum StatusMark {
-    static func image(agent: String, angle: CGFloat) -> NSImage {
-        let image = NSImage(size: NSSize(width: 16, height: 16), flipped: true) { rect in
+    // Цветной знак модели для пунктов меню; в строке меню значок шаблонный, его красит система
+    static func colored(agent: String, size: CGFloat) -> NSImage {
+        image(agent: agent, angle: 0, size: size, color: NSColor(AgentMark.color(agent)))
+    }
+
+    static func image(agent: String, angle: CGFloat, size: CGFloat = 16, color: NSColor? = nil) -> NSImage {
+        let image = NSImage(size: NSSize(width: size, height: size), flipped: true) { rect in
             guard let context = NSGraphicsContext.current?.cgContext else { return false }
-            let frame = rect.insetBy(dx: 1.5, dy: 1.5)
+            let frame = rect.insetBy(dx: size * 1.5 / 16, dy: size * 1.5 / 16)
             let (path, filled): (Path, Bool) = switch agent {
             case "claude": (ClaudeMark().path(in: frame), true)
             case "codex": (OpenAIMark().path(in: frame), true)
@@ -95,14 +100,14 @@ enum StatusMark {
             context.rotate(by: angle)
             context.translateBy(x: -rect.midX, y: -rect.midY)
             context.addPath(path.cgPath)
-            context.setFillColor(NSColor.black.cgColor)
-            context.setStrokeColor(NSColor.black.cgColor)
+            context.setFillColor((color ?? .black).cgColor)
+            context.setStrokeColor((color ?? .black).cgColor)
             context.setLineWidth(1.25)
             context.setLineJoin(.round)
             if filled { context.fillPath() } else { context.strokePath() }
             return true
         }
-        image.isTemplate = true
+        image.isTemplate = color == nil
         return image
     }
 }

@@ -8,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var important: [OpenFinding] = []
     private let menu = NSMenu()
     private let agentNames = ["claude": "Claude", "codex": "Codex", "cursor": "Cursor"]
-    private let roleNames = ["first": "первым", "second": "следом", "replies": "ответы"]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // По этому имени macOS запоминает место иконки после перетаскивания с ⌘ и восстанавливает его после перезагрузки
@@ -54,11 +53,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Меню собирается при каждом показе: в нём текущее состояние и срок, до которого уведомления выключены
     private func rebuildMenu() {
         menu.removeAllItems()
-        menu.addItem(NSMenuItem(title: statusLine(), action: nil, keyEquivalent: ""))
+        let reviews = isRunning && workerStall() == nil ? loadStatus()?.reviews ?? [] : []
+        if reviews.count > 1 {
+            menu.addItem(NSMenuItem(title: "Идут \(reviews.count) ревью:", action: nil, keyEquivalent: ""))
+            for review in reviews {
+                let item = NSMenuItem(title: reviewTarget(review), action: nil, keyEquivalent: "")
+                item.image = StatusMark.colored(agent: review.agent, size: 12)
+                menu.addItem(item)
+            }
+            if fixIsRunning { menu.addItem(NSMenuItem(title: "Идёт доработка · Claude", action: nil, keyEquivalent: "")) }
+        } else {
+            menu.addItem(NSMenuItem(title: statusLine(), action: nil, keyEquivalent: ""))
+        }
         menu.addItem(.separator())
         // Как кнопки ■ и ▶ в шапке обзора: явное ревью по иконке идёт и при выключенном фоновом, его тоже можно прервать
         if isRunning {
-            addAction("Прервать ревью", #selector(stopClicked))
+            addAction(reviews.count > 1 ? "Прервать все ревью" : "Прервать ревью", #selector(stopClicked))
         } else if !isPaused {
             addAction("Проверить сейчас", #selector(runNowClicked))
         }
@@ -95,7 +105,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func statusLine() -> String {
         let status = loadStatus()
         if let stall = workerStall() { return "Проход не продвигается \(stall.minutes) мин" }
-        if isRunning { return status?.current.map { "Идёт ревью: \(reviewTarget($0))" } ?? "Идёт проверка PR" }
+        if isRunning { return status?.reviews.first.map { "Идёт ревью: \(reviewTarget($0))" } ?? "Идёт проверка PR" }
         if fixIsRunning { return "Идёт доработка · Claude" }
         if isPaused { return "Фоновое ревью выключено" }
         if status?.phase == "error" { return "Последний проход завершился с ошибкой" }
@@ -179,8 +189,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             tip = "PR Reviewer: проход ревью не продвигается \(stall.minutes) мин — прервать можно в обзоре"
             if !stallShown { blinkOnce() }
             stallShown = true
-        } else if isRunning, let agent = status?.current?.agent {
-            tip = "PR Reviewer: \(currentText(status?.current))"
+        } else if isRunning, let reviews = status?.reviews, let agent = reviews.first?.agent {
+            // Крутится значок ревью, начавшегося раньше всех: running упорядочен по времени начала
+            tip = reviews.count > 1
+                ? (["PR Reviewer: идут \(reviews.count) ревью"] + reviews.map(reviewTarget)).joined(separator: "\n")
+                : "PR Reviewer: \(currentText(reviews.first))"
             setSpinning(agent)
         } else if fixing {
             tip = "PR Reviewer: доработка PR по замечаниям · Claude"
@@ -246,11 +259,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func reviewTarget(_ current: Current) -> String {
         let agent = agentNames[current.agent] ?? current.agent
-        return "\(shortRepo(current.repo)) #\(current.pr) · \(agent) (\(roleNames[current.role] ?? current.role))"
-    }
-
-    private func shortRepo(_ slug: String) -> String {
-        slug.hasPrefix("project-") ? String(slug.dropFirst("project-".count)) : slug
+        return "\(shortRepoName(current.repo)) #\(current.pr) · \(agent) (\(roleName(current.role)))"
     }
 
     // Левый клик открывает и закрывает обзор, правый или Ctrl-клик — меню

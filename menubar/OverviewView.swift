@@ -97,12 +97,10 @@ struct OverviewView: View {
             Circle()
                 .fill(model.isRunning ? Color.blue : model.isPaused ? Color.orange : Color.green)
                 .frame(width: 7, height: 7)
-            Text(headline)
+            statusText
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                // Полный текст паузы не помещается рядом с кнопкой «Включить» и капсулами
-                .help(model.isPaused && !model.isRunning ? "Фоновое ревью выключено, работают только запуски по иконкам" : "")
             if model.isPaused && !model.isRunning {
                 Button("Включить") { model.setServicePaused(false) }
                     .buttonStyle(.plain)
@@ -120,7 +118,7 @@ struct OverviewView: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .help("Прервать ревью и очистить очередь")
+                .help(runningReviews.count > 1 ? "Прервать все ревью и очистить очередь" : "Прервать ревью и очистить очередь")
             } else if !model.isPaused {
                 Button {
                     model.runNow()
@@ -440,8 +438,34 @@ struct OverviewView: View {
         }
     }
 
+    private var runningReviews: [Current] { model.isRunning ? model.status?.reviews ?? [] : [] }
+
+    // Несколько ревью — по значку модели и номеру PR в одной строке; вращение значков уже есть в строках PR
+    @ViewBuilder
+    private var statusText: some View {
+        let reviews = runningReviews
+        if reviews.count > 1 {
+            HStack(spacing: 0) {
+                Text("Идут ревью: ")
+                ForEach(Array(reviews.enumerated()), id: \.offset) { index, review in
+                    if index > 0 { Text(" · ").foregroundStyle(.tertiary) }
+                    AgentMark(agent: review.agent)
+                        .foregroundStyle(AgentMark.color(review.agent))
+                        .frame(width: 11, height: 11)
+                        .padding(.trailing, 3)
+                    Text(verbatim: "\(shortRepoName(review.repo)) #\(review.pr)")
+                }
+            }
+            .help(reviews.map { "\(shortRepoName($0.repo)) #\($0.pr)\($0.title.map { " «\($0)»" } ?? "") · \(model.agentName($0.agent)), \(roleName($0.role))" }.joined(separator: "\n"))
+        } else {
+            Text(headline)
+                // Полный текст паузы не помещается рядом с кнопкой «Включить» и капсулами
+                .help(model.isPaused && !model.isRunning ? "Фоновое ревью выключено, работают только запуски по иконкам" : "")
+        }
+    }
+
     private var headline: String {
-        if model.isRunning, let current = model.status?.current {
+        if model.isRunning, let current = model.status?.reviews.first {
             return "Идёт ревью \(current.repo) #\(current.pr) · \(model.agentName(current.agent))"
         }
         if model.isPaused { return "Фоновое ревью выключено" }
