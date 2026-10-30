@@ -213,6 +213,14 @@
             "additionalProperties": false,
             "description": "Память ревьюеров: правила из ответов команды на замечания",
             "properties": {
+                "agent": {
+                    "enum": [
+                        "claude",
+                        "codex",
+                        "cursor"
+                    ],
+                    "description": "Модель для памяти, разбора памяти и бэклога; по умолчанию claude"
+                },
                 "maxLessons": {
                     "type": "integer",
                     "minimum": 1,
