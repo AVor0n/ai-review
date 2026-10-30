@@ -1,9 +1,9 @@
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 import { rememberClaudeLimits } from './limits.mjs';
-import { GIT_ROOT, TOOL_DIR } from './store.mjs';
+import { GIT_ROOT, log, logError, TOOL_DIR } from './store.mjs';
 
 const REVIEW_SCHEMA = join(TOOL_DIR, 'schema/review.schema.json');
 const running = new Set();
@@ -243,6 +243,59 @@ const cursorHome = () => {
     return CURSOR_HOME;
 };
 
+const CHAT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Свежесть чата — по самому новому файлу внутри: SQLite дописывает store.db, не меняя mtime папки
+const scanDir = (dir) => {
+    let newest = statSync(dir).mtimeMs;
+    let bytes = 0;
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name);
+        if (entry.isDirectory()) {
+            const inner = scanDir(path);
+            newest = Math.max(newest, inner.newest);
+            bytes += inner.bytes;
+        } else {
+            const stat = statSync(path);
+            newest = Math.max(newest, stat.mtimeMs);
+            bytes += stat.size;
+        }
+    }
+    return { newest, bytes };
+};
+
+// Cursor сохраняет каждый запуск в .cursor/chats/<проект>/<чат> (~1,5 МБ) и сам их не удаляет.
+// Чат идущего запуска свежий и под отсечку не попадает
+const pruneCursorChats = () => {
+    const root = join(CURSOR_HOME, '.cursor', 'chats');
+    if (!existsSync(root)) return;
+    const cutoff = Date.now() - CHAT_TTL_MS;
+    let removed = 0;
+    let freed = 0;
+    try {
+        for (const project of readdirSync(root, { withFileTypes: true }).filter((entry) => entry.isDirectory())) {
+            const projectDir = join(root, project.name);
+            for (const chat of readdirSync(projectDir, { withFileTypes: true }).filter((entry) => entry.isDirectory())) {
+                const chatDir = join(projectDir, chat.name);
+                try {
+                    const { newest, bytes } = scanDir(chatDir);
+                    if (newest >= cutoff) continue;
+                    rmSync(chatDir, { recursive: true, force: true });
+                    removed += 1;
+                    freed += bytes;
+                } catch (error) {
+                    // Чат мог удалить параллельный запуск Cursor из другого процесса
+                    if (error.code !== 'ENOENT') throw error;
+                }
+            }
+            if (readdirSync(projectDir).length === 0) rmSync(projectDir, { recursive: true, force: true });
+        }
+    } catch (error) {
+        logError(`cursor: не удалось очистить старые чаты: ${error.message}`);
+    }
+    if (removed > 0) log(`cursor: удалено чатов старше недели — ${removed}, освобождено ${Math.round(freed / 1024 / 1024)} МБ`);
+};
+
 const PROXY_VARS = ['HTTPS_PROXY', 'HTTP_PROXY', 'NO_PROXY', 'https_proxy', 'http_proxy', 'no_proxy', 'ALL_PROXY', 'all_proxy'];
 
 const describeCursorTool = (call, cwd) => {
@@ -284,6 +337,7 @@ const addUsage = (a, b) => ({
 const cursorOnce = async (agent, { cwd, prompt, onActivity }) => {
     const key = agent.keychainService ? readKeychain(agent.keychainService) : null;
     if (!key) throw new Error(`cursor: нет API-ключа в Keychain (${agent.keychainService})`);
+    pruneCursorChats();
     const output = await runProcess(
         'cursor-agent',
         // ask — режим только для чтения; MCP без --approve-mcps не поднимаются
