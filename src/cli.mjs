@@ -35,8 +35,10 @@ import {
     saveConfig,
     logError,
     readWorkerPid,
+    onStopRequest,
     releaseLock,
     requestRun,
+    requestStop,
     rotateLog,
     saveState,
     setPaused,
@@ -52,6 +54,8 @@ const option = (name) => {
     return index >= 0 ? args[index + 1] : undefined;
 };
 
+
+const STOP_FILE = join(DATA_DIR, 'stop-requested');
 
 const kickstartWorker = () => execFileSync('launchctl', ['kickstart', `gui/${process.getuid()}/${WORKER_LABEL}`]);
 
@@ -130,6 +134,7 @@ const run = async () => {
     };
     process.on('SIGTERM', abort);
     process.on('SIGINT', abort);
+    onStopRequest(STOP_FILE, abort);
 
     const startedAt = new Date().toISOString();
     if (!dryRun) updateStatus({ phase: 'running', current: null, lastStartAt: startedAt, ...(automatic ? { lastPassAt: startedAt } : {}) });
@@ -566,7 +571,8 @@ const repoCommand = async () => {
 const stop = () => {
     clearQueue();
     const pid = readWorkerPid();
-    if (pid) process.kill(pid, 'SIGTERM');
+    // launchd запускает воркер лидером своей группы: сигнал группе убивает и синхронный git, который держит проход
+    if (pid) requestStop(pid, STOP_FILE);
     console.log(pid ? `Остановлен запуск ${pid}` : 'Ревью сейчас не идёт');
 };
 

@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { REPOS_DIR } from './store.mjs';
+import { REPOS_DIR, checkStopRequest } from './store.mjs';
 
 export const INPUT_DIR_NAME = '.pr-review';
 
@@ -16,8 +16,13 @@ process.env.GIT_HTTP_LOW_SPEED_TIME ??= '60';
 const FETCH_TIMEOUT_MS = 10 * 60_000;
 const CLONE_TIMEOUT_MS = 30 * 60_000;
 
-const git = (cwd, args, timeout) =>
-    execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], timeout, killSignal: 'SIGKILL' });
+const git = (cwd, args, timeout) => {
+    try {
+        return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'], timeout, killSignal: 'SIGKILL' });
+    } finally {
+        checkStopRequest();
+    }
+};
 
 export const cloneDir = (slug) => join(REPOS_DIR, slug);
 export const isCloned = (slug) => existsSync(join(cloneDir(slug), '.git'));

@@ -5,11 +5,12 @@ import { killAgents, runStructured } from './agents.mjs';
 import { renderComments } from './comments.mjs';
 import { INPUT_DIR_NAME, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
-import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, log, logError, readJson, writeJson } from './store.mjs';
+import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
 
 // Архитектурное ревью — только по явной заявке: отчёт для себя, в PR ничего не публикуется.
 // Отдельный процесс, как у доработки: запуск идёт десятки минут и не должен держать очередь обычного ревью
 const ARCH_DIR = join(DATA_DIR, 'arch');
+const STOP_FILE = join(ARCH_DIR, 'stop-requested');
 const QUEUE_DIR = join(ARCH_DIR, 'queue');
 const STATE_DIR = join(ARCH_DIR, 'state');
 const PID_FILE = join(ARCH_DIR, 'worker.pid');
@@ -60,11 +61,17 @@ export const requestArch = (repo, pr) => {
 
 export const stopArch = () => {
     const pid = runningPid();
-    if (pid) process.kill(pid, 'SIGTERM');
+    if (pid) requestStop(pid, STOP_FILE);
     return pid;
 };
 
-const git = (cwd, ...args) => execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const git = (cwd, ...args) => {
+    try {
+        return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    } finally {
+        checkStopRequest();
+    }
+};
 
 // Свой worktree служебного клона: обычное ревью переключает сам клон, и общая рабочая копия сбила бы обоим голову
 const ensureWorkspace = (repo, clone, commit) => {
@@ -182,6 +189,7 @@ export const archWorker = async ({ loadConfig, createBitbucket }) => {
     };
     process.on('SIGTERM', abort);
     process.on('SIGINT', abort);
+    onStopRequest(STOP_FILE, abort);
 
     try {
         let config;
