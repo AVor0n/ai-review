@@ -31,7 +31,8 @@ struct OverviewView: View {
     var body: some View {
         content
             .alert(
-                prompts.confirm.map { $0.rebase ? "Сделать rebase #\($0.pr.id) на \($0.pr.destination)?" : "Доработать #\($0.pr.id) по замечаниям?" } ?? "",
+                // Заголовок alert — LocalizedStringKey: Int в нём получил бы разделитель разрядов («#2 058»)
+                prompts.confirm.map { $0.rebase ? "Сделать rebase #\(String($0.pr.id)) на \($0.pr.destination)?" : "Доработать #\(String($0.pr.id)) по замечаниям?" } ?? "",
                 isPresented: Binding(get: { prompts.confirm != nil }, set: { if !$0 { prompts.confirm = nil } }),
                 presenting: prompts.confirm
             ) { target in
@@ -48,7 +49,7 @@ struct OverviewView: View {
                 FixReportSheet(target: target) { prompts.confirm = target }
             }
             .alert(
-                prompts.archConfirm.map { "Архитектурное ревью #\($0.pr.id)?" } ?? "",
+                prompts.archConfirm.map { "Архитектурное ревью #\(String($0.pr.id))?" } ?? "",
                 isPresented: Binding(get: { prompts.archConfirm != nil }, set: { if !$0 { prompts.archConfirm = nil } }),
                 presenting: prompts.archConfirm
             ) { target in
