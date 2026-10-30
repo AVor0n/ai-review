@@ -107,6 +107,7 @@ struct OverviewView: View {
                     .foregroundStyle(Color.accentColor)
             }
             Spacer()
+            availabilityCapsules
             if model.isRunning {
                 Button {
                     model.stopReview()
@@ -386,6 +387,16 @@ struct OverviewView: View {
         .padding(.horizontal, 16)
     }
 
+    // Сначала лимит, потом «только вручную»; при выключенном фоновом ревью вручную работают все модели
+    private var availabilityCapsules: some View {
+        let states = model.agentIds.map { (agent: $0, availability: model.availability($0)) }
+        let limited = states.filter { $0.availability.isLimitExhausted }
+        let manual = model.isPaused ? [] : states.filter { if case .manualOnly = $0.availability { true } else { false } }
+        return ForEach(limited + manual, id: \.agent) { item in
+            AvailabilityCapsule(agent: item.agent, name: model.agentName(item.agent), availability: item.availability, action: openRepos)
+        }
+    }
+
     private var headline: String {
         if model.isRunning, let current = model.status?.current {
             return "Идёт ревью \(current.repo) #\(current.pr) · \(model.agentName(current.agent))"
@@ -409,6 +420,15 @@ struct OverviewView: View {
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     Text(repo.slug)
                     if let snapshot { Text("· \(snapshot.prs.count)") }
+                    // При выключенном общем фоновом ревью об этом уже говорит шапка обзора
+                    if repo.isPaused && !model.isPaused {
+                        HStack(spacing: 4) {
+                            Image(systemName: "pause.circle.fill").foregroundStyle(Color.orange)
+                            Text("фоновое ревью выключено")
+                        }
+                        .textCase(nil)
+                        .help("Фоновое ревью этого репозитория выключено в настройках. Ручной запуск по значку модели работает")
+                    }
                     Spacer()
                     if let snapshot {
                         Text("обновлено \(Dates.ago(snapshot.fetchedAt))").textCase(nil)
@@ -452,10 +472,37 @@ struct PullRequestRow: View {
     var dimmed = false
     @ObservedObject var prompts: FixPrompts
 
+    private var repoPaused: Bool { model.config.repos.first { $0.slug == repo }?.isPaused == true }
+    private var autoAgents: [String] { model.agentIds.filter { model.config.agents[$0]?.isAuto != false } }
+
     // Модели только для ручного запуска не в счёт; без фоновых моделей галочку ставить не на чем
     private var reviewedClean: Bool {
-        let auto = model.agentIds.filter { model.config.agents[$0]?.isAuto != false }
+        let auto = autoAgents
         return pr.threads == 0 && !auto.isEmpty && auto.allSatisfy { model.reviewState(repo: repo, pr: pr, agent: $0) == .done }
+    }
+
+    // Пропуск без ревью голова тоже считает проверенной: галочка не должна выдавать его за чистое ревью
+    private var cleanHint: String {
+        let reasons = autoAgents.compactMap { model.skipReason(repo: repo, pr: pr, agent: $0) }
+        if reasons.contains("ignored") { return "Ревью не понадобилось: в диффе только исключённые файлы" }
+        if reasons.contains("empty") { return "Ревью не понадобилось: в PR нет изменений относительно целевой ветки" }
+        return "Модели проверили последний коммит и замечаний не нашли"
+    }
+
+    private var noReviewHint: String {
+        let manual = "Запустить можно по значку модели"
+        if model.isPaused { return "Фоновое ревью выключено. \(manual)" }
+        if repoPaused { return "Фоновое ревью репозитория выключено. \(manual)" }
+        if pr.draft { return "Черновик — фоновое ревью черновики пропускает. \(manual)" }
+        if !model.config.isTaskBranch(pr.source) { return "Ветка вне шаблона веток задач — фоновое ревью её пропускает. \(manual)" }
+        let auto = autoAgents
+        if !auto.isEmpty && auto.allSatisfy({ model.availability($0).isLimitExhausted }) {
+            return "Все фоновые модели упёрлись в лимит. Ревью будет после сброса"
+        }
+        if model.isRunning { return "Ревью ещё не было: идёт проход" }
+        guard let next = model.nextPassAt else { return "Ревью ещё не было: ждёт прохода" }
+        let minutes = Int((next.timeIntervalSinceNow / 60).rounded(.up))
+        return minutes <= 1 ? "Ревью ещё не было: ждёт прохода, следующий в течение минуты" : "Ревью ещё не было: ждёт прохода, следующий через \(minutes) мин"
     }
 
     @ViewBuilder private var threadsCounter: some View {
@@ -463,7 +510,7 @@ struct PullRequestRow: View {
             Image(systemName: "checkmark.bubble.fill")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.green)
-                .help("Модели проверили последний коммит и замечаний не нашли")
+                .help(cleanHint)
         } else {
             HStack(spacing: 3) {
                 Image(systemName: pr.threads > 0 && pr.resolved == pr.threads ? "checkmark.bubble" : "bubble.left")
@@ -471,7 +518,7 @@ struct PullRequestRow: View {
             }
             .font(.system(size: 12))
             .foregroundStyle(pr.threads == 0 ? AnyShapeStyle(.tertiary) : pr.resolved == pr.threads ? AnyShapeStyle(Color.green) : AnyShapeStyle(.secondary))
-            .help(pr.threads == 0 ? "Комментариев нет" : "Тредов закрыто \(pr.resolved) из \(pr.threads), всего комментариев \(pr.commentCount)")
+            .help(pr.threads == 0 ? noReviewHint : "Тредов закрыто \(pr.resolved) из \(pr.threads), всего комментариев \(pr.commentCount)")
         }
     }
 
@@ -479,7 +526,14 @@ struct PullRequestRow: View {
         HStack(spacing: 10) {
             HStack(spacing: 2) {
                 ForEach(model.agentIds, id: \.self) { agent in
-                    AgentReviewButton(agent: agent, name: model.agentName(agent), state: model.reviewState(repo: repo, pr: pr, agent: agent), manualOnly: model.config.agents[agent]?.isAuto == false) {
+                    AgentReviewButton(
+                        agent: agent,
+                        name: model.agentName(agent),
+                        state: model.reviewState(repo: repo, pr: pr, agent: agent),
+                        availability: model.availability(agent),
+                        showsManualBadge: !model.isPaused && !repoPaused,
+                        skipReason: model.skipReason(repo: repo, pr: pr, agent: agent)
+                    ) {
                         model.requestReview(repo: repo, pr: pr.id, agent: agent)
                     }
                 }

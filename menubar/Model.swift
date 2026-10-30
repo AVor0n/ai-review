@@ -238,6 +238,24 @@ struct TrackedFinding: Decodable {
 struct PrState: Decodable {
     let reviewed: [String: String]
     let findings: [TrackedFinding]?
+    let skipped: [String: SkipMark]?
+}
+
+// Голова, отмеченная проверенной без ревью: rebase (тот же патч), ignored (только исключённые файлы), empty (пустой дифф)
+struct SkipMark: Decodable {
+    let head: String
+    let reason: String
+}
+
+// Особое состояние модели в фоновом ревью — одно значение, чтобы порог лимита потом стал ещё одним случаем
+enum AgentAvailability {
+    case available
+    case limitExhausted(resetsAt: Date, updatedAt: Date)
+    case manualOnly
+
+    var isLimitExhausted: Bool {
+        if case .limitExhausted = self { true } else { false }
+    }
 }
 
 struct Outcome: Decodable {
@@ -939,8 +957,31 @@ enum Dates {
 
     static func ago(_ iso: String?) -> String {
         guard let date = parse(iso) else { return "—" }
-        return Date().timeIntervalSince(date) < 60 ? "только что" : relative.localizedString(for: date, relativeTo: Date())
+        return ago(date)
     }
+
+    static func ago(_ date: Date) -> String {
+        Date().timeIntervalSince(date) < 60 ? "только что" : relative.localizedString(for: date, relativeTo: Date())
+    }
+
+    private static func formatter(_ format: String, template: Bool = false) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        if template { formatter.setLocalizedDateFormatFromTemplate(format) } else { formatter.dateFormat = format }
+        return formatter
+    }
+    private static let time = formatter("HH:mm")
+    private static let day = formatter("d MMM", template: true)
+    private static let dayTime = formatter("d MMMM 'в' HH:mm")
+
+    // Сброс лимита: «до 14:00» сегодня, «до завтра 14:00», дальше — «до 31 окт.»
+    static func resetShort(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) { return "до \(time.string(from: date))" }
+        if Calendar.current.isDateInTomorrow(date) { return "до завтра \(time.string(from: date))" }
+        return "до \(day.string(from: date))"
+    }
+
+    static func resetFull(_ date: Date) -> String { dayTime.string(from: date) }
 }
 
 enum CLI {
@@ -1223,6 +1264,21 @@ final class AppModel: ObservableObject {
             guard let fetched = Dates.parse(snapshots[repo.slug]?.fetchedAt) else { return true }
             return Date().timeIntervalSince(fetched) > Self.syncOnOpenAfter
         }
+    }
+
+    // Лимит считается исчерпанным, только пока данные свежие и сброс впереди: устаревший лимит лучше не показывать вовсе
+    func availability(_ agent: String) -> AgentAvailability {
+        if let limit = limits[agent], limit.usedPercent >= 100,
+           let resetsAt = Dates.parse(limit.resetsAt), resetsAt > Date(),
+           let updatedAt = Dates.parse(limit.at), Date().timeIntervalSince(updatedAt) < 3600 {
+            return .limitExhausted(resetsAt: resetsAt, updatedAt: updatedAt)
+        }
+        return config.agents[agent]?.isAuto == false ? .manualOnly : .available
+    }
+
+    func skipReason(repo: String, pr: PullRequest, agent: String) -> String? {
+        guard let mark = state.repos?[repo]?.prs[String(pr.id)]?.skipped?[agent], mark.head == pr.head else { return nil }
+        return mark.reason
     }
 
     func reviewState(repo: String, pr: PullRequest, agent: String) -> ReviewState {

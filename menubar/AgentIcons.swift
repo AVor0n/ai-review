@@ -130,11 +130,83 @@ struct AgentMark: View {
     }
 }
 
+// Бейдж особого состояния поверх знака модели: песочные часы — лимит исчерпан, пауза — только вручную
+struct AgentBadge: View {
+    let availability: AgentAvailability
+
+    var body: some View {
+        switch availability {
+        case .limitExhausted: badge("hourglass.circle.fill", .red)
+        case .manualOnly: badge("pause.circle.fill", .gray)
+        case .available: EmptyView()
+        }
+    }
+
+    private func badge(_ symbol: String, _ color: Color) -> some View {
+        Image(systemName: symbol)
+            .font(.system(size: 8, weight: .bold))
+            .symbolRenderingMode(.palette)
+            .foregroundStyle(.white, color)
+            .background(Circle().fill(Theme.card).padding(-1))
+            .offset(x: 3, y: 3)
+    }
+}
+
+// Капсула в шапке обзора для модели с исчерпанным лимитом или только для ручного запуска
+struct AvailabilityCapsule: View {
+    let agent: String
+    let name: String
+    let availability: AgentAvailability
+    let action: () -> Void
+
+    private var text: String {
+        switch availability {
+        case .limitExhausted(let resetsAt, _): "\(name): лимит \(Dates.resetShort(resetsAt))"
+        case .manualOnly, .available: "\(name): только вручную"
+        }
+    }
+
+    private var hint: String {
+        switch availability {
+        case .limitExhausted(let resetsAt, let updatedAt):
+            "\(name) исчерпал лимит, сброс \(Dates.resetFull(resetsAt)). После сброса модель снова начнёт ревью сама. Обновлено \(Dates.ago(updatedAt))"
+        case .manualOnly, .available:
+            "\(name) не участвует в фоновом ревью и запускается только по клику на значок. Включить — Настройки → Модели"
+        }
+    }
+
+    var body: some View {
+        let limited = availability.isLimitExhausted
+        Button(action: action) {
+            HStack(spacing: 4) {
+                AgentMark(agent: agent)
+                    .foregroundStyle(AgentMark.color(agent))
+                    .frame(width: 15, height: 15)
+                    .overlay(alignment: .bottomTrailing) { AgentBadge(availability: availability) }
+                    .scaleEffect(0.8)
+                    .frame(width: 16, height: 16)
+                Text(text)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(limited ? AnyShapeStyle(Color.red) : AnyShapeStyle(.secondary))
+            }
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
+            .background(limited ? Color.red.opacity(0.12) : Color.secondary.opacity(0.14), in: Capsule())
+            .fixedSize()
+        }
+        .buttonStyle(.plain)
+        .help(hint)
+    }
+}
+
 struct AgentReviewButton: View {
     let agent: String
     let name: String
     let state: ReviewState
-    var manualOnly = false
+    var availability: AgentAvailability = .available
+    // При выключенном фоновом ревью вручную запускаются все модели, и пометка «только вручную» ничего не говорит
+    var showsManualBadge = true
+    var skipReason: String?
     let action: () -> Void
 
     private var busy: Bool { state == .queued || state == .running }
@@ -147,14 +219,38 @@ struct AgentReviewButton: View {
         }
     }
 
+    private var badge: AgentAvailability {
+        if case .manualOnly = availability, !showsManualBadge { return .available }
+        return availability
+    }
+
+    // У лимита нет «Нажмите, чтобы запустить»: запуск упрётся в лимит, но кнопка работает — данные о лимите могут устареть
     private var hint: String {
-        switch state {
+        switch (state, availability) {
+        case (.none, .limitExhausted(let resetsAt, _)), (.stale, .limitExhausted(let resetsAt, _)):
+            return "\(name): лимит исчерпан \(Dates.resetShort(resetsAt)) — ревью будет после сброса"
+        case (.none, .manualOnly):
+            return "\(name): ревью не было — модель только для ручного запуска. Нажмите, чтобы запустить"
+        case (.stale, .manualOnly):
+            return "\(name): ревью было на старом коммите, в фоне модель не запускается. Нажмите, чтобы проверить новый"
+        case (.done, _) where skipReason == "rebase":
+            return "\(name): повторное ревью не нужно — после rebase изменения те же. Нажмите, чтобы проверить заново"
+        case (.done, _) where skipReason == "ignored":
+            return "\(name): ревью не понадобилось — в диффе только исключённые файлы. Нажмите, чтобы проверить заново"
+        case (.done, _) where skipReason == "empty":
+            return "\(name): ревью не понадобилось — в PR нет изменений относительно целевой ветки. Нажмите, чтобы проверить заново"
+        default:
+            break
+        }
+        let base = switch state {
         case .none: "\(name): ревью не было. Нажмите, чтобы запустить"
         case .stale: "\(name): ревью было на старом коммите. Нажмите, чтобы проверить новый"
         case .done: "\(name): ревью актуально. Нажмите, чтобы проверить заново"
         case .queued: "\(name): ревью в очереди"
         case .running: "\(name): идёт ревью"
         }
+        if case .manualOnly = availability { return "\(base). В фоне эта модель не запускается" }
+        return base
     }
 
     var body: some View {
@@ -166,12 +262,15 @@ struct AgentReviewButton: View {
                     .foregroundStyle(tint)
                     .frame(width: 15, height: 15)
                     .rotationEffect(.degrees(degrees))
+                    .overlay(alignment: .bottomTrailing) {
+                        if !busy { AgentBadge(availability: badge) }
+                    }
             }
             .frame(width: 20, height: 20)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(busy)
-        .help(manualOnly ? "\(hint). В фоне эта модель не запускается" : hint)
+        .help(hint)
     }
 }
