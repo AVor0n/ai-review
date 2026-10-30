@@ -1,0 +1,59 @@
+[
+    {
+        "id": 101,
+        "content": { "raw": "**[P1] Нет проверки на пустой список**\n\n_Generated with [Claude Code](https://claude.com/claude-code)_" },
+        "inline": { "path": "src/list.ts", "to": 12 },
+        "user": { "display_name": "Автор 1", "account_id": "user-1" },
+        "created_on": "2026-10-28T10:00:00+00:00"
+    },
+    {
+        "id": 102,
+        "parent": { "id": 101 },
+        "content": { "raw": "Поправил" },
+        "user": { "display_name": "Человек 1", "account_id": "user-2" },
+        "created_on": "2026-10-28T11:00:00+00:00"
+    },
+    {
+        "id": 103,
+        "parent": { "id": 102 },
+        "content": { "raw": "Подтверждаю.\n\n_Generated with [Codex](https://openai.com/codex)_" },
+        "user": { "display_name": "Автор 1", "account_id": "user-1" },
+        "created_on": "2026-10-28T11:30:00+00:00"
+    },
+    {
+        "id": 201,
+        "content": { "raw": "**[P2] Повторный запрос в цикле**\n\n_Generated with [Codex](https://openai.com/codex)_" },
+        "inline": { "path": "src/api.ts", "from": 40 },
+        "user": { "display_name": "Автор 1", "account_id": "user-1" },
+        "resolution": { "created_on": "2026-10-29T09:00:00+00:00" },
+        "created_on": "2026-10-28T10:05:00+00:00"
+    },
+    {
+        "id": 301,
+        "content": { "raw": "Почему здесь any?" },
+        "inline": { "path": "src/types.ts", "to": 3 },
+        "user": { "display_name": "Человек 2", "account_id": "user-3" },
+        "created_on": "2026-10-28T12:00:00+00:00"
+    },
+    {
+        "id": 401,
+        "content": { "raw": "Черновик ответа" },
+        "pending": true,
+        "user": { "display_name": "Человек 1", "account_id": "user-2" },
+        "created_on": "2026-10-28T12:30:00+00:00"
+    },
+    {
+        "id": 501,
+        "content": { "raw": "" },
+        "deleted": true,
+        "user": { "display_name": "Человек 2", "account_id": "user-3" },
+        "created_on": "2026-10-28T13:00:00+00:00"
+    },
+    {
+        "id": 502,
+        "parent": { "id": 999 },
+        "content": { "raw": "Ответ на удалённый из выдачи тред" },
+        "user": { "display_name": "Человек 2", "account_id": "user-3" },
+        "created_on": "2026-10-28T13:10:00+00:00"
+    }
+]

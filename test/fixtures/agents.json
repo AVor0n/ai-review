@@ -1,0 +1,4 @@
+{
+    "claude": { "marker": "Generated with [Claude", "shortName": "Claude" },
+    "codex": { "marker": "Generated with [Codex", "shortName": "Codex" }
+}
