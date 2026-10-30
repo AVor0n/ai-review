@@ -288,7 +288,7 @@ struct StatsView: View {
             KpiTile(title: "За PR", value: perPr.prs > 0 ? money(perPr.cost / Double(perPr.prs)) : "—", detail: "\(perPr.prs) PR, всё, что делали по PR")
             KpiTile(title: "За исправленное замечание", value: fate.addressed > 0 ? money(reviewCost / Double(fate.addressed)) : "—", detail: "цена ревью · \(fate.addressed) исправлено")
         }
-        GroupedSection("По видам работы", footer: "Цена по тарифам API: Claude сообщает её сам, для Codex она считается по токенам и тарифам из agents.codex.pricing в config.json. С токеном подписки это не реальное списание. Траты памяти и бэклога до 19.10.2026 перенесены из лога с точностью до цента. Фильтр автора действует на всё, что привязано к PR, фильтр типа ревью — только на ревью и ответы в тредах.") {
+        GroupedSection("По видам работы", footer: "Цена по тарифам API: Claude сообщает её сам, для Codex и Cursor она считается по токенам и тарифам из config.json — agents.<модель>.modelPricing для выбранной модели или agents.<модель>.pricing. С токеном подписки это не реальное списание. Траты памяти и бэклога до 19.10.2026 перенесены из лога с точностью до цента. Фильтр автора действует на всё, что привязано к PR, фильтр типа ревью — только на ревью и ответы в тредах.") {
             if kinds.isEmpty {
                 emptyRow
             } else {

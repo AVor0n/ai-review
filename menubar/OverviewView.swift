@@ -37,9 +37,9 @@ struct OverviewView: View {
                 Button("Отмена", role: .cancel) {}
             } message: { target in
                 if target.rebase {
-                    Text(verbatim: "Ветка \(target.pr.source) отстала от \(target.pr.destination) на \(target.behind) коммит(ов)\(target.pr.conflicts == true ? ", будут конфликты — их разрешит Claude Opus, а если вариант неочевиден, rebase отменится" : ""). После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.")
+                    Text(verbatim: "Ветка \(target.pr.source) отстала от \(target.pr.destination) на \(target.behind) коммит(ов)\(target.pr.conflicts == true ? ", будут конфликты — их разрешит Claude, а если вариант неочевиден, rebase отменится" : ""). После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.")
                 } else {
-                    Text(verbatim: "Claude Opus исправит открытые замечания (\(target.openThreads)) в ветке \(target.pr.source), закоммитит, сделает rebase на \(target.pr.destination) и push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.")
+                    Text(verbatim: "Claude перенесёт ветку \(target.pr.source) на свежую \(target.pr.destination), исправит открытые замечания (\(target.openThreads)), прогонит проверки, закоммитит и сделает push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.")
                 }
             }
             .sheet(item: $prompts.report) { target in

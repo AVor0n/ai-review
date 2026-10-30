@@ -87,7 +87,7 @@ struct FixButton: View {
             if isRebase {
                 return "Ветка отстала от базы на \(behind) коммит(ов)\(conflicts ? ", будут конфликты — их разрешит Claude" : "") — rebase, проверки и push"
             }
-            return available == nil ? "Открытых замечаний нет, ветка на свежей базе" : "Исправить открытые замечания (\(openThreads)) — Claude Opus, коммит, rebase и push"
+            return available == nil ? "Открытых замечаний нет, ветка на свежей базе" : "Исправить открытые замечания (\(openThreads)) — Claude: rebase, правки, проверки, коммит и push"
         }
     }
 }
