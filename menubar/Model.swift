@@ -1708,7 +1708,7 @@ final class AppModel: ObservableObject {
         UserDefaults.standard.set(memorySeenAt, forKey: Self.memorySeenKey)
     }
 
-    // Репозитории, где память заполнена на 80% и больше: пора просмотреть правила, пока не начали вытесняться старые
+    // Репозитории, где память заполнена на 80% и больше: пора просмотреть правила, пока не начали вытесняться правила
     var memoryNearlyFull: [(slug: String, count: Int)] {
         config.repos.compactMap { repo in
             let count = memory[repo.slug]?.count ?? 0

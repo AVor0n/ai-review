@@ -2,11 +2,12 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeF
 import { join } from 'node:path';
 import { runStructured } from './agents.mjs';
 import { authorOf, buildThreads } from './comments.mjs';
+import { EVICTION_WINDOW, countLessonUsage, pickEvictions } from './lesson-usage.mjs';
 import { DATA_DIR, TOOL_DIR, appendSpend, loadConfig, log, logError } from './store.mjs';
 
 const MEMORY_DIR = join(DATA_DIR, 'memory');
 const LESSONS_SCHEMA = join(TOOL_DIR, 'schema/lessons.schema.json');
-// Память целиком идёт в промпт каждого ревью, поэтому её размер ограничен; вытесняются старые автоматические правила.
+// Память целиком идёт в промпт каждого ревью, поэтому её размер ограничен; вытесняются наименее полезные автоматические правила.
 // Окно предупреждает заранее, чтобы до вытеснения дошло только то, что человек не успел просмотреть
 const maxLessons = () => loadConfig().memory?.maxLessons ?? 60;
 const MAX_EXCHANGES = 30;
@@ -67,13 +68,12 @@ export const saveMemory = (slug, lessons) => {
 export const newId = () => `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const trim = (slug, lessons) => {
-    // Добавленные и исправленные вручную правила выверены человеком — их не вытесняем
-    const auto = lessons.filter((lesson) => !lesson.manual && !lesson.edited);
-    const overflow = Math.max(0, lessons.length - maxLessons());
-    const dropped = auto.slice(0, overflow);
-    for (const lesson of dropped) log(`${slug}: память заполнена, вытеснено правило — ${lesson.text}`);
-    if (dropped.length) appendMemoryHistory(slug, { kind: 'evict', reason: `память заполнена (${maxLessons()} правил)`, removed: dropped.map(brief) });
-    const ids = new Set(dropped.map((lesson) => lesson.id));
+    const limit = maxLessons();
+    const { victims, short } = pickEvictions(lessons, lessons.length - limit, countLessonUsage(slug, lessons));
+    for (const { lesson, reason } of victims) log(`${slug}: память заполнена, вытеснено правило (${reason}) — ${lesson.text}`);
+    if (short) log(`${slug}: предупреждение — память переполнена (${lessons.length - victims.length} из ${limit}), а вытеснять нечего: остальные правила ручные, исправленные или младше ${EVICTION_WINDOW} запусков. Удалите лишние правила или поднимите memory.maxLessons`);
+    if (victims.length) appendMemoryHistory(slug, { kind: 'evict', reason: `память заполнена (${limit} правил)`, removed: victims.map(({ lesson, reason }) => ({ ...brief(lesson), reason })) });
+    const ids = new Set(victims.map(({ lesson }) => lesson.id));
     return lessons.filter((lesson) => !ids.has(lesson.id));
 };
 

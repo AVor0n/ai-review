@@ -4,8 +4,9 @@ import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { runStructured } from './agents.mjs';
 import { ensureClone, fetchOrigin, resolveCommit } from './git.mjs';
+import { countLessonUsage, mergedFrom } from './lesson-usage.mjs';
 import { appendMemoryHistory, loadMemory, loadMemoryHistory, newId, saveMemory } from './memory.mjs';
-import { DATA_DIR, TOOL_DIR, appendSpend, loadOutcomes, loadStats, readJson, writeJson } from './store.mjs';
+import { DATA_DIR, TOOL_DIR, appendSpend, readJson, writeJson } from './store.mjs';
 
 // Разбор памяти: модель предлагает склеить дубли, удалить бесполезное и переписать размытое, человек смотрит план
 // и применяет его отдельной командой. Правила, добавленные или исправленные вручную, разбор не трогает
@@ -20,30 +21,8 @@ const fingerprint = (lessons) =>
         .update(JSON.stringify(lessons.map((lesson) => [lesson.id, lesson.text])))
         .digest('hex');
 
-// У правил, склеенных из добавленных вручную, источника нет — тогда список склеенных лежит в самом правиле
-const mergedFrom = (lesson) => lesson.source?.mergedFrom ?? lesson.mergedFrom ?? [];
-
 // Сколько раз правило повлияло на ревью и чем кончились замечания, которые на нём основаны
-export const lessonUsage = (slug) => {
-    const usage = new Map();
-    const row = (id) => {
-        if (!usage.has(id)) usage.set(id, { applied: 0, findings: 0, addressed: 0, dismissed: 0 });
-        return usage.get(id);
-    };
-    // Склеенное правило наследует срабатывания тех, из которых его собрали
-    const alias = new Map(loadMemory(slug).flatMap((lesson) => mergedFrom(lesson).map((old) => [old, lesson.id])));
-    const current = (id) => alias.get(id) ?? id;
-    const stats = loadStats().filter((entry) => entry.repo === slug && Array.isArray(entry.appliedLessons));
-    for (const entry of stats) for (const id of new Set(entry.appliedLessons.map(current))) row(id).applied++;
-    for (const outcome of loadOutcomes().filter((item) => item.repo === slug && item.lessons?.length)) {
-        for (const id of new Set(outcome.lessons.map(current))) {
-            row(id).findings++;
-            if (outcome.outcome === 'addressed') row(id).addressed++;
-            else if (outcome.outcome === 'dismissed' || outcome.outcome === 'unchanged') row(id).dismissed++;
-        }
-    }
-    return { usage, since: stats[0]?.at ?? null, runs: stats.length };
-};
+export const lessonUsage = (slug) => countLessonUsage(slug, loadMemory(slug));
 
 export const usageLine = (counts) => {
     if (!counts) return 'не срабатывало';
