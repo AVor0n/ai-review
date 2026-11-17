@@ -34,7 +34,7 @@ export const countLessonUsage = (slug, lessons) => {
     return { usage, since: stats[0]?.at ?? null, runs: stats.length, runTimes: stats.map((entry) => entry.at) };
 };
 
-const plural = (count, [one, few, many]) =>
+export const plural = (count, [one, few, many]) =>
     `${count} ${count % 10 === 1 && count % 100 !== 11 ? one : [2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100) ? few : many}`;
 const times = (count) => plural(count, ['раз', 'раза', 'раз']);
 const ofRuns = (count) => plural(count, ['запуск', 'запуска', 'запусков']);

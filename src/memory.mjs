@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeF
 import { join } from 'node:path';
 import { runStructured } from './agents.mjs';
 import { authorOf, buildThreads } from './comments.mjs';
-import { EVICTION_WINDOW, countLessonUsage, pickEvictions } from './lesson-usage.mjs';
+import { EVICTION_WINDOW, countLessonUsage, pickEvictions, plural } from './lesson-usage.mjs';
 import { DATA_DIR, TOOL_DIR, appendSpend, loadConfig, log, logError } from './store.mjs';
 
 const MEMORY_DIR = join(DATA_DIR, 'memory');
@@ -72,7 +72,7 @@ const trim = (slug, lessons) => {
     const { victims, short } = pickEvictions(lessons, lessons.length - limit, countLessonUsage(slug, lessons));
     for (const { lesson, reason } of victims) log(`${slug}: память заполнена, вытеснено правило (${reason}) — ${lesson.text}`);
     if (short) log(`${slug}: предупреждение — память переполнена (${lessons.length - victims.length} из ${limit}), а вытеснять нечего: остальные правила ручные, исправленные или младше ${EVICTION_WINDOW} запусков. Удалите лишние правила или поднимите memory.maxLessons`);
-    if (victims.length) appendMemoryHistory(slug, { kind: 'evict', reason: `память заполнена (${limit} правил)`, removed: victims.map(({ lesson, reason }) => ({ ...brief(lesson), reason })) });
+    if (victims.length) appendMemoryHistory(slug, { kind: 'evict', reason: `память заполнена (${plural(limit, ['правило', 'правила', 'правил'])})`, removed: victims.map(({ lesson, reason }) => ({ ...brief(lesson), reason })) });
     const ids = new Set(victims.map(({ lesson }) => lesson.id));
     return lessons.filter((lesson) => !ids.has(lesson.id));
 };
