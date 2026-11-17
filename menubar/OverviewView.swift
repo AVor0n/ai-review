@@ -214,14 +214,18 @@ struct OverviewView: View {
 
     private func memoryBanner(slug: String, count: Int) -> some View {
         let full = count >= model.memoryLimit
+        // Сверх лимита память бывает, только когда сервису нечего вытеснить
+        let overflow = count > model.memoryLimit
         let color: Color = full ? .red : .yellow
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: "brain")
                 .foregroundStyle(full ? Color.red : Color.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text(full ? "Память \(slug) заполнена: \(count) из \(model.memoryLimit)" : "Память \(slug) почти заполнена: \(count) из \(model.memoryLimit)")
+                Text(overflow ? "Память \(slug) переполнена: \(count) из \(model.memoryLimit)" : full ? "Память \(slug) заполнена: \(count) из \(model.memoryLimit)" : "Память \(slug) почти заполнена: \(count) из \(model.memoryLimit)")
                     .font(.system(size: 12, weight: .semibold))
-                Text(full
+                Text(overflow
+                    ? "Вытеснять нечего: остальные правила добавлены или исправлены вручную либо выучены недавно, поэтому память растёт. Удалите лишние правила или поднимите memory.maxLessons в config.json."
+                    : full
                     ? "Новые правила вытесняют наименее полезные автоматические. Удалите лишние или поправьте нужные — исправленные вручную не вытесняются."
                     : "Скоро новые правила начнут вытеснять наименее полезные. Просмотрите память: удалите лишнее, поправьте нужное — исправленные вручную правила не вытесняются.")
                     .font(.system(size: 11))
