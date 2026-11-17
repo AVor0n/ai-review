@@ -92,11 +92,11 @@ const write = (path, entries) => {
     writeFileSync(path, entries.map((entry) => JSON.stringify(entry)).join('\n'));
 };
 
-test('отчёт: полнота, при размере T, строгая полнота, точность, размер и потери', () => {
+test('отчёт: полнота, при размере T, прирост TG к T, строгая полнота, точность, размер и потери', () => {
     const row = (pr, head, at, picks) => ({ at, repo: 'backend', pr, head, tags: [], communities: {}, graphCommit: null, total: { ids: ['a', 'b', 'c', 'd'], chars: 400 }, picks });
     write(JOURNAL_FILE, [
-        row(1, 'h1', '2026-11-17T10:00:00.000Z', { T: { ids: ['a', 'b'], chars: 200 }, G: { ids: ['d', 'c'], chars: 200 } }),
-        row(2, 'h2', '2026-11-17T12:00:00.000Z', { T: { ids: ['a'], chars: 100 }, G: { ids: ['a', 'd'], chars: 200 } }),
+        row(1, 'h1', '2026-11-17T10:00:00.000Z', { T: { ids: ['a', 'b'], chars: 200 }, G: { ids: ['d', 'c'], chars: 200 }, TG: { ids: ['a', 'b', 'd'], chars: 300 } }),
+        row(2, 'h2', '2026-11-17T12:00:00.000Z', { T: { ids: ['a'], chars: 100 }, G: { ids: ['a', 'd'], chars: 200 }, TG: { ids: ['a', 'd'], chars: 200 } }),
         { ...row(9, 'h9', '2026-11-17T12:00:00.000Z', { T: { ids: [], chars: 0 } }), repo: 'frontend' },
     ]);
     write(join(DATA_DIR, 'stats.jsonl'), [
@@ -111,14 +111,16 @@ test('отчёт: полнота, при размере T, строгая пол
     const [backend] = selectionReport({ repo: 'backend' }).repos;
     assert.equal(backend.heads, 2);
     assert.equal(backend.runs, 3);
-    assert.deepEqual(backend.totals.all, { heads: 2, hits: 4, reference: 4, picked: 12, equalHits: 0, strictHits: 1, strictReference: 1, count: 8, chars: 800 });
-    assert.deepEqual(backend.totals.T, { heads: 2, hits: 2, reference: 4, picked: 5, equalHits: 2, strictHits: 0, strictReference: 1, count: 3, chars: 300 });
+    assert.deepEqual(backend.totals.all, { heads: 2, hits: 4, reference: 4, picked: 12, equalHits: 0, strictHits: 1, strictReference: 1, count: 8, chars: 800, baseHits: 0, baseStrictHits: 0, baseCount: 0 });
+    assert.deepEqual(backend.totals.T, { heads: 2, hits: 2, reference: 4, picked: 5, equalHits: 2, strictHits: 0, strictReference: 1, count: 3, chars: 300, baseHits: 0, baseStrictHits: 0, baseCount: 0 });
     // G при размере T: в PR 1 из [d, c] остаются оба, в PR 2 из [a, d] — только a
-    assert.deepEqual(backend.totals.G, { heads: 2, hits: 2, reference: 4, picked: 6, equalHits: 1, strictHits: 1, strictReference: 1, count: 4, chars: 400 });
-    assert.deepEqual(backend.misses, [{ pr: 1, head: 'h1', strategy: 'T', id: 'c' }]);
+    assert.deepEqual(backend.totals.G, { heads: 2, hits: 2, reference: 4, picked: 6, equalHits: 1, strictHits: 1, strictReference: 1, count: 4, chars: 400, baseHits: 0, baseStrictHits: 0, baseCount: 0 });
+    assert.deepEqual(backend.misses, [{ pr: 1, head: 'h1', strategy: 'T', id: 'c' }, { pr: 1, head: 'h1', strategy: 'TG', id: 'c' }]);
     const text = renderSelectionReport(selectionReport({ repo: 'backend' }));
     assert.match(text, /\| T \| 50% \(2\/4\) \| 50% \| 0% \(0\/1\) \| 40% \| 2 \| 150 \|/);
     assert.match(text, /\| G \| 50% \(2\/4\) \| 25% \|/);
+    // TG начинается с правил T: вместо обрезки — прирост к T на тех же головах
+    assert.match(text, /\| TG \| 75% \(3\/4\) \| \+25 п\.п\., строгая \+0 п\.п\., \+1 правил \|/);
     assert.match(text, /PR #1 \(h1\) · T · \[c\]/);
     assert.equal(selectionReport({ since: '2026-11-18' }).repos.length, 0);
 });
