@@ -9,14 +9,16 @@ const REVIEW_SCHEMA = join(TOOL_DIR, 'schema/review.schema.json');
 const running = new Set();
 
 // Модель запускает свои подпроцессы (git, rg), поэтому убиваем всю группу, а не только CLI
-export const killAgents = () => {
-    for (const child of running) {
-        try {
-            process.kill(-child.pid, 'SIGTERM');
-        } catch {
-            // процесс уже завершился
-        }
+const killGroup = (child) => {
+    try {
+        process.kill(-child.pid, 'SIGTERM');
+    } catch {
+        // процесс уже завершился
     }
+};
+
+export const killAgents = () => {
+    for (const child of running) killGroup(child);
 };
 
 // Токены CLI — в Keychain: у Claude это `claude setup-token` (обычная OAuth-сессия в фоне протухает), у Cursor — API-ключ
@@ -52,7 +54,8 @@ const runProcess = (command, args, { cwd, input, timeoutMs, env, unset = [], onL
         child.stderr.on('data', (chunk) => (stderr += chunk));
         const timer = setTimeout(() => {
             timedOut = true;
-            killAgents();
+            // Только свой вызов: в том же процессе идут ревью других репозиториев
+            killGroup(child);
         }, timeoutMs);
         child.on('error', reject);
         child.on('close', (code) => {
