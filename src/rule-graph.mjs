@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
@@ -13,28 +13,40 @@ const VENV = join(homedir(), '.pr-reviewer/graphify-venv');
 const GRAPHS_DIR = join(homedir(), '.pr-reviewer/graphs');
 const COMMUNITIES_SCRIPT = join(TOOL_DIR, 'scripts/graph-communities.py');
 const MAX_AGE_MS = 24 * 3600_000;
-const BUILD_TIMEOUT_MS = 15 * 60_000;
+// Сборка идёт перед ревью, поэтому ограничена: не уложилась — граф в этот раз пропускается
+export const BUILD_TIMEOUT_MS = 3 * 60_000;
 
 export const graphifyInstalled = () => existsSync(join(VENV, 'bin/graphify'));
 
 const graphDir = (slug) => join(GRAPHS_DIR, slug);
 const metaFile = (slug) => join(graphDir(slug), 'meta.json');
 const communitiesFile = (slug) => join(graphDir(slug), 'communities.json');
+// Сообщества каждой сборки хранятся отдельно: отчёт пересчитывает подбор по графу той сборки, что была при ревью
+const snapshotFile = (slug, commit) => join(graphDir(slug), 'snapshots', `${commit.slice(0, 12)}.json`);
+const MAX_SNAPSHOTS = 60;
 
 const build = async (repo, clone, ref, commit, variants) => {
     const src = join(graphDir(repo.slug), 'src');
     mkdirSync(src, { recursive: true });
     // graphify-out с кэшем разбора оставляем: пересборка тогда инкрементальная
     for (const entry of readdirSync(src)) if (entry !== 'graphify-out') rmSync(join(src, entry), { recursive: true, force: true });
-    await run('sh', ['-c', 'git -C "$0" archive "$1" | tar -x -C "$2"', clone, commit, src], { maxBuffer: 64 * 1024 * 1024 });
+    const deadline = Date.now() + BUILD_TIMEOUT_MS;
+    const left = () => Math.max(1000, deadline - Date.now());
+    await run('sh', ['-c', 'git -C "$0" archive "$1" | tar -x -C "$2"', clone, commit, src], { timeout: left(), maxBuffer: 64 * 1024 * 1024 });
     const env = { ...process.env, GRAPHIFY_BACKEND: 'none', GRAPHIFY_VIZ_NODE_LIMIT: '1' };
     // --force: после удаления кода в графе меньше узлов, и без флага Graphify отказывается перезаписать граф
-    await run(join(VENV, 'bin/graphify'), ['update', '.', '--force'], { cwd: src, env, timeout: BUILD_TIMEOUT_MS, maxBuffer: 64 * 1024 * 1024 });
+    await run(join(VENV, 'bin/graphify'), ['update', '.', '--force'], { cwd: src, env, timeout: left(), maxBuffer: 64 * 1024 * 1024 });
     const { stdout } = await run(join(VENV, 'bin/python'), ['-I', COMMUNITIES_SCRIPT, join(src, 'graphify-out/graph.json'), variants.join(',')], {
-        timeout: BUILD_TIMEOUT_MS,
+        timeout: left(),
         maxBuffer: 256 * 1024 * 1024,
     });
-    writeJson(communitiesFile(repo.slug), { commit, ...JSON.parse(stdout) }, 0);
+    const communities = { commit, ...JSON.parse(stdout) };
+    writeJson(communitiesFile(repo.slug), communities, 0);
+    writeJson(snapshotFile(repo.slug, commit), communities, 0);
+    const snapshots = readdirSync(join(graphDir(repo.slug), 'snapshots'))
+        .map((name) => ({ name, at: statSync(join(graphDir(repo.slug), 'snapshots', name)).mtimeMs }))
+        .sort((a, b) => b.at - a.at);
+    for (const { name } of snapshots.slice(MAX_SNAPSHOTS)) rmSync(join(graphDir(repo.slug), 'snapshots', name), { force: true });
     writeJson(metaFile(repo.slug), { ref, commit, variants, builtAt: new Date().toISOString() });
 };
 
@@ -59,4 +71,13 @@ export const loadGraph = async (repo, clone, ref, variants) => {
         writeJson(metaFile(repo.slug), { ref, commit, variants, failedAt: new Date().toISOString(), error: error.message.slice(0, 500) });
         throw new Error(`граф кода не собран — ${error.message.split('\n')[0]}`);
     }
+};
+
+// Сообщества сборки графа по её коммиту; null — снимка нет (сборка до появления снимков или вытеснена)
+export const loadCommunitiesAt = (slug, commit) => {
+    if (!commit) return null;
+    const snapshot = readJson(snapshotFile(slug, commit), null);
+    if (snapshot) return snapshot;
+    const current = readJson(communitiesFile(slug), null);
+    return current?.commit === commit ? current : null;
 };

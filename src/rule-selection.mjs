@@ -5,6 +5,7 @@ import { runStructured } from './agents.mjs';
 import { resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
 import { defaultRef } from './memory-review.mjs';
+import { graphPicks, historyBefore } from './rule-binding.mjs';
 import { loadGraph } from './rule-graph.mjs';
 import { DATA_DIR, TOOL_DIR, appendJsonl, appendSpend, loadJsonl, loadOutcomes, loadStats, log, readJson, writeJson } from './store.mjs';
 
@@ -27,15 +28,19 @@ const saveSelection = (slug, data) => writeJson(selectionFile(slug), data);
 export const lessonChars = (lesson) => `- [${lesson.id}] ${lesson.text}\n`.length;
 
 // Дешёвый запуск: модель памяти с низким effort, если в конфиге не задано иное
-const taggingAgent = (config) => {
+// Разметка перед ревью ограничена по времени: теневой режим не должен задерживать ревью
+export const SHADOW_TAGGING_MINUTES = 2;
+
+const taggingAgent = (config, timeoutMinutes) => {
     const tagging = config.memory?.tagging ?? {};
     const agentId = tagging.agent ?? config.memory?.agent ?? 'claude';
     const effort = tagging.effort ?? 'low';
-    return { agentId, agent: { ...config.agents[agentId], ...(tagging.model ? { model: tagging.model } : {}), effort, reasoningEffort: effort } };
+    const agent = { ...config.agents[agentId], ...(tagging.model ? { model: tagging.model } : {}), effort, reasoningEffort: effort };
+    return { agentId, agent: timeoutMinutes ? { ...agent, timeoutMinutes } : agent };
 };
 
-const runTagging = async (config, workDir, kind, slug, prompt, schemaPath) => {
-    const { agentId, agent } = taggingAgent(config);
+const runTagging = async (config, workDir, kind, slug, prompt, schemaPath, timeoutMinutes = null) => {
+    const { agentId, agent } = taggingAgent(config, timeoutMinutes);
     mkdirSync(workDir, { recursive: true });
     const startedAt = Date.now();
     const { data, usage } = await runStructured(agentId, agent, { cwd: workDir, workDir, prompt, schemaPath });
@@ -137,10 +142,10 @@ export const initSelection = async ({ config, repo, workDir, graph = ['native'],
 };
 
 // Новые, склеенные и добавленные вручную правила размечаются тем же словарём; словарь при этом не растёт
-const tagMissingLessons = async (config, repo, workDir, data, lessons) => {
+const tagMissingLessons = async (config, repo, workDir, data, lessons, timeoutMinutes = null) => {
     const missing = lessons.filter((lesson) => !data.lessonTags[lesson.id]);
     if (!missing.length) return false;
-    const answer = await runTagging(config, workDir, 'rule-tags', repo.slug, lessonTagsPrompt(repo, data.vocabulary, missing), RULE_TAGS_SCHEMA);
+    const answer = await runTagging(config, workDir, 'rule-tags', repo.slug, lessonTagsPrompt(repo, data.vocabulary, missing), RULE_TAGS_SCHEMA, timeoutMinutes);
     applyLessonTags(data, missing, answer);
     // Модель могла пропустить правило: без тегов оно не попадёт в T, и это будет видно в отчёте как потеря
     return true;
@@ -215,32 +220,15 @@ export const pick = (lessons, keep) => {
     return { ids, chars: lessons.filter((lesson) => chosen.has(lesson.id)).reduce((sum, lesson) => sum + lessonChars(lesson), 0) };
 };
 
-// Подбор всех стратегий. applications — запуски ревью до этой головы: { pr, head, appliedLessons }
-export const selectRules = ({ lessons, data, prTags, prPaths, graph, applications, filesOf }) => {
-    const picks = {};
+// Подбор всех стратегий; graph — сообщества файлов основной ветки, history — запуски и замечания до этого PR
+export const selectRules = ({ lessons, data, prTags, prPaths, graph, history, currentPr }) => {
     const tagged = new Set(prTags);
-    const byTags = (lesson) => (data.lessonTags[lesson.id] ?? []).some((tag) => tag === GENERAL || tagged.has(tag));
-    picks.T = pick(lessons, byTags);
-    const prCommunities = {};
-    if (graph) {
-        // Пути правила: файл его треда и файлы PR, где оно уже применялось
-        const runs = new Map(lessons.map((lesson) => [lesson.id, new Set()]));
-        for (const run of applications) {
-            for (const id of run.appliedLessons) runs.get(id)?.add(`${run.pr}@${run.head}`);
-        }
-        const lessonPaths = new Map(lessons.map((lesson) => [lesson.id, [...(data.lessonFiles[lesson.id] ?? []), ...[...runs.get(lesson.id)].flatMap(filesOf)]]));
-        for (const [variant, key, union] of [['native', 'G', 'TG'], ['nolibs', 'G2', 'TG2']]) {
-            if (!data.graph.includes(variant)) continue;
-            const communityOf = (path) => graph.files[path]?.[variant];
-            const pathsToCommunities = (paths) => new Set(paths.map(communityOf).filter((id) => id !== undefined));
-            const own = pathsToCommunities(prPaths);
-            prCommunities[variant] = [...own].sort((a, b) => a - b);
-            const byGraph = (lesson) => [...pathsToCommunities(lessonPaths.get(lesson.id))].some((id) => own.has(id));
-            picks[key] = pick(lessons, byGraph);
-            picks[union] = pick(lessons, (lesson) => byTags(lesson) || byGraph(lesson));
-        }
-    }
-    return { picks, prCommunities };
+    const picks = { T: pick(lessons, (lesson) => (data.lessonTags[lesson.id] ?? []).some((tag) => tag === GENERAL || tagged.has(tag))) };
+    if (!graph) return { picks, prCommunities: {} };
+    const byGraph = graphPicks({ lessonIds: lessons.map((lesson) => lesson.id), tIds: picks.T.ids, lessonFiles: data.lessonFiles, variants: data.graph, files: graph.files, prPaths, history, currentPr });
+    const byId = new Map(lessons.map((lesson) => [lesson.id, lesson]));
+    for (const [key, ids] of Object.entries(byGraph.picks)) picks[key] = { ids, chars: ids.reduce((sum, id) => sum + lessonChars(byId.get(id)), 0) };
+    return { picks, prCommunities: byGraph.communities };
 };
 
 const journaled = (repo, pr, head) => loadJsonl(JOURNAL_FILE).some((row) => row.repo === repo && row.pr === pr && row.head === head);
@@ -254,10 +242,10 @@ export const shadowSelect = async (ctx, repo, pr, { clone, head, diff, files, de
     if (!lessons.length) return;
     const workDir = join(ctx.workDir, 'rule-selection');
     const ref = defaultRef(clone);
-    await tagMissingLessons(ctx.config, repo, workDir, data, lessons);
+    await tagMissingLessons(ctx.config, repo, workDir, data, lessons, SHADOW_TAGGING_MINUTES);
     await bindLessonFiles(ctx.bitbucket, repo, data, lessons);
     const commits = (git(clone, ['log', '--format=%s', `${ref}..${resolveCommit(clone, head)}`]) ?? '').split('\n').filter(Boolean).slice(0, 50);
-    const answer = await runTagging(ctx.config, workDir, 'rule-pr-tags', repo.slug, prTagsPrompt(repo, data.vocabulary, { pr, description, commits, files, diff }), PR_TAGS_SCHEMA);
+    const answer = await runTagging(ctx.config, workDir, 'rule-pr-tags', repo.slug, prTagsPrompt(repo, data.vocabulary, { pr, description, commits, files, diff }), PR_TAGS_SCHEMA, SHADOW_TAGGING_MINUTES);
     const prTags = cleanTags(answer.tags ?? [], data.vocabulary, { allowGeneral: false });
     let graph = null;
     try {
@@ -265,23 +253,26 @@ export const shadowSelect = async (ctx, repo, pr, { clone, head, diff, files, de
     } catch (error) {
         log(`${repo.slug}: подбор правил — ${error.message}; стратегии по графу в этот раз пропущены`);
     }
-    // Эталон текущей головы ещё не известен; запуски этой же головы из прошлого не берём, чтобы не подсказывать ответ
-    const applications = loadStats().filter((entry) => entry.repo === repo.slug && Array.isArray(entry.appliedLessons) && !(entry.pr === pr.id && entry.head === head));
-    const filesOf = (key) => {
-        const [prId, prHead] = key.split('@');
-        return prFiles(clone, data, ref, Number(prId), prHead);
-    };
-    const { picks, prCommunities } = selectRules({ lessons, data, prTags, prPaths: files, graph, applications, filesOf });
+    const at = new Date().toISOString();
+    const stats = loadStats();
+    // Файлы прошлых PR нужны для долей применений по сообществам; считаются по клону один раз и кэшируются
+    if (graph) for (const run of stats.filter((entry) => entry.repo === repo.slug && Array.isArray(entry.appliedLessons))) prFiles(clone, data, ref, run.pr, run.head);
+    // Данные этого PR в привязку не идут: иначе подбор подглядывал бы в ответ
+    const history = historyBefore({ stats, outcomes: loadOutcomes(), prFiles: data.prFiles, repo: repo.slug, before: at });
+    const { picks, prCommunities } = selectRules({ lessons, data, prTags, prPaths: files, graph, history, currentPr: pr.id });
     data.prFiles[`${pr.id}@${head}`] = files;
     saveSelection(repo.slug, data);
+    // Файлы PR, размеры правил и коммит графа — чтобы отчёт мог пересчитать стратегии по графу с другой привязкой
     appendJsonl(JOURNAL_FILE, {
-        at: new Date().toISOString(),
+        at,
         repo: repo.slug,
         pr: pr.id,
         head,
         tags: prTags,
+        files,
         communities: prCommunities,
         graphCommit: graph?.commit ?? null,
+        sizes: Object.fromEntries(lessons.map((lesson) => [lesson.id, lessonChars(lesson)])),
         total: pick(lessons, () => true),
         picks,
     });
