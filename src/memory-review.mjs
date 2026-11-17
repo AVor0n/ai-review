@@ -33,7 +33,7 @@ export const usageLine = (counts) => {
 
 // develop — основная ветка в репозиториях команды; origin/HEAD у служебного клона наследуется от локальной копии
 // и может указывать на ветку задачи
-const defaultRef = (clone) => {
+export const defaultRef = (clone) => {
     if (resolveCommit(clone, 'origin/develop')) return 'origin/develop';
     const head = spawnSync('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], { cwd: clone, encoding: 'utf8' });
     return head.status === 0 && head.stdout.trim() ? head.stdout.trim() : 'origin/master';

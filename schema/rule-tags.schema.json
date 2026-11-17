@@ -1,0 +1,19 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["lessons"],
+    "properties": {
+        "lessons": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "tags"],
+                "properties": {
+                    "id": { "type": "string" },
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                }
+            }
+        }
+    }
+}

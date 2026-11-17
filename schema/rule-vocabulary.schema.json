@@ -1,0 +1,31 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["vocabulary", "lessons"],
+    "properties": {
+        "vocabulary": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tag", "description"],
+                "properties": {
+                    "tag": { "type": "string" },
+                    "description": { "type": "string" }
+                }
+            }
+        },
+        "lessons": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["id", "tags"],
+                "properties": {
+                    "id": { "type": "string" },
+                    "tags": { "type": "array", "items": { "type": "string" } }
+                }
+            }
+        }
+    }
+}

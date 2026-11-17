@@ -167,6 +167,21 @@ exec node "$TOOL_DIR/src/cli.mjs" "\$@"
 EOF
 chmod +x "$TOOL_DIR/bin/pr-reviewer"
 
+# Graphify — граф кода для исследования подбора правил памяти. Ставится в свой venv; без uv исследование идёт без графа
+GRAPHIFY_SPEC='graphifyy[leiden,sql]==0.9.111'
+GRAPHIFY_VENV="$HOME/.pr-reviewer/graphify-venv"
+if [[ $(cat "$GRAPHIFY_VENV/.installed" 2>/dev/null) != "$GRAPHIFY_SPEC" ]]; then
+    if command -v uv >/dev/null; then
+        echo "Ставлю $GRAPHIFY_SPEC в $GRAPHIFY_VENV…"
+        rm -rf "$GRAPHIFY_VENV"
+        uv venv -q -p 3.13 "$GRAPHIFY_VENV"
+        VIRTUAL_ENV="$GRAPHIFY_VENV" uv pip install -q "$GRAPHIFY_SPEC"
+        echo "$GRAPHIFY_SPEC" > "$GRAPHIFY_VENV/.installed"
+    else
+        echo "Не найден uv: Graphify не установлен, подбор правил по графу кода будет пропускаться (brew install uv и повторите ./install.sh)"
+    fi
+fi
+
 # Первая установка стартует на паузе: сначала проверка через run --dry-run, потом resume
 if [[ ! -f "$DATA_DIR/state.json" && ! -f "$DATA_DIR/paused" ]]; then
     date > "$DATA_DIR/paused"

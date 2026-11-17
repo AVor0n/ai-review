@@ -12,6 +12,8 @@ import { fixWorker, requestFix, stopFix } from './fix.mjs';
 import { addLesson, collectFeedback, learn, loadMemory, removeLesson, updateLesson } from './memory.mjs';
 import { applyMemoryPlan, discardMemoryPlan, isPlanOutdated, lessonUsage, loadMemoryPlan, renderMemoryHistory, renderMemoryPlan, restoreMemory, reviewMemory, usageLine } from './memory-review.mjs';
 import { loadMemoryHistory } from './memory.mjs';
+import { GENERAL, addTag, initSelection, loadSelection, retagLessons } from './rule-selection.mjs';
+import { renderSelectionReport, selectionReport } from './rule-selection-report.mjs';
 import { addRepo, cloneRepo, listRepos, pruneMissingSources, removeRepo, setRepoPaused } from './repos.mjs';
 import { runPool } from './pool.mjs';
 import { reviewRepo, reviewRequested } from './review.mjs';
@@ -394,8 +396,53 @@ const memoryReview = async (slug) => {
     print(await reviewMemory({ config, repo: requireRepo(slug), workDir: join(DATA_DIR, 'tmp') }));
 };
 
+// Исследование подбора правил (B-24): словарь тегов репозитория и отчёт по теневому журналу
+const tagsCommand = async () => {
+    const [, action, slug, ...rest] = args;
+    if (!slug) throw new Error('pr-reviewer memory tags init|show|add|retag <slug> …');
+    const repo = requireRepo(slug);
+    const config = loadConfig();
+    const workDir = join(DATA_DIR, 'tmp', 'rule-selection');
+    if (action === 'show') {
+        const data = loadSelection(slug);
+        if (!data) return console.log(`Словаря тегов ${slug} нет`);
+        if (hasFlag('--json')) return console.log(JSON.stringify(data, null, 2));
+        const lessons = loadMemory(slug);
+        console.log(`Словарь ${slug} (${data.vocabulary.length}), сообщества графа: ${data.graph.join(', ')}\n`);
+        for (const { tag, description } of data.vocabulary) console.log(`«${tag}» — ${description} · правил ${lessons.filter((lesson) => data.lessonTags[lesson.id]?.includes(tag)).length}`);
+        const general = lessons.filter((lesson) => data.lessonTags[lesson.id]?.[0] === GENERAL).length;
+        const untagged = lessons.filter((lesson) => !data.lessonTags[lesson.id]).length;
+        return console.log(`\n«${GENERAL}»: ${general} · без тегов: ${untagged} · всего правил: ${lessons.length}`);
+    }
+    if (action === 'add') {
+        const [tag, ...words] = rest;
+        addTag(slug, tag ?? '', words.join(' '));
+        return console.log(`Тег «${tag}» добавлен. Разметить правила заново: pr-reviewer memory tags retag ${slug}`);
+    }
+    if (action !== 'init' && action !== 'retag') throw new Error(`Неизвестное действие: memory tags ${action}`);
+    if (!acquireLock()) throw new Error('Сейчас идёт ревью — запустите, когда оно закончится');
+    try {
+        const graph = hasFlag('--graph-nolibs') ? ['native', 'nolibs'] : ['native'];
+        const data = action === 'init' ? await initSelection({ config, repo, workDir, graph, force: hasFlag('--force') }) : await retagLessons({ config, repo, workDir });
+        const lessons = loadMemory(slug);
+        console.log(`Словарь ${slug}: ${data.vocabulary.map(({ tag }) => tag).join(', ')}. Размечено правил: ${lessons.filter((lesson) => data.lessonTags[lesson.id]).length} из ${lessons.length}`);
+    } finally {
+        releaseLock();
+    }
+};
+
+const selectionCommand = () => {
+    const [, action = 'report', slug] = args;
+    if (action !== 'report') throw new Error('pr-reviewer memory selection report [<slug>] [--since <дата>] [--json]');
+    if (slug && !slug.startsWith('--')) requireRepo(slug);
+    const report = selectionReport({ repo: slug && !slug.startsWith('--') ? slug : null, since: option('--since') });
+    console.log(hasFlag('--json') ? JSON.stringify(report, null, 2) : renderSelectionReport(report));
+};
+
 const memoryCommand = () => {
     const [action, slug, ...rest] = args;
+    if (action === 'tags') return tagsCommand();
+    if (action === 'selection') return selectionCommand();
     if (!slug) throw new Error('pr-reviewer memory list|add|remove <slug> …');
     requireRepo(slug);
     if (action === 'list') {
@@ -686,6 +733,8 @@ const commands = {
   memory history <slug> [--limit <N>] [--json] | memory restore <slug>
                  журнал изменений памяти: выучено, правки, удаления, разборы; restore откатывает последний разбор
   memory learn <slug> [--prs <N>] [--dry-run]
+  memory tags init <slug> [--graph-nolibs] [--force] | tags show <slug> [--json] | tags add <slug> <тег> <описание> | tags retag <slug>
+  memory selection report [<slug>] [--since <дата>] [--json]
                  разобрать в память комментарии людей из последних N PR (по умолчанию 100) любого состояния
                  память ревьюеров: правила из ответов команды, которые учитываются в ревью
   arch --repo <slug> --pr <id>

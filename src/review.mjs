@@ -10,6 +10,7 @@ import { collectFeedback, learn, loadMemory } from './memory.mjs';
 import { closeOutcomes, markResolved, recordClosed, trackOutcomes } from './outcomes.mjs';
 import { pruneFixBranches } from './fix.mjs';
 import { buildPrompt } from './prompt.mjs';
+import { shadowSelect } from './rule-selection.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { appendSkip, appendStats, log, logError, pushRecent } from './store.mjs';
 
@@ -381,6 +382,15 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
             }
             needsReview = needsReview.filter((id) => !unchanged.includes(id));
             ctx.save();
+        }
+    }
+
+    // Исследование подбора правил (B-24): только журнал, промпт ревью не меняется
+    if (needsReview.length && !ctx.dryRun) {
+        try {
+            await shadowSelect(ctx, repo, pr, { clone, head, diff, files: [...files.keys()], description: pr.description?.trim() ?? '' });
+        } catch (error) {
+            logError(`${repo.slug}#${pr.id}: подбор правил (тень) не удался — ${error.message}`);
         }
     }
 
