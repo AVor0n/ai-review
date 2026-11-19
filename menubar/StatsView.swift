@@ -106,25 +106,7 @@ struct StatsView: View {
 
     // Вся вкладка одной картинкой, без прокрутки — в «Загрузки», и сразу открываем
     private func exportImage() {
-        let content = sections(data)
-            .padding(.top, 16)
-            .frame(width: 780)
-            .background(Theme.background)
-            .environmentObject(model)
-            .environment(\.colorScheme, colorScheme)
-            .environment(\.locale, Locale(identifier: "ru_RU"))
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 2
-        // Адаптивные цвета Theme выбирают вариант по текущему NSAppearance в момент отрисовки
-        var image: CGImage?
-        NSApp.effectiveAppearance.performAsCurrentDrawingAppearance { image = renderer.cgImage }
-        guard let image, let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd-HHmm"
-        let stamp = formatter.string(from: Date())
-        let url = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0].appendingPathComponent("pr-reviewer-stats-\(stamp).png")
-        guard (try? png.write(to: url)) != nil else { return }
-        NSWorkspace.shared.open(url)
+        ImageExport.save(sections(data).padding(.top, 16), width: 780, name: "pr-reviewer-stats", model: model, colorScheme: colorScheme)
     }
 
     // Один ряд фильтров над всеми графиками: каждый действует на всю вкладку
@@ -136,15 +118,7 @@ struct StatsView: View {
             FilterMenu(icon: "arrow.triangle.2.circlepath", allTitle: "Любое ревью", options: Self.passes.map { ($0.0, $0.1) }, selection: $passFilter)
             Spacer(minLength: 6)
             SegmentedPicker(options: [7, 30, 90], selection: $days, title: { "\($0) дн." }, segmentWidth: 52)
-            Button(action: exportImage) {
-                Image(systemName: "camera")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.primary)
-                    .frame(width: 28, height: 28)
-                    .background(Theme.track, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .help("Сохранить всю статистику картинкой в «Загрузки»")
+            ImageExportButton(help: "Сохранить всю статистику картинкой в «Загрузки»", action: exportImage)
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 10)

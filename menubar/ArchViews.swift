@@ -100,6 +100,7 @@ final class CopyState: ObservableObject {
 struct ArchReportSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var copy = CopyState()
     let target: FixTarget
     let rerun: () -> Void
@@ -111,10 +112,7 @@ struct ArchReportSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: "Архитектурное ревью #\(pr.id)").font(.title3.weight(.semibold))
-                    Text(pr.title).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
-                }
+                header
                 Spacer(minLength: 12)
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
@@ -161,6 +159,9 @@ struct ArchReportSheet: View {
                     }
                 }
                 .disabled(arch?.result == nil)
+                ImageExportButton(help: "Сохранить отчёт картинкой в «Загрузки»", action: exportImage)
+                    .disabled(arch?.result == nil)
+                    .opacity(arch?.result == nil ? 0.4 : 1)
                 Spacer()
                 if arch?.isActive == true {
                     Button("Прервать", role: .destructive) { model.stopArch(repo: target.repo, pr: target.pr.id) }
@@ -181,6 +182,25 @@ struct ArchReportSheet: View {
         .padding(20)
         .frame(width: 660)
         .background(Theme.background)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: "Архитектурное ревью #\(pr.id)").font(.title3.weight(.semibold))
+            Text(pr.title).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
+        }
+    }
+
+    // Весь отчёт без прокрутки, строки статуса, баннеров и кнопок — ширина как у листа
+    private func exportImage() {
+        guard let result = arch?.result else { return }
+        let content = VStack(alignment: .leading, spacing: 12) {
+            header
+            report(result)
+        }
+        .padding(20)
+        let stamp = "pr-reviewer-arch-\(target.repo)-\(pr.id)"
+        ImageExport.save(content, width: 660, name: stamp, model: model, colorScheme: colorScheme)
     }
 
     private func statusLine(_ arch: ArchState) -> some View {
