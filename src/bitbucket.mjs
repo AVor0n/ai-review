@@ -124,6 +124,7 @@ export const createBitbucket = (config) => {
         postComment: (repo, id, body) => request(`${prUrl(repo, id)}/comments`, { method: 'POST', body }),
         deleteComment: (repo, id, commentId) => request(`${prUrl(repo, id)}/comments/${commentId}`, { method: 'DELETE' }),
         resolveComment: (repo, id, commentId) => request(`${prUrl(repo, id)}/comments/${commentId}/resolve`, { method: 'POST' }),
+        listBuildStatuses: (repo, commit) => paginate(`/repositories/${repo.workspace}/${repo.slug}/commit/${commit}/statuses?pagelen=100`),
         // Обновляется только повторным POST с тем же key: PUT с API-токеном отвечает 403
         postBuildStatus: (repo, commit, body) => request(`/repositories/${repo.workspace}/${repo.slug}/commit/${commit}/statuses/build`, { method: 'POST', body }),
         updateComment: (repo, id, commentId, raw) => request(`${prUrl(repo, id)}/comments/${commentId}`, { method: 'PUT', body: { content: { raw } } }),

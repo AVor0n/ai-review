@@ -14,7 +14,7 @@ import { shadowSelect } from './rule-selection.mjs';
 import { postBuildStatus, skipText, summaryText } from './build-status.mjs';
 import { limitExhaustedUntil } from './limits.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
-import { appendSkip, appendStats, log, logError, pushRecent } from './store.mjs';
+import { appendSkip, appendStats, loadStats, log, logError, pushRecent } from './store.mjs';
 
 const emptyCounts = () => ({ P0: 0, P1: 0, P2: 0, P3: 0 });
 
@@ -315,6 +315,14 @@ const updateMemory = async (ctx, repo, repoState, open, comments) => {
     ctx.save();
 };
 
+// Итог головы, отревьюенной до включения статуса или до перезапуска сервиса: счётчики из статистики, последнее ревью каждой модели
+const reviewedHeadCounts = (repo, pr, head, prState) =>
+    Object.fromEntries(
+        loadStats()
+            .filter((entry) => entry.repo === repo.slug && entry.pr === pr.id && entry.head === head && entry.pass !== 'replies' && prState.reviewed[entry.agent] === head)
+            .map((entry) => [entry.agent, entry.findings]),
+    );
+
 // forced — id модели из явной заявки: она ревьюит голову заново, даже если уже ревьюила её, и даже черновик
 const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     const { bitbucket, config, state } = ctx;
@@ -406,7 +414,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     // Модель с исчерпанным лимитом запускается и падает каждый проход: «Проверяется» только ради неё мигал бы на каждом
     const limited = Object.fromEntries(needsReview.map((id) => [id, limitExhaustedUntil(id)]).filter(([, until]) => until));
     const inProgress = needsReview.some((id) => !limited[id]);
-    if (needsReview.length && prState.headReview?.head !== head) prState.headReview = { head, agents: {} };
+    if (needsReview.length && prState.headReview?.head !== head) prState.headReview = { head, agents: reviewedHeadCounts(repo, pr, head, prState) };
     if (inProgress) await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется');
     const failedReviews = [];
 
