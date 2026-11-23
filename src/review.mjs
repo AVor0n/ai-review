@@ -344,7 +344,11 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     const head = pr.source.commit.hash.slice(0, 12);
     const previousReview = prState.headReview?.head === head ? null : prState.headReview;
     // «Проверяется» без итога остаётся после прерванного прохода или упавшего явного запуска: дописываем итог
-    if (prState.headReview?.head === head && prState.headReview.pending) await finishStatus(ctx, repo, pr, pr.source.commit.hash, prState, summaryText(prState.headReview, agents));
+    if (prState.headReview?.head === head && prState.headReview.pending) {
+        // В списке PR хеш короткий, статус пишется на полный, как и остальные записи
+        const pendingCommit = resolveCommit(getClone(ctx, repo), pr.source.commit.hash);
+        if (pendingCommit) await finishStatus(ctx, repo, pr, pendingCommit, prState, summaryText(prState.headReview, agents));
+    }
     let needsReview = forced ? [forced] : autoIds.filter((id) => prState.reviewed[id] !== head);
     if (!forced && !needsReview.length && prState.commentCount === pr.comment_count) return;
 
