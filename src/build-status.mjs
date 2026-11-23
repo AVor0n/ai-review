@@ -4,7 +4,7 @@ import { log, logError } from './store.mjs';
 // Итог ревью статусом сборки на голове PR (B-26): автор видит, что ревью было, даже когда замечаний нет.
 // FAILED не ставим — ревью не блокирует слияние; запись обновляется повторным POST с тем же key
 export const STATUS_KEY = 'pr-reviewer';
-const STATUS_NAME = 'PR Reviewer';
+const STATUS_NAME = 'AI-review';
 const MAX_DESCRIPTION = 250;
 
 const SKIP_TEXTS = {

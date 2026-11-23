@@ -54,7 +54,7 @@ test('запись: POST с одним key, ссылкой на PR и обрез
     assert.equal(await postBuildStatus(ctx, repo, pr, 'abc123', 'INPROGRESS', 'Проверяется'), true);
     await postBuildStatus(ctx, repo, pr, 'abc123', 'SUCCESSFUL', 'x'.repeat(400));
     assert.equal(calls.length, 2);
-    assert.deepEqual(calls[0], [repo, 'abc123', { key: STATUS_KEY, state: 'INPROGRESS', name: 'PR Reviewer', url: pr.links.html.href, description: 'Проверяется' }]);
+    assert.deepEqual(calls[0], [repo, 'abc123', { key: STATUS_KEY, state: 'INPROGRESS', name: 'AI-review', url: pr.links.html.href, description: 'Проверяется' }]);
     assert.equal(calls[1][2].key, STATUS_KEY);
     assert.equal(calls[1][2].description.length, 250);
 
