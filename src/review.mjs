@@ -11,6 +11,7 @@ import { closeOutcomes, markResolved, recordClosed, trackOutcomes } from './outc
 import { pruneFixBranches } from './fix.mjs';
 import { buildPrompt } from './prompt.mjs';
 import { shadowSelect } from './rule-selection.mjs';
+import { postBuildStatus, skipText, summaryText } from './build-status.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { appendSkip, appendStats, log, logError, pushRecent } from './store.mjs';
 
@@ -324,6 +325,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     const prState = (repoState.prs[pr.id] ??= { reviewed: {}, handled: {}, commentCount: null });
     for (const id of agentIds) prState.handled[id] ??= [];
     const head = pr.source.commit.hash.slice(0, 12);
+    const previousReview = prState.headReview?.head === head ? null : prState.headReview;
     let needsReview = forced ? [forced] : autoIds.filter((id) => prState.reviewed[id] !== head);
     if (!forced && !needsReview.length && prState.commentCount === pr.comment_count) return;
 
@@ -381,6 +383,11 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
                 }
             }
             needsReview = needsReview.filter((id) => !unchanged.includes(id));
+            // Новой голове без ревью — статус с причиной, после rebase — с итогом прошлого ревью
+            if (!needsReview.length && prState.headReview?.head !== head) {
+                if (reason === 'rebase' && previousReview) prState.headReview = { ...previousReview, head };
+                await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', skipText(reason, previousReview, agents));
+            }
             ctx.save();
         }
     }
@@ -393,6 +400,12 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
             logError(`${repo.slug}#${pr.id}: подбор правил (тень) не удался — ${error.message}`);
         }
     }
+
+    if (needsReview.length) {
+        if (prState.headReview?.head !== head) prState.headReview = { head, agents: {} };
+        await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется');
+    }
+    const failedReviews = [];
 
     const fullRound = !forced && autoIds.length > 1 && needsReview.length === autoIds.length;
     // Кто первым — свой у каждого репозитория: параллельные дорожки иначе запускали бы первой одну и ту же модель
@@ -440,6 +453,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
         } catch (error) {
             ctx.errors.push(`${repo.slug}#${pr.id} ${agentId}: ${error.message}`);
             logError(`${repo.slug}#${pr.id} ${agentId}: ошибка — ${error.message}`);
+            if (review) failedReviews.push(agentId);
             continue;
         }
 
@@ -458,6 +472,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
             prState.reviewed[agentId] = head;
             prState.patch[agentId] = patch;
             if (prState.skipped) delete prState.skipped[agentId];
+            prState.headReview.agents[agentId] = outcome.counts;
         }
         (prState.findings ??= []).push(...outcome.tracked);
         prState.handled[agentId].push(...outcome.handledIds);
@@ -500,6 +515,11 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
         }
         ctx.save();
         comments = ctx.dryRun ? [...comments, ...outcome.synthetic] : await bitbucket.listComments(repo, pr.id);
+    }
+
+    if (needsReview.length) {
+        await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', summaryText(prState.headReview, agents, failedReviews));
+        ctx.save();
     }
 
     if (fullRound && autoIds.every((id) => prState.reviewed[id] === head)) {

@@ -19,6 +19,19 @@
             "maximum": 1440,
             "description": "Как часто фоновое ревью проверяет открытые PR, в минутах. Меняется в настройках окна"
         },
+        "buildStatus": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Итог ревью статусом сборки «PR Reviewer» на голове PR: «проверяется» во время ревью, затем число моделей и замечаний по уровням или причина, почему ревью не нужно. Слияние не блокирует",
+            "properties": {
+                "enabled": { "type": "boolean", "description": "Писать статус; по умолчанию выключено" },
+                "prs": {
+                    "type": "array",
+                    "items": { "type": "string", "pattern": "^[\\w.-]+#\\d+$" },
+                    "description": "Только эти PR, в виде slug#id — для проверки на своём PR. Пусто — все PR"
+                }
+            }
+        },
         "parallelRepos": {
             "type": "integer",
             "minimum": 1,
