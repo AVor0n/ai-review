@@ -8,6 +8,13 @@ import { DATA_DIR, readJson, writeJson } from './store.mjs';
 // при сбое модель просто остаётся без строки лимита
 const LIMITS_FILE = join(DATA_DIR, 'limits.json');
 
+// Лимит модели исчерпан до этого момента: израсходовано 100% и сброс ещё впереди; null — модель доступна или данных нет
+export const limitExhaustedUntil = (agent, now = Date.now()) => {
+    const limit = readJson(LIMITS_FILE, {})[agent];
+    const resetsAt = Date.parse(limit?.resetsAt ?? '');
+    return limit?.usedPercent >= 100 && resetsAt > now ? new Date(resetsAt) : null;
+};
+
 const save = (agent, value) => writeJson(LIMITS_FILE, { ...readJson(LIMITS_FILE, {}), [agent]: { ...value, at: new Date().toISOString() } });
 
 const isoFromSeconds = (seconds) => (seconds ? new Date(seconds * 1000).toISOString() : null);

@@ -12,6 +12,7 @@ import { pruneFixBranches } from './fix.mjs';
 import { buildPrompt } from './prompt.mjs';
 import { shadowSelect } from './rule-selection.mjs';
 import { postBuildStatus, skipText, summaryText } from './build-status.mjs';
+import { limitExhaustedUntil } from './limits.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { appendSkip, appendStats, log, logError, pushRecent } from './store.mjs';
 
@@ -385,8 +386,9 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
             needsReview = needsReview.filter((id) => !unchanged.includes(id));
             // Новой голове без ревью — статус с причиной, после rebase — с итогом прошлого ревью
             if (!needsReview.length && prState.headReview?.head !== head) {
-                if (reason === 'rebase' && previousReview) prState.headReview = { ...previousReview, head };
-                await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', skipText(reason, previousReview, agents));
+                const text = skipText(reason, previousReview, agents);
+                prState.headReview = { head, agents: reason === 'rebase' && previousReview ? previousReview.agents : {} };
+                if (await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', text)) prState.headReview.posted = text;
             }
             ctx.save();
         }
@@ -401,10 +403,11 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
         }
     }
 
-    if (needsReview.length) {
-        if (prState.headReview?.head !== head) prState.headReview = { head, agents: {} };
-        await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется');
-    }
+    // Модель с исчерпанным лимитом запускается и падает каждый проход: «Проверяется» только ради неё мигал бы на каждом
+    const limited = Object.fromEntries(needsReview.map((id) => [id, limitExhaustedUntil(id)]).filter(([, until]) => until));
+    const inProgress = needsReview.some((id) => !limited[id]);
+    if (needsReview.length && prState.headReview?.head !== head) prState.headReview = { head, agents: {} };
+    if (inProgress) await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется');
     const failedReviews = [];
 
     const fullRound = !forced && autoIds.length > 1 && needsReview.length === autoIds.length;
@@ -518,7 +521,11 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     }
 
     if (needsReview.length) {
-        await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', summaryText(prState.headReview, agents, failedReviews));
+        const text = summaryText(prState.headReview, agents, failedReviews, Object.fromEntries(Object.entries(limited).filter(([id]) => failedReviews.includes(id))));
+        // Тот же итог без «Проверяется» перед ним не переписываем: запись в Bitbucket и так его показывает
+        if ((inProgress || text !== prState.headReview.posted) && (await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', text))) {
+            prState.headReview.posted = text;
+        }
         ctx.save();
     }
 

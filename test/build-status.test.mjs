@@ -32,6 +32,12 @@ test('итог: число моделей и замечания по уровн�
     assert.equal(summaryText({ agents: {} }, agents, ['claude', 'codex']), 'Ревью не удалось (Claude, Codex), повторим на следующем проходе');
 });
 
+test('исчерпанный лимит — отдельно от «не удалось», с датой сброса', () => {
+    const until = new Date(2026, 10, 25, 12);
+    assert.equal(summaryText({ agents: { claude: none } }, agents, ['cursor', 'codex'], { cursor: until }), '1 модель (Claude): замечаний нет · не удалось: Codex · Cursor — лимит до 25.11');
+    assert.equal(summaryText({ agents: {} }, agents, ['cursor'], { cursor: until }), 'Ревью не было: Cursor — лимит до 25.11');
+});
+
 test('ревью не нужно: причина словами, после rebase — с итогом прошлого ревью', () => {
     assert.equal(skipText('empty', null, agents), 'Ревью не нужно: в PR нет изменений относительно целевой ветки');
     assert.equal(skipText('ignored', null, agents), 'Ревью не нужно: в диффе только исключённые файлы');
@@ -45,7 +51,7 @@ test('запись: POST с одним key, ссылкой на PR и обрез
     const calls = [];
     const bitbucket = { postBuildStatus: async (...args) => calls.push(args) };
     const ctx = { config: { buildStatus: { enabled: true } }, bitbucket };
-    await postBuildStatus(ctx, repo, pr, 'abc123', 'INPROGRESS', 'Проверяется');
+    assert.equal(await postBuildStatus(ctx, repo, pr, 'abc123', 'INPROGRESS', 'Проверяется'), true);
     await postBuildStatus(ctx, repo, pr, 'abc123', 'SUCCESSFUL', 'x'.repeat(400));
     assert.equal(calls.length, 2);
     assert.deepEqual(calls[0], [repo, 'abc123', { key: STATUS_KEY, state: 'INPROGRESS', name: 'PR Reviewer', url: pr.links.html.href, description: 'Проверяется' }]);
@@ -57,5 +63,22 @@ test('запись: POST с одним key, ссылкой на PR и обрез
     assert.equal(calls.length, 2);
 
     const failing = { ...ctx, bitbucket: { postBuildStatus: async () => { throw new Error('Bitbucket запретил запрос (403)'); } } };
-    await assert.doesNotReject(postBuildStatus(failing, repo, pr, 'abc123', 'SUCCESSFUL', 'тест'));
+    assert.equal(await postBuildStatus(failing, repo, pr, 'abc123', 'SUCCESSFUL', 'тест'), false);
+    assert.equal(await postBuildStatus({ ...ctx, config: {} }, repo, pr, 'abc123', 'SUCCESSFUL', 'тест'), false);
+});
+
+test('лимит исчерпан: 100% и сброс впереди; сброс прошёл или остаток есть — доступна', async () => {
+    const { DATA_DIR } = await import('../src/store.mjs');
+    const { writeJson } = await import('../src/store.mjs');
+    const { limitExhaustedUntil } = await import('../src/limits.mjs');
+    const now = Date.parse('2026-11-23T10:00:00Z');
+    writeJson(join(DATA_DIR, 'limits.json'), {
+        cursor: { usedPercent: 100, resetsAt: '2026-11-30T11:36:34.000Z' },
+        codex: { usedPercent: 100, resetsAt: '2026-11-22T00:00:00.000Z' },
+        claude: { usedPercent: 99, resetsAt: '2026-11-27T10:00:00.000Z' },
+    });
+    assert.equal(limitExhaustedUntil('cursor', now).toISOString(), '2026-11-30T11:36:34.000Z');
+    assert.equal(limitExhaustedUntil('codex', now), null);
+    assert.equal(limitExhaustedUntil('claude', now), null);
+    assert.equal(limitExhaustedUntil('other', now), null);
 });
