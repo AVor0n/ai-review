@@ -323,6 +323,14 @@ const reviewedHeadCounts = (repo, pr, head, prState) =>
             .map((entry) => [entry.agent, entry.findings]),
     );
 
+const finishStatus = async (ctx, repo, pr, commit, prState, text) => {
+    if (await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', text)) {
+        prState.headReview.posted = text;
+        delete prState.headReview.pending;
+    }
+    ctx.save();
+};
+
 // forced — id модели из явной заявки: она ревьюит голову заново, даже если уже ревьюила её, и даже черновик
 const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     const { bitbucket, config, state } = ctx;
@@ -335,6 +343,8 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     for (const id of agentIds) prState.handled[id] ??= [];
     const head = pr.source.commit.hash.slice(0, 12);
     const previousReview = prState.headReview?.head === head ? null : prState.headReview;
+    // «Проверяется» без итога остаётся после прерванного прохода или упавшего явного запуска: дописываем итог
+    if (prState.headReview?.head === head && prState.headReview.pending) await finishStatus(ctx, repo, pr, pr.source.commit.hash, prState, summaryText(prState.headReview, agents));
     let needsReview = forced ? [forced] : autoIds.filter((id) => prState.reviewed[id] !== head);
     if (!forced && !needsReview.length && prState.commentCount === pr.comment_count) return;
 
@@ -392,12 +402,10 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
                 }
             }
             needsReview = needsReview.filter((id) => !unchanged.includes(id));
+            // После rebase итог прошлой головы переносится: пропущенные модели нашли на тех же изменениях то же самое
+            if (prState.headReview?.head !== head) prState.headReview = { head, agents: reason === 'rebase' && previousReview ? { ...previousReview.agents } : {} };
             // Новой голове без ревью — статус с причиной, после rebase — с итогом прошлого ревью
-            if (!needsReview.length && prState.headReview?.head !== head) {
-                const text = skipText(reason, previousReview, agents);
-                prState.headReview = { head, agents: reason === 'rebase' && previousReview ? previousReview.agents : {} };
-                if (await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', text)) prState.headReview.posted = text;
-            }
+            if (!needsReview.length && !prState.headReview.posted) await finishStatus(ctx, repo, pr, commit, prState, skipText(reason, previousReview, agents));
             ctx.save();
         }
     }
@@ -415,7 +423,10 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     const limited = Object.fromEntries(needsReview.map((id) => [id, limitExhaustedUntil(id)]).filter(([, until]) => until));
     const inProgress = needsReview.some((id) => !limited[id]);
     if (needsReview.length && prState.headReview?.head !== head) prState.headReview = { head, agents: reviewedHeadCounts(repo, pr, head, prState) };
-    if (inProgress) await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется');
+    if (inProgress && (await postBuildStatus(ctx, repo, pr, commit, 'INPROGRESS', 'Проверяется'))) {
+        prState.headReview.pending = true;
+        ctx.save();
+    }
     const failedReviews = [];
 
     const fullRound = !forced && autoIds.length > 1 && needsReview.length === autoIds.length;
@@ -531,10 +542,7 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
     if (needsReview.length) {
         const text = summaryText(prState.headReview, agents, failedReviews, Object.fromEntries(Object.entries(limited).filter(([id]) => failedReviews.includes(id))));
         // Тот же итог без «Проверяется» перед ним не переписываем: запись в Bitbucket и так его показывает
-        if ((inProgress || text !== prState.headReview.posted) && (await postBuildStatus(ctx, repo, pr, commit, 'SUCCESSFUL', text))) {
-            prState.headReview.posted = text;
-        }
-        ctx.save();
+        if (prState.headReview.pending || text !== prState.headReview.posted) await finishStatus(ctx, repo, pr, commit, prState, text);
     }
 
     if (fullRound && autoIds.every((id) => prState.reviewed[id] === head)) {
