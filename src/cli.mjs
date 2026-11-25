@@ -302,7 +302,8 @@ const secretCommand = async () => {
     if (action !== 'set' || !targets[id]) throw new Error(`Использование: secret status | secret set <${Object.keys(targets).join('|')}>`);
     const value = (await askHidden(`${id}: вставьте значение (не отображается) и нажмите Enter: `)).trim();
     if (!value) throw new Error('Пустое значение — ничего не сохранено');
-    const where = writeSecret(targets[id].service, targets[id].account, value);
+    // Токены моделей читаются без аккаунта: на Mac пишем в уже заведённую запись, а не рядом с ней
+    const where = writeSecret(targets[id].service, targets[id].account, value, { reuseAccount: id !== 'bitbucket' });
     console.log(`Сохранено: ${id} → ${{ keychain: 'Keychain', libsecret: 'libsecret', file: 'файл с правами 600' }[where]} (${targets[id].service})`);
 };
 

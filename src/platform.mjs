@@ -72,11 +72,23 @@ export const readSecret = (service, account = null) => {
     return fromFile(service, account);
 };
 
-// Возвращает, куда сохранено: keychain, libsecret или file
-export const writeSecret = (service, account, value) => {
+// Аккаунт уже заведённой записи Keychain: без -w значение не читается, только атрибуты
+const keychainAccount = (service) => {
+    try {
+        const attributes = execFileSync('security', ['find-generic-password', '-s', service], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        return /"acct"<blob>="([^"]*)"/.exec(attributes)?.[1] ?? null;
+    } catch {
+        return null;
+    }
+};
+
+// Возвращает, куда сохранено: keychain, libsecret или file.
+// reuseAccount — для секретов, которые читаются без аккаунта: запись с другим аккаунтом осталась бы рядом, и чтение могло бы вернуть старое значение
+export const writeSecret = (service, account, value, { reuseAccount = false } = {}) => {
     if (IS_MAC) {
+        const target = (reuseAccount && keychainAccount(service)) || account;
         // Значение идёт аргументом: интерактивный ввод `security -w` обрезает его до 128 символов
-        execFileSync('security', ['add-generic-password', '-U', '-s', service, '-a', account, '-T', '/usr/bin/security', '-w', value], { stdio: 'ignore' });
+        execFileSync('security', ['add-generic-password', '-U', '-s', service, '-a', target, '-T', '/usr/bin/security', '-w', value], { stdio: 'ignore' });
         return 'keychain';
     }
     if (has('secret-tool')) {
