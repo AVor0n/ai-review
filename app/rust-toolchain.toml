@@ -1,0 +1,4 @@
+# Tauri 2 требует rustc 1.90+. Версия закреплена здесь, чтобы не менять общий тулчейн машины; rustup ставит её сам
+[toolchain]
+channel = "1.95.0"
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"]

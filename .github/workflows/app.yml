@@ -1,0 +1,73 @@
+# Сборка приложения в трее (app/, Tauri 2) для macOS и Windows. Запуск — вручную (Actions → app → Run workflow)
+# или тегом app-v*. Подписи и нотаризации нет: сборки для себя, ставятся вручную
+name: app
+
+on:
+    workflow_dispatch:
+    push:
+        tags: ['app-v*']
+
+concurrency:
+    group: app-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: app/package-lock.json
+            - name: Тесты сервиса
+              run: npm test
+            - name: Приложение — зависимости
+              working-directory: app
+              run: npm ci
+            - name: Типы API совпадают со схемой
+              working-directory: app
+              run: npm run check:api
+            - name: Приложение — типы и тесты
+              working-directory: app
+              run: npx tsc --noEmit && npm test
+
+    build:
+        needs: check
+        strategy:
+            fail-fast: false
+            matrix:
+                include:
+                    - os: macos-latest
+                      args: --target universal-apple-darwin --bundles app,dmg
+                      artifact: app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+                    - os: windows-latest
+                      args: --bundles nsis
+                      artifact: app/src-tauri/target/release/bundle/nsis/*.exe
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+                  cache-dependency-path: app/package-lock.json
+            # Версия Rust и цели сборки — из app/rust-toolchain.toml, rustup ставит их сам
+            - name: Rust
+              working-directory: app
+              run: rustup toolchain install
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: app/src-tauri
+            - name: Зависимости
+              working-directory: app
+              run: npm ci
+            - name: Сборка
+              working-directory: app
+              run: npx tauri build ${{ matrix.args }}
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: pr-reviewer-${{ runner.os }}
+                  path: ${{ matrix.artifact }}
+                  if-no-files-found: error

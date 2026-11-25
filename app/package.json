@@ -1,0 +1,32 @@
+{
+    "name": "pr-reviewer-app",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "npm run gen:api && tsc --noEmit && vite build",
+        "gen:api": "openapi-typescript ../schema/api.openapi.json -o src/api/schema.d.ts",
+        "check:api": "openapi-typescript ../schema/api.openapi.json -o src/api/schema.check.d.ts && cmp -s src/api/schema.d.ts src/api/schema.check.d.ts; status=$?; rm -f src/api/schema.check.d.ts; exit $status",
+        "test": "vitest run",
+        "tauri": "tauri"
+    },
+    "dependencies": {
+        "@tauri-apps/api": "^2.12.5",
+        "@tauri-apps/plugin-autostart": "^2.7.0",
+        "@tauri-apps/plugin-notification": "^2.8.1",
+        "openapi-fetch": "^0.17.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^2.12.6",
+        "@types/react": "^19.3.3",
+        "@types/react-dom": "^19.3.0",
+        "@vitejs/plugin-react": "^6.3.0",
+        "openapi-typescript": "^7.13.0",
+        "typescript": "^5.9.3",
+        "vite": "^8.3.8",
+        "vitest": "^5.1.2"
+    }
+}
