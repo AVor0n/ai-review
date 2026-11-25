@@ -20,8 +20,10 @@ import { reviewRepo, reviewRequested } from './review.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { refreshLimits } from './limits.mjs';
 import { formatStats } from './stats.mjs';
-import { keepAwake, kickstartWorker, readSecret, writeSecret } from './platform.mjs';
+import { keepAwake, kickstartWorker } from './platform.mjs';
+import { saveSecret, secretStatus, secretTargets } from './secrets.mjs';
 import { exportData, importData } from './transfer.mjs';
+import { TOKEN_FILE, apiPort, ensureToken, serveApi } from './api.mjs';
 import {
     DATA_DIR,
     acquireLock,
@@ -260,12 +262,6 @@ const setTokenLifetime = () => {
     console.log(days ? `Токен ${id} живёт ${days} дн. с даты сохранения в Keychain` : `Токен ${id} без срока`);
 };
 
-// Секреты для фоновых запусков: id → service и account из config.json. Значение спрашивается без эха и нигде не печатается
-const secretTargets = (config) => ({
-    bitbucket: { service: config.bitbucket.keychainService, account: config.bitbucket.email },
-    ...Object.fromEntries(Object.entries(config.agents).filter(([, agent]) => agent.keychainService).map(([id, agent]) => [id, { service: agent.keychainService, account: id }])),
-});
-
 const askHidden = (question) =>
     new Promise((resolve, reject) => {
         if (!process.stdin.isTTY) return reject(new Error('Нужен терминал: значение вводится с клавиатуры без эха'));
@@ -294,17 +290,34 @@ const askHidden = (question) =>
 
 const secretCommand = async () => {
     const [action = 'status', id] = args;
-    const targets = secretTargets(loadConfig());
+    const config = loadConfig();
+    const targets = secretTargets(config);
     if (action === 'status') {
-        for (const [name, { service, account }] of Object.entries(targets)) console.log(`${name}: ${readSecret(service, account) || (name !== 'bitbucket' && readSecret(service)) ? 'есть' : 'нет'} (${service})`);
+        for (const { id: name, service, present } of secretStatus(config)) console.log(`${name}: ${present ? 'есть' : 'нет'} (${service})`);
         return;
     }
     if (action !== 'set' || !targets[id]) throw new Error(`Использование: secret status | secret set <${Object.keys(targets).join('|')}>`);
-    const value = (await askHidden(`${id}: вставьте значение (не отображается) и нажмите Enter: `)).trim();
-    if (!value) throw new Error('Пустое значение — ничего не сохранено');
-    // Токены моделей читаются без аккаунта: на Mac пишем в уже заведённую запись, а не рядом с ней
-    const where = writeSecret(targets[id].service, targets[id].account, value, { reuseAccount: id !== 'bitbucket' });
+    const where = saveSecret(config, id, await askHidden(`${id}: вставьте значение (не отображается) и нажмите Enter: `));
     console.log(`Сохранено: ${id} → ${{ keychain: 'Keychain', libsecret: 'libsecret', file: 'файл с правами 600' }[where]} (${targets[id].service})`);
+};
+
+// Сервер API — постоянный процесс (агент launchd/systemd); token-path печатает путь к файлу токена, сам токен не печатается
+const apiCommand = () => {
+    const [action] = args;
+    if (action === 'serve') {
+        const port = apiPort(loadConfig());
+        serveApi(port).on('listening', () => log(`API слушает 127.0.0.1:${port}`)).on('error', (error) => {
+            logError(`API не запустился — ${error.message}`);
+            process.exit(1);
+        });
+        return new Promise(() => {});
+    }
+    if (action === 'token-path') {
+        ensureToken();
+        return console.log(TOKEN_FILE);
+    }
+    if (action === 'url') return console.log(`http://127.0.0.1:${apiPort(loadConfig())}`);
+    throw new Error('Использование: api serve | api token-path | api url');
 };
 
 const dataCommand = () => {
@@ -760,6 +773,7 @@ const commands = {
     token: setTokenLifetime,
     secret: secretCommand,
     data: dataCommand,
+    api: apiCommand,
     limits: async () => {
         const limits = await refreshLimits(loadConfig());
         for (const [agent, value] of Object.entries(limits)) {
@@ -834,6 +848,8 @@ const commands = {
                  какие исходные ветки PR ревьюятся фоном (остальные — только вручную)
   secret status | secret set <bitbucket|claude|cursor>
                  есть ли токены в хранилище; set спрашивает значение без эха и сохраняет (Keychain, libsecret или файл 600)
+  api serve | api token-path | api url
+                 локальный HTTP API для приложения: serve — сервер (его держит агент launchd/systemd), token-path — где лежит токен
   data export [файл.tar.gz] | data import <файл.tar.gz> [--force]
                  перенос данных на другую машину: память, статистика, исходы, бэклог, состояние, config.json — без секретов и клонов
   token <bitbucket|claude|cursor> <дней|never>

@@ -4,7 +4,7 @@
 set -uo pipefail
 
 GUI_DOMAIN="gui/$(id -u)"
-for label in com.avoronin.pr-reviewer com.avoronin.pr-reviewer.menubar; do
+for label in com.avoronin.pr-reviewer com.avoronin.pr-reviewer.menubar com.avoronin.pr-reviewer.api; do
     launchctl bootout "$GUI_DOMAIN/$label" 2>/dev/null
     rm -f "$HOME/Library/LaunchAgents/$label.plist"
 done

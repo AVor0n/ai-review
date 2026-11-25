@@ -7,7 +7,8 @@ TOOL_DIR=$(cd "$(dirname "$0")/.." && pwd)
 UNIT_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
 systemctl --user disable --now pr-reviewer.timer 2>/dev/null
 systemctl --user stop pr-reviewer.service 2>/dev/null
-rm -f "$UNIT_DIR/pr-reviewer.service" "$UNIT_DIR/pr-reviewer.timer"
+systemctl --user disable --now pr-reviewer-api.service 2>/dev/null
+rm -f "$UNIT_DIR/pr-reviewer.service" "$UNIT_DIR/pr-reviewer.timer" "$UNIT_DIR/pr-reviewer-api.service"
 systemctl --user daemon-reload 2>/dev/null
 
 if [[ ${1:-} == --purge ]]; then

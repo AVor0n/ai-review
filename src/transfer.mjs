@@ -9,7 +9,7 @@ import { TOOL_DIR } from './store.mjs';
 // журналы исследований и снимки графов. Без клонов, рабочих папок, секретов и служебных файлов идущего процесса
 const FORMAT = 1;
 const ROOT = 'pr-reviewer-export';
-const SKIP_DATA = new Set(['tmp', 'worker.pid', 'worker.lock', 'heartbeat', 'stop-requested', 'run-requested', 'status.json']);
+const SKIP_DATA = new Set(['tmp', 'api-token', 'worker.pid', 'worker.lock', 'heartbeat', 'stop-requested', 'run-requested', 'status.json']);
 const SKIP_IN_JOBS = /(^|\/)(queue|workspaces?|tmp)(\/|$)|\.pid$|\.lock$|stop-requested$/;
 const CONFIG_FILE = join(TOOL_DIR, 'config.json');
 const GRAPHS_DIR = join(GIT_ROOT, 'graphs');

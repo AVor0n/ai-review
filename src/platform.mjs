@@ -40,12 +40,27 @@ const fromFile = (service, account) => {
     return match ? secrets[match] : null;
 };
 
-const toFile = (service, account, value) => {
+// Дата сохранения — отдельно от значений: по ней окно считает срок токена, как по дате записи в Keychain
+const SECRETS_META_FILE = join(CONFIG_DIR, 'secrets.meta.json');
+
+const writePrivate = (file, data) => {
     mkdirSync(CONFIG_DIR, { recursive: true, mode: 0o700 });
-    const path = `${SECRETS_FILE}.tmp`;
-    writeFileSync(path, `${JSON.stringify({ ...readSecretsFile(), [fileKey(service, account)]: value }, null, 2)}\n`, { mode: 0o600 });
+    const path = `${file}.tmp`;
+    writeFileSync(path, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
     chmodSync(path, 0o600);
-    renameSync(path, SECRETS_FILE);
+    renameSync(path, file);
+};
+
+const readMeta = () => {
+    try {
+        return JSON.parse(readFileSync(SECRETS_META_FILE, 'utf8'));
+    } catch {
+        return {};
+    }
+};
+
+const toFile = (service, account, value) => {
+    writePrivate(SECRETS_FILE, { ...readSecretsFile(), [fileKey(service, account)]: value });
 };
 
 // account — как в Keychain: у Bitbucket это email, у моделей не нужен (ищется по одному service)
@@ -91,6 +106,7 @@ export const writeSecret = (service, account, value, { reuseAccount = false } = 
         execFileSync('security', ['add-generic-password', '-U', '-s', service, '-a', target, '-T', '/usr/bin/security', '-w', value], { stdio: 'ignore' });
         return 'keychain';
     }
+    writePrivate(SECRETS_META_FILE, { ...readMeta(), [service]: new Date().toISOString() });
     if (has('secret-tool')) {
         const result = spawnSync('secret-tool', ['store', '--label', `PR Reviewer: ${service}`, 'service', service, 'account', account], {
             input: value,
@@ -101,6 +117,20 @@ export const writeSecret = (service, account, value, { reuseAccount = false } = 
     }
     toFile(service, account, value);
     return 'file';
+};
+
+// Когда секрет сохранён: на macOS — дата изменения записи Keychain (значение не читается), на Linux — отметка при записи
+export const secretSavedAt = (service) => {
+    if (IS_MAC) {
+        try {
+            const attributes = execFileSync('security', ['find-generic-password', '-s', service], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+            const stamp = /"mdat"<timedate>=[^"]*"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z/.exec(attributes);
+            return stamp ? new Date(`${stamp[1]}-${stamp[2]}-${stamp[3]}T${stamp[4]}:${stamp[5]}:${stamp[6]}Z`).toISOString() : null;
+        } catch {
+            return null;
+        }
+    }
+    return readMeta()[service] ?? null;
 };
 
 export const secretStoreHint = IS_MAC ? 'Keychain' : `libsecret или ${SECRETS_FILE}`;

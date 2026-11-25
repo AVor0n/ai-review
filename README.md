@@ -76,6 +76,7 @@
 | Путь | Что это |
 |---|---|
 | `config.json` | Личный конфиг (в `.gitignore`); пример — `config.example.json` |
+| `api-token` в папке данных | Токен локального API (права 600) |
 | Keychain: `pr-reviewer-bitbucket`, `pr-reviewer-claude`, `pr-reviewer-cursor` | Токены |
 | `~/Library/Application Support/pr-reviewer/` | Состояние, очередь, статистика, память, бэклог, лимиты |
 | `~/Library/Logs/pr-reviewer/worker.log` | Журнал сервиса (вкладка «Журнал» в окне) |
@@ -154,6 +155,10 @@ systemd=true
     Сервис ревьюит в фоне, пока работает WSL. Чтобы он не зависел от открытого терминала, `install.sh` включает `loginctl enable-linger` (если не смог — подскажет команду с `sudo`). Журнал — `~/.local/state/pr-reviewer/worker.log`.
 
 **Ограничения.** Окна на Linux пока нет: настройки меняются через `bin/pr-reviewer` или в `config.json`. WSL работает, пока Windows не спит: в «Параметрах → Система → Питание» отключите сон, если ревью нужно ночью. Где `cursor-agent` хранит вход на Linux, ещё не проверено вживую — если Cursor не стартует, выключите его из фона: `bin/pr-reviewer agent set cursor --auto off`.
+
+## Локальный API
+
+Для приложения в трее сервис держит HTTP API на `127.0.0.1:8765` (порт — `api.port` в `config.json`). Это отдельный постоянный процесс: агент launchd `com.avoronin.pr-reviewer.api` на macOS, `pr-reviewer-api.service` на Linux; ставит его `./install.sh`. Каждый запрос — с заголовком `Authorization: Bearer <токен>`, токен лежит в файле с правами 600 (путь — `bin/pr-reviewer api token-path`). Запросы принимаются только с этой машины, CORS — только для приложения Tauri. Действия выполняют те же команды, что CLI; значения секретов API не отдаёт никогда. Изменения приходят потоком `GET /events` (SSE). Описание всех ресурсов — `schema/api.openapi.json`, журнал сервера — `api.err.log` рядом с `worker.log`.
 
 ## Исследование подбора правил
 

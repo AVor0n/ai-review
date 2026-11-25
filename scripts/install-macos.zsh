@@ -12,6 +12,7 @@ AGENTS_DIR="$HOME/Library/LaunchAgents"
 APP_DIR="$HOME/Applications/PR Reviewer.app"
 WORKER_LABEL=com.avoronin.pr-reviewer
 MENUBAR_LABEL=com.avoronin.pr-reviewer.menubar
+API_LABEL=com.avoronin.pr-reviewer.api
 GUI_DOMAIN="gui/$(id -u)"
 
 # Бандл собирается рядом и подменяет установленный только целиком: упавшая сборка не ломает работающее приложение
@@ -234,6 +235,30 @@ cat > "$AGENTS_DIR/$MENUBAR_LABEL.plist" <<EOF
 </plist>
 EOF
 
+# Локальный API для приложения в трее: постоянный процесс, launchd поднимает его снова, если он упал
+cat > "$AGENTS_DIR/$API_LABEL.plist" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key><string>$API_LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$TOOL_DIR/bin/pr-reviewer</string>
+        <string>api</string>
+        <string>serve</string>
+    </array>
+    <key>RunAtLoad</key><true/>
+    <key>KeepAlive</key><true/>
+    <key>ThrottleInterval</key><integer>10</integer>
+    <key>ProcessType</key><string>Background</string>
+    <key>StandardOutPath</key><string>$LOG_DIR/api.out.log</string>
+    <key>StandardErrorPath</key><string>$LOG_DIR/api.err.log</string>
+</dict>
+</plist>
+EOF
+"$TOOL_DIR/bin/pr-reviewer" api token-path >/dev/null
+
 # bootout возвращается раньше, чем служба выгружена: сразу после него bootstrap падает с «5: Input/output error»
 reload_agent() {
     local label=$1
@@ -251,7 +276,7 @@ reload_agent() {
 
 # Проход мог начаться, пока собиралось приложение
 wait_for_pass
-for label in $WORKER_LABEL $MENUBAR_LABEL; do
+for label in $WORKER_LABEL $MENUBAR_LABEL $API_LABEL; do
     reload_agent $label
 done
 

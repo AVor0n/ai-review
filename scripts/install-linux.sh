@@ -146,9 +146,29 @@ AccuracySec=10s
 WantedBy=timers.target
 EOF
 
+# Локальный API для приложения в трее: постоянный процесс, systemd поднимает его снова, если он упал
+cat > "$UNIT_DIR/$UNIT-api.service" <<EOF
+[Unit]
+Description=PR Reviewer: локальный API на 127.0.0.1
+
+[Service]
+ExecStart=$TOOL_DIR/bin/pr-reviewer api serve
+WorkingDirectory=$TOOL_DIR
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:$LOG_DIR/api.out.log
+StandardError=append:$LOG_DIR/api.err.log
+
+[Install]
+WantedBy=default.target
+EOF
+"$TOOL_DIR/bin/pr-reviewer" api token-path >/dev/null
+
 wait_for_pass
 systemctl --user daemon-reload
 systemctl --user enable --now "$UNIT.timer" >/dev/null
+systemctl --user enable "$UNIT-api.service" >/dev/null
+systemctl --user restart "$UNIT-api.service"
 
 USER_NAME=${USER:-$(id -un)}
 # Без linger пользовательские сервисы живут, только пока открыт сеанс; в WSL — пока открыт терминал

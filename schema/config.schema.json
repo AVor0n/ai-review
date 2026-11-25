@@ -19,6 +19,15 @@
             "maximum": 1440,
             "description": "Как часто фоновое ревью проверяет открытые PR, в минутах. Меняется в настройках окна"
         },
+        "api": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Локальный HTTP API для приложения в трее: слушает только 127.0.0.1, запросы с токеном из файла api-token",
+            "properties": {
+                "port": { "type": "integer", "minimum": 1024, "maximum": 65535, "description": "Порт; по умолчанию 8765" },
+                "origins": { "type": "array", "items": { "type": "string" }, "description": "Дополнительные источники для CORS, кроме приложения Tauri" }
+            }
+        },
         "buildStatus": {
             "type": "object",
             "additionalProperties": false,
