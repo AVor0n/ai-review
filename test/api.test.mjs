@@ -11,9 +11,10 @@ process.env.HOME = home;
 // На Linux пути данных идут от XDG-переменных, если они заданы: убираем, чтобы тест не задел настоящие данные
 for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CONFIG_HOME']) delete process.env[name];
 const { DATA_DIR, LOG_DIR } = await import('../src/platform.mjs');
-const { createApi, isLoopback, routeList } = await import('../src/api.mjs');
+const { EXPORTS_DIR, createApi, isLoopback, routeList } = await import('../src/api.mjs');
 const { validate } = await import('../src/json-schema.mjs');
-const { TOOL_DIR } = await import('../src/store.mjs');
+const { TOOL_DIR, writeJson } = await import('../src/store.mjs');
+const configDir = join(home, 'tool');
 
 const SECRET = 'TOPSECRET-value-123';
 const TOKEN = 'test-token-0123456789';
@@ -26,8 +27,10 @@ let port;
 
 before(async () => {
     mkdirSync(DATA_DIR, { recursive: true });
+    mkdirSync(configDir, { recursive: true });
     server = createApi({
         token: TOKEN,
+        configDir,
         loadConfig: () => config,
         saveConfig: (next) => saved.configs.push(next),
         // Подмена хранилища секретов: значение известно только ей, в ответах его быть не должно
@@ -120,6 +123,15 @@ test('действия — команды CLI с теми же аргумент�
     assert.deepEqual(conforms('POST', '/run-now', failed.json, 409), []);
 });
 
+test('выгрузка через API без пути или с относительным путём — в папку данных, а не в папку кода', async () => {
+    saved.cli.length = 0;
+    await call('POST', '/data/export');
+    await call('POST', '/data/export', { body: { file: 'mine.tar.gz' } });
+    await call('POST', '/data/export', { body: { file: '/tmp/abs.tar.gz' } });
+    assert.match(saved.cli[0][2], new RegExp(`^${EXPORTS_DIR.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/pr-reviewer-export-\\d{4}-\\d{2}-\\d{2}\\.tar\\.gz$`));
+    assert.deepEqual(saved.cli.slice(1), [['data', 'export', join(EXPORTS_DIR, 'mine.tar.gz')], ['data', 'export', '/tmp/abs.tar.gz']]);
+});
+
 test('настройки проверяются по схеме конфига до сохранения', async () => {
     const bad = await call('PUT', '/config', { body: { ...config, intervalMinutes: 0, unknown: true } });
     assert.equal(bad.status, 400);
@@ -141,6 +153,42 @@ test('значение секрета не попадает ни в ответы
     } catch {}
     assert.ok(!log.includes(SECRET));
     assert.equal((await call('PUT', '/secrets/claude', { body: {} })).status, 400);
+    const unknown = await call('PUT', '/secrets/nope', { body: {} });
+    assert.equal(unknown.status, 404);
+    assert.match(unknown.json.error, /Нет секрета nope/);
+});
+
+const collectEvents = (type, count, act) =>
+    new Promise((resolve, reject) => {
+        const events = [];
+        const req = request({ host: '127.0.0.1', port, path: '/events', headers: { Authorization: `Bearer ${TOKEN}` } });
+        const timer = setTimeout(() => {
+            req.destroy();
+            reject(new Error(`за 6 с пришло ${events.length} из ${count}: ${JSON.stringify(events)}`));
+        }, 6000);
+        req.on('response', (res) => {
+            res.on('data', (chunk) => {
+                events.push(...String(chunk).split('\n\n').filter((frame) => frame.startsWith('event: change')).map((frame) => JSON.parse(frame.split('data: ')[1]).type).filter((item) => item === type));
+                if (events.length >= count) {
+                    clearTimeout(timer);
+                    req.destroy();
+                    resolve(events);
+                }
+            });
+            act();
+        });
+        req.end();
+    });
+
+test('событие config приходит на каждую правку, даже через tmp+rename', async () => {
+    // Чужие события от прошлых тестов отсеиваются: ждём ровно две правки конфига
+    const events = await collectEvents('config', 2, async () => {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        writeJson(join(configDir, 'config.json'), { intervalMinutes: 5 });
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        writeJson(join(configDir, 'config.json'), { intervalMinutes: 6 });
+    });
+    assert.deepEqual(events, ['config', 'config']);
 });
 
 test('событие приходит после изменения файла данных', async () => {

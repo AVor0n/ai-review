@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { DATA_DIR, GIT_ROOT, IS_MAC } from './platform.mjs';
 import { TOOL_DIR } from './store.mjs';
 
@@ -9,7 +9,7 @@ import { TOOL_DIR } from './store.mjs';
 // журналы исследований и снимки графов. Без клонов, рабочих папок, секретов и служебных файлов идущего процесса
 const FORMAT = 1;
 const ROOT = 'pr-reviewer-export';
-const SKIP_DATA = new Set(['tmp', 'api-token', 'worker.pid', 'worker.lock', 'heartbeat', 'stop-requested', 'run-requested', 'status.json']);
+const SKIP_DATA = new Set(['tmp', 'exports', 'api-token', 'worker.pid', 'worker.lock', 'heartbeat', 'stop-requested', 'run-requested', 'status.json']);
 const SKIP_IN_JOBS = /(^|\/)(queue|workspaces?|tmp)(\/|$)|\.pid$|\.lock$|stop-requested$/;
 const CONFIG_FILE = join(TOOL_DIR, 'config.json');
 const GRAPHS_DIR = join(GIT_ROOT, 'graphs');
@@ -40,6 +40,7 @@ const size = (dir) => readdirSync(dir, { withFileTypes: true }).reduce((sum, ent
 export const exportData = (file) => {
     if (!existsSync(DATA_DIR)) throw new Error(`Нет данных сервиса в ${DATA_DIR}`);
     const target = resolve(file);
+    mkdirSync(dirname(target), { recursive: true });
     const work = mkdtempSync(join(tmpdir(), 'pr-reviewer-export-'));
     try {
         const root = join(work, ROOT);

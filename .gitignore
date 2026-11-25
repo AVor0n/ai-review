@@ -13,3 +13,4 @@ bin/
 .pr-review/
 node_modules/
 *.tmp
+pr-reviewer-export-*.tar.gz

@@ -3,18 +3,19 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, watch, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { lessonUsage } from './memory-review.mjs';
 import { loadMemory, loadMemoryHistory } from './memory.mjs';
 import { validate } from './json-schema.mjs';
 import { DATA_DIR, GIT_ROOT, LOG_DIR } from './platform.mjs';
-import { saveSecret, secretStatus } from './secrets.mjs';
+import { saveSecret, secretStatus, secretTargets } from './secrets.mjs';
 import { TOOL_DIR, loadJsonl, readJson, writeJson } from './store.mjs';
 
 // Локальный HTTP API для приложения в трее (B-29). Чтение — те же файлы и модули, что у CLI; действия — вызов самого CLI,
 // чтобы правила вроде «прервать только этот PR» жили в одном месте. Слушает только 127.0.0.1, каждый запрос — с токеном
 export const DEFAULT_PORT = 8765;
 export const TOKEN_FILE = join(DATA_DIR, 'api-token');
+export const EXPORTS_DIR = join(DATA_DIR, 'exports');
 const CONFIG_FILE = join(TOOL_DIR, 'config.json');
 const CONFIG_SCHEMA = join(TOOL_DIR, 'schema/config.schema.json');
 const CLI = join(TOOL_DIR, 'src/cli.mjs');
@@ -245,7 +246,15 @@ const routes = (deps) => {
         { method: 'POST', path: '/repos/{repo}/pause', ...cliAction(({ params, config }) => ['repo', 'pause', repoParam(params, config)]) },
         { method: 'POST', path: '/repos/{repo}/resume', ...cliAction(({ params, config }) => ['repo', 'resume', repoParam(params, config)]) },
         { method: 'DELETE', path: '/repos/{repo}', ...cliAction(({ params, config }) => ['repo', 'remove', repoParam(params, config)]) },
-        { method: 'POST', path: '/data/export', ...cliAction(({ body }) => ['data', 'export', ...(body?.file ? [String(body.file)] : [])]) },
+        // CLI сервера запускается из папки кода: без пути или с относительным путём архив с конфигом и памятью лёг бы рядом с кодом
+        {
+            method: 'POST',
+            path: '/data/export',
+            ...cliAction(({ body }) => {
+                const file = body?.file ? String(body.file) : `pr-reviewer-export-${new Date().toISOString().slice(0, 10)}.tar.gz`;
+                return ['data', 'export', isAbsolute(file) ? file : join(EXPORTS_DIR, file)];
+            }),
+        },
         {
             method: 'PUT',
             path: '/config',
@@ -260,6 +269,8 @@ const routes = (deps) => {
             method: 'PUT',
             path: '/secrets/{id}',
             write: ({ params, body }) => {
+                const known = Object.keys(secretTargets(loadConfig()));
+                if (!known.includes(params.id)) throw new ApiError(404, `Нет секрета ${params.id}: ${known.join(', ')}`);
                 if (typeof body?.value !== 'string') throw new ApiError(400, 'Нужно поле value');
                 try {
                     return { ok: true, store: deps.saveSecret(loadConfig(), params.id, body.value) };
@@ -321,7 +332,7 @@ export const eventType = (rel) => {
     return null;
 };
 
-const startWatching = (broadcast) => {
+const startWatching = (broadcast, configDir) => {
     mkdirSync(DATA_DIR, { recursive: true });
     const pending = new Map();
     const emit = (type) => {
@@ -334,7 +345,8 @@ const startWatching = (broadcast) => {
             if (type) emit(type);
         }),
     ];
-    if (existsSync(CONFIG_FILE)) watchers.push(watch(CONFIG_FILE, () => emit('config')));
+    // Следим за папкой, а не за файлом: config.json пишется через tmp+rename, и наблюдатель за файлом остался бы на старом inode
+    watchers.push(watch(configDir, (_, name) => String(name) === 'config.json' && emit('config')));
     return () => {
         for (const watcher of watchers) watcher.close();
         for (const timer of pending.values()) clearTimeout(timer);
@@ -349,6 +361,7 @@ export const createApi = (overrides = {}) => {
         secretStatus,
         saveSecret,
         runCli,
+        configDir: TOOL_DIR,
         ...overrides,
         token: overrides.token ?? ensureToken(),
     };
@@ -424,7 +437,7 @@ export const createApi = (overrides = {}) => {
     let stopWatching = null;
     let keepAlive = null;
     server.on('listening', () => {
-        stopWatching = startWatching(broadcast);
+        stopWatching = startWatching(broadcast, deps.configDir);
         // Комментарий раз в 25 с держит соединение SSE через прокси и показывает клиенту, что сервер жив
         keepAlive = setInterval(() => {
             for (const client of clients) client.write(': ping\n\n');
