@@ -9,6 +9,7 @@ import { ensureDependencies } from './fix.mjs';
 import { INPUT_DIR_NAME, emptyDiffReason, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
+import { keepAwake } from './platform.mjs';
 
 // Тестирование PR в браузере — только по явной заявке и в два этапа: сначала план (дёшево), человек его смотрит
 // и правит, потом прогон с локальным бэкендом в Docker. Отчёт только локальный, в PR ничего не публикуется
@@ -692,7 +693,7 @@ export const qaWorker = async ({ loadConfig, createBitbucket }) => {
     if (runningPid()) return;
     mkdirSync(join(QA_DIR, 'tmp'), { recursive: true });
     writeJson(PID_FILE, process.pid);
-    spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore', detached: true }).unref();
+    keepAwake();
     let current = null;
     let cleanup = [];
     const runCleanup = () => {

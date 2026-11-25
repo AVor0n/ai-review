@@ -17,7 +17,7 @@
 
 ## Что нужно
 
-- macOS, Node 22+, `git`, `swiftc` (Xcode или Command Line Tools).
+- macOS, Node 22+, `git`, `swiftc` (Xcode или Command Line Tools). Или Linux с systemd, в том числе WSL2 на Windows 11, — без окна, см. «Linux и WSL2».
 - CLI моделей в `PATH`: `claude` и `codex` (вход через `codex login`); `cursor-agent` — по желанию.
 - Docker — только для тестирования в браузере.
 - [uv](https://docs.astral.sh/uv/) — по желанию: `install.sh` ставит им Graphify (граф кода для исследования подбора правил памяти). Без uv исследование идёт без графа.
@@ -83,13 +83,77 @@
 
 ## Если что-то не так
 
-- **Сервис ничего не делает** — фоновое ревью выключено (`bin/pr-reviewer status`), проход ещё не подошёл по `intervalMinutes` (▶ в обзоре запускает сразу) или агент launchd не загружен (`./install.sh`).
+- **Сервис ничего не делает** — фоновое ревью выключено (`bin/pr-reviewer status`), проход ещё не подошёл по `intervalMinutes` (▶ в обзоре запускает сразу) или агент launchd (на Linux — `pr-reviewer.timer`) не загружен (`./install.sh`).
 - **Модель не ревьюит PR** — наведите курсор на серый «0» в строке PR и на значок модели: подсказки называют причину (черновик, ветка вне `branchPattern`, выключенное фоновое ревью, лимит, модель только для ручного запуска). Клик по значку модели запускает ревью вручную.
 - **Bitbucket 401 / 403** — неверный email или обрезанный токен / у токена нет нужных scope. Пересохраните токен командой выше.
 - **Проход завис** (оранжевый треугольник в строке меню) — «Прервать» в баннере или `bin/pr-reviewer stop`.
 - **Правка в `menubar/` не видна** — `./install.sh --app-only`.
 - **Баннер «Не удалось прочитать данные сервиса» или «Память сломана»** — файл в `~/Library/Application Support/pr-reviewer/` повреждён или недоступен; кнопка в баннере открывает его или показывает в Finder.
 - Подробности по любой ошибке — в журнале: вкладка «Журнал» или `worker.log`.
+
+## Linux и WSL2
+
+Сервис работает на Linux и в WSL2 так же, как на macOS, но окна пока нет. Результат ревью виден в Bitbucket: статус «AI-review» на коммите PR (`buildStatus.enabled`) и замечания в тредах. Управление — через `bin/pr-reviewer` (`status`, `run-now`, `pause`, `resume`, `help`).
+
+| | macOS | Linux / WSL2 |
+|---|---|---|
+| Секреты | Keychain | libsecret (`secret-tool`), если есть рабочее хранилище, иначе `~/.config/pr-reviewer/secrets.json` с правами 600 |
+| Расписание | launchd | systemd: `pr-reviewer.timer` раз в минуту и `pr-reviewer.service` |
+| Не засыпать во время прохода | `caffeinate` | `systemd-inhibit`, если есть |
+| Данные | `~/Library/Application Support/pr-reviewer/` | `~/.local/share/pr-reviewer/` |
+| Журналы | `~/Library/Logs/pr-reviewer/` | `~/.local/state/pr-reviewer/` |
+
+### Переезд с Mac на Windows 11 (WSL2)
+
+1. **На Mac** выгрузите данные (память, статистику, исходы, бэклог, состояние, `config.json`; секретов, клонов и рабочих папок в архиве нет):
+
+    ```bash
+    bin/pr-reviewer data export ~/Desktop/pr-reviewer-export.tar.gz
+    ```
+
+    Остановите сервис на Mac, чтобы две машины не ревьюили одни и те же PR: `./uninstall.sh` (данные остаются).
+
+2. **В Windows** поставьте Ubuntu в WSL2 (`wsl --install -d Ubuntu` в PowerShell) и включите в ней systemd:
+
+    ```bash
+    printf '[boot]
+systemd=true
+' | sudo tee /etc/wsl.conf
+    ```
+
+    затем в PowerShell `wsl --shutdown` и снова откройте Ubuntu.
+
+3. **В Ubuntu** поставьте Node 22+ (например, через [nvm](https://github.com/nvm-sh/nvm)), `git`, CLI моделей (`claude`, `codex`, по желанию `cursor-agent`), по желанию `uv`. Войдите в Codex: `codex login`. Добавьте SSH-ключ с доступом к репозиториям (`ssh -T git@bitbucket.org` должен отвечать).
+
+4. Склонируйте PR Reviewer в домашнюю папку Linux (не в `/mnt/c/…`: там git и Node медленные), перенесите архив (из Windows он виден как `/mnt/c/Users/<имя>/…`) и разложите данные:
+
+    ```bash
+    bin/pr-reviewer data import /mnt/c/Users/<имя>/Desktop/pr-reviewer-export.tar.gz
+    ```
+
+    Пока `bin/` нет, вместо `bin/pr-reviewer` используйте `node src/cli.mjs`. Импорт назовёт пути с Mac в `config.json` (например, `repos[].source`); локальные копии необязательны — сервис сам уберёт такие пути и склонирует репозитории по SSH при первом проходе.
+
+5. Сохраните токены — команда спросит значение и не покажет его:
+
+    ```bash
+    node src/cli.mjs secret set bitbucket
+    node src/cli.mjs secret set claude
+    node src/cli.mjs secret set cursor
+    ```
+
+    `cursor` — только если Cursor включён. Проверка без вывода значений: `node src/cli.mjs secret status`.
+
+6. Установите и проверьте:
+
+    ```bash
+    ./install.sh
+    systemctl --user status pr-reviewer.timer
+    bin/pr-reviewer run --dry-run --pr <id>
+    ```
+
+    Сервис ревьюит в фоне, пока работает WSL. Чтобы он не зависел от открытого терминала, `install.sh` включает `loginctl enable-linger` (если не смог — подскажет команду с `sudo`). Журнал — `~/.local/state/pr-reviewer/worker.log`.
+
+**Ограничения.** Окна на Linux пока нет: настройки меняются через `bin/pr-reviewer` или в `config.json`. WSL работает, пока Windows не спит: в «Параметрах → Система → Питание» отключите сон, если ревью нужно ночью. Где `cursor-agent` хранит вход на Linux, ещё не проверено вживую — если Cursor не стартует, выключите его из фона: `bin/pr-reviewer agent set cursor --auto off`.
 
 ## Исследование подбора правил
 
@@ -109,4 +173,4 @@ bin/pr-reviewer memory selection report [<slug>] [--since <дата>]
 
 ## Удаление
 
-`./uninstall.sh` удаляет агентов launchd, приложение и `bin/`; состояние, журналы и служебные копии остаются. `./uninstall.sh --purge` удаляет ещё данные и журналы. `~/.pr-reviewer/` и записи Keychain удаляются вручную.
+`./uninstall.sh` удаляет агентов launchd и приложение (на Linux — unit-файлы systemd) и `bin/`; состояние, журналы и служебные копии остаются. `./uninstall.sh --purge` удаляет ещё данные и журналы. `~/.pr-reviewer/` и секреты (записи Keychain, на Linux — libsecret или `~/.config/pr-reviewer/secrets.json`) удаляются вручную.

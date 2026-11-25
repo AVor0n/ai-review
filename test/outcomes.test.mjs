@@ -8,7 +8,9 @@ import { after, beforeEach, test } from 'node:test';
 // Данные сервиса лежат в HOME: подменяем его до импорта, чтобы исходы писались во временную папку
 const home = mkdtempSync(join(tmpdir(), 'pr-reviewer-test-'));
 process.env.HOME = home;
-const dataDir = join(home, 'Library/Application Support/pr-reviewer');
+// На Linux пути данных идут от XDG-переменных, если они заданы: убираем, чтобы тест не задел настоящие данные
+for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CONFIG_HOME']) delete process.env[name];
+const { DATA_DIR: dataDir } = await import('../src/platform.mjs');
 const { markResolved, recordClosed, trackOutcomes } = await import('../src/outcomes.mjs');
 
 const load = (name) => JSON.parse(readFileSync(new URL(`fixtures/${name}`, import.meta.url), 'utf8'));

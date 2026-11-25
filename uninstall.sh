@@ -1,16 +1,8 @@
-#!/bin/zsh
-# Удаляет агентов launchd и приложение. Состояние, статистику и служебные клоны оставляет;
-# с флагом --purge удаляет и их.
-set -uo pipefail
-
-GUI_DOMAIN="gui/$(id -u)"
-for label in com.avoronin.pr-reviewer com.avoronin.pr-reviewer.menubar; do
-    launchctl bootout "$GUI_DOMAIN/$label" 2>/dev/null
-    rm -f "$HOME/Library/LaunchAgents/$label.plist"
-done
-rm -rf "$HOME/Applications/PR Reviewer.app" "${0:A:h}/bin"
-
-if [[ ${1:-} == --purge ]]; then
-    rm -rf "$HOME/Library/Application Support/pr-reviewer" "$HOME/Library/Logs/pr-reviewer"
-fi
-echo "PR Reviewer удалён"
+#!/bin/sh
+# Удаление PR Reviewer; --purge удаляет ещё данные и журналы
+DIR=$(cd "$(dirname "$0")" && pwd)
+case "$(uname -s)" in
+    Darwin) exec zsh "$DIR/scripts/uninstall-macos.zsh" "$@" ;;
+    Linux) exec bash "$DIR/scripts/uninstall-linux.sh" "$@" ;;
+    *) echo "PR Reviewer работает на macOS и Linux (в том числе WSL2)"; exit 1 ;;
+esac

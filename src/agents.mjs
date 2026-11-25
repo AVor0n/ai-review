@@ -1,9 +1,10 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative } from 'node:path';
 import { rememberClaudeLimits } from './limits.mjs';
 import { GIT_ROOT, log, logError, TOOL_DIR } from './store.mjs';
+import { IS_MAC, readSecret } from './platform.mjs';
 
 const REVIEW_SCHEMA = join(TOOL_DIR, 'schema/review.schema.json');
 const running = new Set();
@@ -22,16 +23,7 @@ export const killAgents = () => {
 };
 
 // Токены CLI — в Keychain: у Claude это `claude setup-token` (обычная OAuth-сессия в фоне протухает), у Cursor — API-ключ
-const readKeychain = (keychainService) => {
-    try {
-        return execFileSync('security', ['find-generic-password', '-s', keychainService, '-w'], {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-    } catch {
-        return null;
-    }
-};
+const readKeychain = (keychainService) => readSecret(keychainService);
 
 const runProcess = (command, args, { cwd, input, timeoutMs, env, unset = [], onLine }) =>
     new Promise((resolve, reject) => {
@@ -239,7 +231,7 @@ const CURSOR_HOME = join(GIT_ROOT, 'cursor-home');
 
 const cursorHome = () => {
     const keychains = join(CURSOR_HOME, 'Library', 'Keychains');
-    if (!existsSync(keychains)) {
+    if (IS_MAC && !existsSync(keychains)) {
         mkdirSync(join(CURSOR_HOME, 'Library'), { recursive: true });
         symlinkSync(join(homedir(), 'Library', 'Keychains'), keychains);
     }

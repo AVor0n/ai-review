@@ -6,6 +6,7 @@ import { killAgents, runStructured } from './agents.mjs';
 import { buildThreads, renderComments } from './comments.mjs';
 import { INPUT_DIR_NAME, cloneDir, ensureClone, fetchOrigin, isCloned } from './git.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, loadJsonl, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
+import { keepAwake } from './platform.mjs';
 
 const FIX_DIR = join(DATA_DIR, 'fixes');
 const QUEUE_DIR = join(FIX_DIR, 'queue');
@@ -432,7 +433,7 @@ export const fixWorker = async ({ loadConfig, createBitbucket }) => {
     if (runningPid()) return;
     mkdirSync(FIX_DIR, { recursive: true });
     writeJson(PID_FILE, process.pid);
-    spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore', detached: true }).unref();
+    keepAwake();
     let current = null;
     const abort = () => {
         killAgents();

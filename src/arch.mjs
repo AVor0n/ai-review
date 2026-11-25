@@ -6,6 +6,7 @@ import { renderComments } from './comments.mjs';
 import { INPUT_DIR_NAME, emptyDiffReason, ensureClone, fetchOrigin, prDiff, resolveCommit } from './git.mjs';
 import { loadMemory } from './memory.mjs';
 import { DATA_DIR, GIT_ROOT, TOOL_DIR, appendJsonl, checkStopRequest, log, logError, onStopRequest, readJson, requestStop, writeJson } from './store.mjs';
+import { keepAwake } from './platform.mjs';
 
 // Архитектурное ревью — только по явной заявке: отчёт для себя, в PR ничего не публикуется.
 // Отдельный процесс, как у доработки: запуск идёт десятки минут и не должен держать очередь обычного ревью
@@ -196,7 +197,7 @@ export const archWorker = async ({ loadConfig, createBitbucket }) => {
     if (runningPid()) return;
     mkdirSync(join(ARCH_DIR, 'tmp'), { recursive: true });
     writeJson(PID_FILE, process.pid);
-    spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore', detached: true }).unref();
+    keepAwake();
     let current = null;
     const abort = () => {
         killAgents();

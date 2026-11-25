@@ -20,9 +20,10 @@ import { reviewRepo, reviewRequested } from './review.mjs';
 import { refreshSnapshot } from './snapshot.mjs';
 import { refreshLimits } from './limits.mjs';
 import { formatStats } from './stats.mjs';
+import { keepAwake, kickstartWorker, readSecret, writeSecret } from './platform.mjs';
+import { exportData, importData } from './transfer.mjs';
 import {
     DATA_DIR,
-    WORKER_LABEL,
     acquireLock,
     clearQueue,
     dequeueReview,
@@ -61,7 +62,6 @@ const option = (name) => {
 
 const STOP_FILE = join(DATA_DIR, 'stop-requested');
 
-const kickstartWorker = () => execFileSync('launchctl', ['kickstart', `gui/${process.getuid()}/${WORKER_LABEL}`]);
 
 // Заявки из окна обзора; новые могут прийти, пока идёт ревью, поэтому читаем очередь до опустошения
 // slug — только заявки этого репозитория: их разбирает его дорожка, не дожидаясь чужих репозиториев
@@ -131,7 +131,7 @@ const run = async () => {
     };
     mkdirSync(ctx.workDir, { recursive: true });
     // Не даём маку уснуть по бездействию посреди ревью; caffeinate завершится вместе с процессом
-    spawn('caffeinate', ['-i', '-w', String(process.pid)], { stdio: 'ignore', detached: true }).unref();
+    keepAwake();
 
     const abort = () => {
         killAgents();
@@ -258,6 +258,73 @@ const setTokenLifetime = () => {
     target.tokenLifetimeDays = days;
     saveConfig(config);
     console.log(days ? `Токен ${id} живёт ${days} дн. с даты сохранения в Keychain` : `Токен ${id} без срока`);
+};
+
+// Секреты для фоновых запусков: id → service и account из config.json. Значение спрашивается без эха и нигде не печатается
+const secretTargets = (config) => ({
+    bitbucket: { service: config.bitbucket.keychainService, account: config.bitbucket.email },
+    ...Object.fromEntries(Object.entries(config.agents).filter(([, agent]) => agent.keychainService).map(([id, agent]) => [id, { service: agent.keychainService, account: id }])),
+});
+
+const askHidden = (question) =>
+    new Promise((resolve, reject) => {
+        if (!process.stdin.isTTY) return reject(new Error('Нужен терминал: значение вводится с клавиатуры без эха'));
+        process.stdout.write(question);
+        const stdin = process.stdin;
+        stdin.setRawMode(true);
+        stdin.resume();
+        let value = '';
+        const done = (result) => {
+            stdin.setRawMode(false);
+            stdin.pause();
+            stdin.removeListener('data', onData);
+            process.stdout.write('\n');
+            result instanceof Error ? reject(result) : resolve(result);
+        };
+        const onData = (chunk) => {
+            for (const char of chunk.toString('utf8')) {
+                if (char === '\r' || char === '\n') return done(value);
+                if (char === '\u0003') return done(new Error('Отменено'));
+                if (char === '\u007f' || char === '\b') value = value.slice(0, -1);
+                else value += char;
+            }
+        };
+        stdin.on('data', onData);
+    });
+
+const secretCommand = async () => {
+    const [action = 'status', id] = args;
+    const targets = secretTargets(loadConfig());
+    if (action === 'status') {
+        for (const [name, { service, account }] of Object.entries(targets)) console.log(`${name}: ${readSecret(service, account) || (name !== 'bitbucket' && readSecret(service)) ? 'есть' : 'нет'} (${service})`);
+        return;
+    }
+    if (action !== 'set' || !targets[id]) throw new Error(`Использование: secret status | secret set <${Object.keys(targets).join('|')}>`);
+    const value = (await askHidden(`${id}: вставьте значение (не отображается) и нажмите Enter: `)).trim();
+    if (!value) throw new Error('Пустое значение — ничего не сохранено');
+    const where = writeSecret(targets[id].service, targets[id].account, value);
+    console.log(`Сохранено: ${id} → ${{ keychain: 'Keychain', libsecret: 'libsecret', file: 'файл с правами 600' }[where]} (${targets[id].service})`);
+};
+
+const dataCommand = () => {
+    const [action, file] = args;
+    if (action === 'export') {
+        const target = file ?? `pr-reviewer-export-${new Date().toISOString().slice(0, 10)}.tar.gz`;
+        const { file: path, bytes, archiveBytes } = exportData(target);
+        console.log(`Архив ${path}: данных ${(bytes / 1e6).toFixed(1)} МБ, архив ${(archiveBytes / 1e6).toFixed(1)} МБ. Секретов, клонов и рабочих папок в нём нет`);
+        return;
+    }
+    if (action === 'import' && file) {
+        if (readWorkerPid()) throw new Error('Сейчас идёт проход — импортируйте, когда он закончится, или остановите сервис');
+        const { dataDir, config, foreign } = importData(file, { force: hasFlag('--force') });
+        console.log(`Данные разложены в ${dataDir}${config ? `, конфиг — ${config}` : ''}. Служебные клоны создадутся при первом проходе`);
+        if (foreign.length) {
+            console.log('В config.json пути с другой машины — поправьте их:');
+            for (const { path, value } of foreign) console.log(`  ${path}: ${value}`);
+        }
+        return;
+    }
+    throw new Error('Использование: data export [файл.tar.gz] | data import <файл.tar.gz> [--force]');
 };
 
 const setPollInterval = () => {
@@ -690,6 +757,8 @@ const commands = {
     agent: agentCommand,
     branches: setBranchPattern,
     token: setTokenLifetime,
+    secret: secretCommand,
+    data: dataCommand,
     limits: async () => {
         const limits = await refreshLimits(loadConfig());
         for (const [agent, value] of Object.entries(limits)) {
@@ -716,7 +785,7 @@ const commands = {
   run [--dry-run] [--repo <slug>] [--pr <id>] [--force]
                  один проход по открытым PR; --dry-run печатает комментарии вместо публикации
                  и не трогает состояние; --force запускает и на паузе
-  run-now        запустить проход через launchd сейчас
+  run-now        запустить проход сейчас (launchd на macOS, systemd на Linux)
   review --repo <slug> --pr <id> --agent <id>
                  поставить явное ревью одной моделью в очередь (работает и на паузе)
   sync           обновить список открытых PR для окна обзора
@@ -762,6 +831,10 @@ const commands = {
   interval <мин> как часто проверять PR в фоне; действует со следующей минуты, без переустановки
   branches <regexp>
                  какие исходные ветки PR ревьюятся фоном (остальные — только вручную)
+  secret status | secret set <bitbucket|claude|cursor>
+                 есть ли токены в хранилище; set спрашивает значение без эха и сохраняет (Keychain, libsecret или файл 600)
+  data export [файл.tar.gz] | data import <файл.tar.gz> [--force]
+                 перенос данных на другую машину: память, статистика, исходы, бэклог, состояние, config.json — без секретов и клонов
   token <bitbucket|claude|cursor> <дней|never>
                  срок жизни токена, выбранный при выпуске; окно предупреждает за 14 дней до истечения
   limits         обновить остатки лимитов подписок (Claude обновляет их сам при каждом запуске)

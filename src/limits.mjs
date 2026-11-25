@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { DATA_DIR, readJson, writeJson } from './store.mjs';
+import { readSecret } from './platform.mjs';
 
 // Остатки лимитов подписок для окна настроек. Адреса неофициальные — те же, что используют сами CLI:
 // при сбое модель просто остаётся без строки лимита
@@ -53,7 +53,8 @@ const codexLimits = async () => {
 const cursorToken = async (keychainService) => {
     let key;
     try {
-        key = execFileSync('security', ['find-generic-password', '-s', keychainService, '-w'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+        key = readSecret(keychainService);
+        if (!key) throw new Error('нет ключа');
     } catch {
         throw new Error(`нет API-ключа в Keychain (${keychainService})`);
     }

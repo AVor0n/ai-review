@@ -1,15 +1,12 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const TOOL_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
-export const DATA_DIR = join(homedir(), 'Library/Application Support/pr-reviewer');
-export const LOG_DIR = join(homedir(), 'Library/Logs/pr-reviewer');
+export { DATA_DIR, GIT_ROOT, LOG_DIR, WORKER_LABEL } from './platform.mjs';
+import { DATA_DIR, GIT_ROOT, LOG_DIR } from './platform.mjs';
 export const LOG_FILE = join(LOG_DIR, 'worker.log');
-export const WORKER_LABEL = 'com.avoronin.pr-reviewer';
 // Git-копии — в пути без пробелов: хуки репозиториев (husky `commitlint --edit ${1}`) часто не берут путь в кавычки
-export const GIT_ROOT = join(homedir(), '.pr-reviewer');
 export const REPOS_DIR = join(GIT_ROOT, 'repos');
 
 const STATE_FILE = join(DATA_DIR, 'state.json');

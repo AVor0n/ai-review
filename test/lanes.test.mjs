@@ -9,6 +9,8 @@ import { runPool } from '../src/pool.mjs';
 // status.json лежит в HOME: подменяем его до импорта store.mjs
 const home = mkdtempSync(join(tmpdir(), 'pr-reviewer-test-'));
 process.env.HOME = home;
+// На Linux пути данных идут от XDG-переменных, если они заданы: убираем, чтобы тест не задел настоящие данные
+for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CONFIG_HOME']) delete process.env[name];
 const { loadStatus, setRunning } = await import('../src/store.mjs');
 after(() => rmSync(home, { recursive: true, force: true }));
 

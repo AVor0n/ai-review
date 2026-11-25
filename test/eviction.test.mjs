@@ -7,6 +7,8 @@ import { after, test } from 'node:test';
 // Журналы статистики лежат в HOME: подменяем его до импорта store.mjs
 const home = mkdtempSync(join(tmpdir(), 'pr-reviewer-test-'));
 process.env.HOME = home;
+// На Linux пути данных идут от XDG-переменных, если они заданы: убираем, чтобы тест не задел настоящие данные
+for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CONFIG_HOME']) delete process.env[name];
 const { DATA_DIR } = await import('../src/store.mjs');
 const { EVICTION_WINDOW, countLessonUsage, pickEvictions } = await import('../src/lesson-usage.mjs');
 after(() => rmSync(home, { recursive: true, force: true }));

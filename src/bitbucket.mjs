@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { readSecret, secretStoreHint } from './platform.mjs';
 
 const API = 'https://api.bitbucket.org/2.0';
 const PR_FIELDS = [
@@ -33,14 +33,9 @@ const COMMENT_FIELDS = [
 
 const readToken = ({ email, keychainService }) => {
     if (!email) throw new Error('В config.json не заполнен bitbucket.email');
-    try {
-        return execFileSync('security', ['find-generic-password', '-s', keychainService, '-a', email, '-w'], {
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'ignore'],
-        }).trim();
-    } catch {
-        throw new Error(`Нет токена Bitbucket в Keychain (service ${keychainService}, account ${email})`);
-    }
+    const token = readSecret(keychainService, email);
+    if (!token) throw new Error(`Нет токена Bitbucket в ${secretStoreHint} (service ${keychainService}, account ${email})`);
+    return token;
 };
 
 export const createBitbucket = (config) => {
