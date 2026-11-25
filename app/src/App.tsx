@@ -50,6 +50,14 @@ export const App = () => {
         return () => clearTimeout(timer);
     }, [connection]);
 
+    // Rust ставит окно у значка и передаёт, где центр стрелки
+    useEffect(() => {
+        const unlisten = listen<{ arrowX: number }>('popover-shown', ({ payload }) => document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`));
+        return () => {
+            unlisten.then((stop) => stop());
+        };
+    }, []);
+
     // Меню по правому клику: Rust передаёт выбранный пункт, действие выполняет API
     useEffect(() => {
         const unlisten = listen<string>('menu', async ({ payload }) => {
@@ -65,21 +73,34 @@ export const App = () => {
         };
     }, [status?.paused]);
 
+    // Рамка — классы дизайн-системы (product/design/web/components.css): на Mac стрелка к значку, на Windows без неё
+    const platform = isWindows() ? 'win' : 'mac';
     return (
-        <main className={`popover ${isWindows() ? 'windows' : 'mac'}`}>
-            <header className="popover-header">
-                <h1>PR Reviewer</h1>
-                {connection.phase === 'up' && <span className="version">{connection.health.commit ?? connection.health.version}</span>}
-            </header>
-            {connection.phase === 'down' && (
-                <section className="banner banner-error" role="alert">
-                    <strong>Сервис не запущен</strong>
-                    <p>{connection.reason}</p>
-                    <p>{serviceHint()}</p>
-                </section>
-            )}
-            {connection.phase === 'connecting' && <p className="placeholder">Подключение к сервису…</p>}
-            {connection.phase === 'up' && <p className="placeholder">{trayState(status, false, config.intervalMinutes ?? 15).line}</p>}
-        </main>
+        <div className={`window-frame window-frame--${platform}`}>
+            <div className={`popover-frame popover-frame--${platform}`}>
+                {platform === 'mac' && (
+                    <svg className="popover__arrow" viewBox="0 0 24 11" aria-hidden="true">
+                        <path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor" />
+                    </svg>
+                )}
+                <main className="popover">
+                    <div className="popover__body">
+                        {connection.phase === 'down' && (
+                            <div className="banners">
+                                <div className="banner banner--critical" role="alert">
+                                    <div className="banner__body">
+                                        <div className="banner__title">Сервис не запущен</div>
+                                        <div className="banner__text">{connection.reason}</div>
+                                        <div className="banner__text">{serviceHint()}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                        {connection.phase === 'connecting' && <p className="placeholder">Подключение к сервису…</p>}
+                        {connection.phase === 'up' && <p className="placeholder">{trayState(status, false, config.intervalMinutes ?? 15).line}</p>}
+                    </div>
+                </main>
+            </div>
+        </div>
     );
 };

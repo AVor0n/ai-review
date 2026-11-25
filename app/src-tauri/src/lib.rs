@@ -6,12 +6,24 @@ use tauri::{
     image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Emitter, Manager, WindowEvent,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Rect, WindowEvent,
 };
-use tauri_plugin_positioner::{Position, WindowExt};
 
 const TRAY_ID: &str = "main";
 const WINDOW: &str = "main";
+
+// Окно прозрачное и шире поповера: поля под тень, которую рисует CSS (product/design/web/components.css).
+// Размеры — в логических пикселях, как --popover-width/--popover-height и поля .window-frame в styles.css
+const POPOVER_WIDTH: f64 = 780.0;
+const POPOVER_HEIGHT: f64 = 600.0;
+const SHADOW_MARGIN: f64 = 32.0;
+const MAC_ARROW: f64 = 10.0;
+const MAC_TOP_MARGIN: f64 = 4.0;
+const WIN_TASKBAR_GAP: f64 = 12.0;
+const SCREEN_EDGE: f64 = 8.0;
+
+// Где значок: последний прямоугольник из события трея — по нему ставится поповер и стрелка
+struct TrayRect(Mutex<Option<Rect>>);
 
 struct MenuItems {
     status: MenuItem<tauri::Wry>,
@@ -104,18 +116,64 @@ fn set_tray_state(app: AppHandle, state: String, tooltip: String, status_line: S
     Ok(())
 }
 
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PopoverPlacement {
+    platform: &'static str,
+    // Центр стрелки от левого края поповера (macOS), CSS-переменная --arrow-x
+    arrow_x: f64,
+}
+
+// macOS: под значком, стрелка смотрит на его центр. Windows: над панелью задач на 12 px, правым краем к значку
+fn place_popover(app: &AppHandle, window: &tauri::WebviewWindow) -> PopoverPlacement {
+    let platform = if cfg!(target_os = "macos") { "mac" } else { "win" };
+    let rect = app.state::<TrayRect>().0.lock().ok().and_then(|rect| *rect);
+    let monitor = rect
+        .and_then(|rect| {
+            let position = rect.position.to_physical::<f64>(1.0);
+            app.monitor_from_point(position.x, position.y).ok().flatten()
+        })
+        .or_else(|| window.primary_monitor().ok().flatten());
+    let Some(monitor) = monitor else { return PopoverPlacement { platform, arrow_x: POPOVER_WIDTH / 2.0 } };
+    let scale = monitor.scale_factor();
+    let work = monitor.work_area();
+    let (work_left, work_top) = (work.position.x as f64 / scale, work.position.y as f64 / scale);
+    let (work_right, work_bottom) = (work_left + work.size.width as f64 / scale, work_top + work.size.height as f64 / scale);
+    // Без события трея (пункт меню «Открыть») — у правого верхнего или правого нижнего угла
+    let (icon_left, icon_top, icon_width, icon_height) = match rect {
+        Some(rect) => {
+            let position = rect.position.to_logical::<f64>(scale);
+            let size = rect.size.to_logical::<f64>(scale);
+            (position.x, position.y, size.width, size.height)
+        }
+        None if cfg!(target_os = "macos") => (work_right - 120.0, work_top - 24.0, 22.0, 24.0),
+        None => (work_right - 120.0, work_bottom, 24.0, 40.0),
+    };
+    let clamp = |left: f64| left.max(work_left + SCREEN_EDGE).min(work_right - SCREEN_EDGE - POPOVER_WIDTH);
+    let (frame_left, window_y, height) = if cfg!(target_os = "macos") {
+        let left = clamp(icon_left + icon_width / 2.0 - POPOVER_WIDTH / 2.0);
+        (left, icon_top + icon_height - MAC_TOP_MARGIN, MAC_TOP_MARGIN + MAC_ARROW + POPOVER_HEIGHT + SHADOW_MARGIN)
+    } else {
+        let left = clamp(icon_left + icon_width - POPOVER_WIDTH);
+        let height = SHADOW_MARGIN * 2.0 + POPOVER_HEIGHT;
+        (left, work_bottom - WIN_TASKBAR_GAP - POPOVER_HEIGHT - SHADOW_MARGIN, height)
+    };
+    let _ = window.set_size(LogicalSize::new(POPOVER_WIDTH + SHADOW_MARGIN * 2.0, height));
+    let _ = window.set_position(LogicalPosition::new(frame_left - SHADOW_MARGIN, window_y));
+    PopoverPlacement { platform, arrow_x: icon_left + icon_width / 2.0 - frame_left }
+}
+
 fn toggle_popover(app: &AppHandle) {
     let Some(window) = app.get_webview_window(WINDOW) else { return };
     if window.is_visible().unwrap_or(false) {
         let _ = window.hide();
         return;
     }
-    // macOS: строка меню сверху — поповер под значком; Windows: панель задач снизу — над значком
-    let position = if cfg!(target_os = "macos") { Position::TrayCenter } else { Position::TrayBottomCenter };
-    let _ = window.move_window(position);
+    let placement = place_popover(app, &window);
+    // Сначала вебвью ставит стрелку и раскладку, потом окно показывается — без мигания старой стрелки
+    let _ = window.emit("popover-shown", placement);
     let _ = window.show();
     let _ = window.set_focus();
-    let _ = window.emit("popover-shown", ());
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
@@ -144,9 +202,13 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
             }
         })
         .on_tray_icon_event(|tray, event| {
-            tauri_plugin_positioner::on_tray_event(tray.app_handle(), &event);
-            if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
-                toggle_popover(tray.app_handle());
+            if let TrayIconEvent::Click { button, button_state, rect, .. } = event {
+                if let Ok(mut last) = tray.app_handle().state::<TrayRect>().0.lock() {
+                    *last = Some(rect);
+                }
+                if button == MouseButton::Left && button_state == MouseButtonState::Up {
+                    toggle_popover(tray.app_handle());
+                }
             }
         })
         .build(app)
@@ -155,7 +217,6 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| toggle_popover(app)))
-        .plugin(tauri_plugin_positioner::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .invoke_handler(tauri::generate_handler![api_token, set_tray_state])
@@ -163,6 +224,7 @@ pub fn run() {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.manage(TrayRect(Mutex::new(None)));
             build_tray(app.handle())?;
             // Автозапуск при входе — только у собранного приложения: dev-сборка не должна прописываться в систему
             if !cfg!(debug_assertions) {
