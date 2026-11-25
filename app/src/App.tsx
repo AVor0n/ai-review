@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { errorText, type Schemas } from './api/client';
 import type { ChangeEvent } from './api/events';
 import { notify, reviewNotice } from './notify';
-import { isWindows, serviceHint, useService } from './service';
+import icons from '../../product/design/web/icons.svg?url';
+import { isWindows, serviceDown, useService, type Connection } from './service';
 import { applyTray, trayState } from './tray';
 
 type Config = { intervalMinutes?: number; agents?: Record<string, { shortName?: string }> };
@@ -16,7 +17,7 @@ export const App = () => {
     const [status, setStatus] = useState<Schemas['Status'] | null>(null);
     const [config, setConfig] = useState<Config>({});
     const seenStatsAt = useRef(new Date().toISOString());
-    const connectionRef = useRef<ReturnType<typeof useService> | null>(null);
+    const connectionRef = useRef<Connection | null>(null);
 
     const onChange = useCallback(async (event: ChangeEvent) => {
         const connection = connectionRef.current;
@@ -37,7 +38,7 @@ export const App = () => {
         }
     }, [config]);
 
-    const connection = useService(onChange);
+    const { connection, retry } = useService(onChange);
     connectionRef.current = connection;
 
     useEffect(() => {
@@ -46,7 +47,7 @@ export const App = () => {
 
     useEffect(() => {
         if (connection.phase !== 'down') return;
-        const timer = setTimeout(() => notify('PR Reviewer: сервис не отвечает', serviceHint()), Math.max(0, connection.since + DOWN_NOTICE_MS - Date.now()));
+        const timer = setTimeout(() => notify('PR Reviewer: сервис не отвечает', serviceDown().text), Math.max(0, connection.since + DOWN_NOTICE_MS - Date.now()));
         return () => clearTimeout(timer);
     }, [connection]);
 
@@ -62,7 +63,7 @@ export const App = () => {
     useEffect(() => {
         const unlisten = listen<string>('menu', async ({ payload }) => {
             const current = connectionRef.current;
-            if (current?.phase !== 'up') return notify('PR Reviewer: сервис не запущен', serviceHint());
+            if (current?.phase !== 'up') return notify('PR Reviewer: сервис не запущен', serviceDown().text);
             const { api } = current;
             const result =
                 payload === 'run-now' ? await api.POST('/run-now') : payload === 'stop' ? await api.POST('/stop') : payload === 'toggle-pause' ? await (status?.paused ? api.POST('/resume') : api.POST('/pause')) : null;
@@ -87,13 +88,33 @@ export const App = () => {
                     <div className="popover__body">
                         {connection.phase === 'down' && (
                             <div className="banners">
-                                <div className="banner banner--critical" role="alert">
+                                <div className="banner banner--critical" role="alert" title={connection.reason}>
+                                    <svg className="icon banner__icon" aria-hidden="true">
+                                        <use href={`${icons}#i-power`} />
+                                    </svg>
                                     <div className="banner__body">
                                         <div className="banner__title">Сервис не запущен</div>
-                                        <div className="banner__text">{connection.reason}</div>
-                                        <div className="banner__text">{serviceHint()}</div>
+                                        <div className="banner__text">{serviceDown().text}</div>
+                                        <div className="banner__command selectable">{serviceDown().command}</div>
+                                    </div>
+                                    <div className="banner__actions">
+                                        <button className="link-button" onClick={() => navigator.clipboard.writeText(serviceDown().command)}>
+                                            Скопировать команду
+                                        </button>
+                                        <button className="link-button" onClick={retry}>
+                                            Проверить снова
+                                        </button>
                                     </div>
                                 </div>
+                            </div>
+                        )}
+                        {connection.phase === 'down' && (
+                            <div className="empty-state">
+                                <svg className="icon empty-state__icon" aria-hidden="true">
+                                    <use href={`${icons}#i-tray`} />
+                                </svg>
+                                <div className="empty-state__title">Нет данных</div>
+                                <div className="empty-state__text">Список PR появится, когда сервис ответит</div>
                             </div>
                         )}
                         {connection.phase === 'connecting' && <p className="placeholder">Подключение к сервису…</p>}

@@ -12,20 +12,24 @@ export type Connection =
 
 type Listener = (event: ChangeEvent) => void;
 
-const RETRY_MS = [2_000, 5_000, 10_000, 30_000];
+const RETRY_MS = [2_500, 2_500, 5_000, 10_000, 30_000];
+// Баннер — только после второй неудачи подряд (около 5 с): при запуске сервиса он не мигает
+const FAILURES_BEFORE_BANNER = 2;
 
 export const useService = (onChange: Listener) => {
     const [connection, setConnection] = useState<Connection>({ phase: 'connecting' });
     const listener = useRef(onChange);
     listener.current = onChange;
+    const retryNow = useRef<() => void>(() => {});
 
     useEffect(() => {
         const controller = new AbortController();
         let attempt = 0;
+        let failures = 0;
         let downSince: number | null = null;
         const down = (reason: string) => {
             downSince ??= Date.now();
-            setConnection({ phase: 'down', reason, since: downSince });
+            if (++failures >= FAILURES_BEFORE_BANNER) setConnection({ phase: 'down', reason, since: downSince });
         };
         const loop = async () => {
             while (!controller.signal.aborted) {
@@ -35,6 +39,7 @@ export const useService = (onChange: Listener) => {
                     const { data: health } = await api.GET('/health', { signal: controller.signal });
                     if (!health) throw new Error('Сервис не ответил');
                     attempt = 0;
+                    failures = 0;
                     downSince = null;
                     setConnection({ phase: 'up', api, health });
                     listener.current({ type: 'connected', at: new Date().toISOString() });
@@ -45,19 +50,33 @@ export const useService = (onChange: Listener) => {
                     // invoke отдаёт строку с причиной, fetch — TypeError «Failed to fetch» при закрытом порте
                     down(typeof error === 'string' ? error : 'Сервис не отвечает на 127.0.0.1');
                 }
-                await new Promise((resolve) => setTimeout(resolve, RETRY_MS[Math.min(attempt++, RETRY_MS.length - 1)]));
+                // «Проверить снова» прерывает паузу и пробует сразу
+                await new Promise<void>((resolve) => {
+                    const timer = setTimeout(resolve, RETRY_MS[Math.min(attempt++, RETRY_MS.length - 1)]);
+                    retryNow.current = () => {
+                        clearTimeout(timer);
+                        resolve();
+                    };
+                });
             }
         };
         loop();
         return () => controller.abort();
     }, []);
 
-    return connection;
+    return { connection, retry: () => retryNow.current() };
 };
 
 export const isWindows = () => navigator.userAgent.includes('Windows');
 
-export const serviceHint = () =>
+// Тексты и команды — из макета (product/design/mockups/2026-11-25-tauri-popover.html, «сервис не отвечает»)
+export const serviceDown = () =>
     isWindows()
-        ? 'Откройте Ubuntu (WSL) и выполните systemctl --user start pr-reviewer-api. Если сервис не установлен — ./install.sh в папке PR Reviewer внутри WSL.'
-        : 'Запустите ./install.sh в папке PR Reviewer: он поставит и запустит сервис и его API.';
+        ? {
+              text: `Нет ответа от сервиса в WSL (${baseUrl().replace('http://', '')}). Откройте терминал Ubuntu — сервис запускается вместе с WSL. Если он не поднялся, выполните в PowerShell команду ниже.`,
+              command: 'wsl systemctl --user restart pr-reviewer-api',
+          }
+        : {
+              text: `Нет ответа от ${baseUrl().replace('http://', '')}. Запустите сервис командой ниже или установите заново через ./install.sh.`,
+              command: 'launchctl kickstart -k gui/$(id -u)/com.avoronin.pr-reviewer.api',
+          };
