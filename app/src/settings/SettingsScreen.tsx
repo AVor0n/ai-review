@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirm } from '../dialog';
 import { isPermissionGranted } from '@tauri-apps/plugin-notification';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Fragment, useCallback, useEffect, useState, type CSSProperties } from 'react';
@@ -178,7 +178,7 @@ export const SettingsScreen = ({
     };
 
     const remove = async (slug: string) => {
-        const confirmed = await ask('Ревью этого репозитория прекратится, служебная копия будет удалена. Комментарии в Bitbucket и статистика останутся.', {
+        const confirmed = await confirm('Ревью этого репозитория прекратится, служебная копия будет удалена. Комментарии в Bitbucket и статистика останутся.', {
             title: `Отключить ${slug}?`,
             kind: 'warning',
             okLabel: 'Отключить и удалить клон',

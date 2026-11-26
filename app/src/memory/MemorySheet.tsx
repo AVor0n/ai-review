@@ -1,4 +1,4 @@
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirm } from '../dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useState, type KeyboardEvent } from 'react';
 import { errorText, type ApiClient } from '../api/client';
@@ -255,7 +255,7 @@ export const MemorySheet = ({
 
     // Можно ли откатить, решает сервис: он сверяет память с той, что осталась после разбора, и откажет, если её меняли
     const restore = async () => {
-        const confirmed = await ask(
+        const confirmed = await confirm(
             'Память вернётся к копии, сохранённой перед разбором: удалённые правила вернутся, переписанные и склеенные — станут прежними. Если после разбора память менялась, сервис откажет, чтобы не потерять эти изменения.',
             { title: 'Откатить разбор памяти?', kind: 'warning', okLabel: 'Откатить', cancelLabel: 'Отмена' },
         );

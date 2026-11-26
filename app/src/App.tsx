@@ -1,5 +1,5 @@
 import { listen } from '@tauri-apps/api/event';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirm } from './dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorText, type ApiClient, type Schemas } from './api/client';
@@ -247,7 +247,7 @@ export const App = () => {
         // Подтверждения — системный диалог с текстами из OverviewView.swift
         fix: async (repo: string, pr: PullRequest, rebase: boolean) => {
             const conflicts = pr.conflicts === true ? ', будут конфликты — их разрешит Claude, а если вариант неочевиден, rebase отменится' : '';
-            const confirmed = await ask(
+            const confirmed = await confirm(
                 rebase
                     ? `Ветка ${pr.source} отстала от ${pr.destination} на ${pr.behind ?? 0} коммит(ов)${conflicts}. После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.`
                     : `Claude перенесёт ветку ${pr.source} на свежую ${pr.destination}, исправит открытые замечания (${threads(pr).open}), закоммитит, прогонит проверки и, если они прошли, сделает push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.`,
@@ -256,7 +256,7 @@ export const App = () => {
             if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/fixes/{repo}/{pr}', { params: { path: { repo, pr: pr.id } }, body: { rebase } }));
         },
         arch: async (repo: string, pr: PullRequest) => {
-            const confirmed = await ask(
+            const confirmed = await confirm(
                 `${archAgentName(dataRef.current.config)} оценит решение целиком: цель, альтернативы с ценой переделки, где можно проще, серьёзные риски. Это займёт до часа. Отчёт останется только здесь, в PR ничего не публикуется.`,
                 { title: `Архитектурное ревью #${pr.id}?`, kind: 'info', okLabel: 'Запустить', cancelLabel: 'Отмена' },
             );

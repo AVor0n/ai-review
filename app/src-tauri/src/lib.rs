@@ -1,9 +1,18 @@
 // Приложение в трее: значок, поповер у значка, меню по правому клику, токен локального API.
 // Данные и действия — только через API сервиса (B-29); здесь то, что вебвью сам сделать не может
 use std::sync::{
-    atomic::{AtomicU64, Ordering},
+    atomic::{AtomicBool, AtomicU64, Ordering},
     Mutex,
 };
+
+// Открыто системное подтверждение (ask из plugin-dialog): оно забирает фокус у поповера, но прятать поповер из-за этого нельзя —
+// подтверждение осталось бы висеть до следующего открытия
+static MODAL: AtomicBool = AtomicBool::new(false);
+
+#[tauri::command]
+fn set_modal(open: bool) {
+    MODAL.store(open, Ordering::SeqCst);
+}
 use std::time::Duration;
 
 use tauri::{
@@ -381,6 +390,9 @@ fn open_viewer(app: AppHandle, query: String) -> Result<(), String> {
 fn hide_popover_unless_viewer(app: AppHandle) {
     std::thread::spawn(move || {
         std::thread::sleep(Duration::from_millis(150));
+        if MODAL.load(Ordering::SeqCst) {
+            return;
+        }
         let viewer = app.get_webview_window(VIEWER);
         if viewer.as_ref().is_some_and(|viewer| viewer.is_focused().unwrap_or(false)) {
             return;
@@ -523,7 +535,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification, set_modal])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]

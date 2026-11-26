@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirm } from '../dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { errorText, type ApiClient } from '../api/client';
@@ -240,7 +240,7 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
     const requestPlan = () => act(() => api.POST('/qa/{repo}/{pr}/plan', { params: { path: { repo, pr: prId } }, body: { note } }));
 
     const requestRun = async () => {
-        const confirmed = await ask(
+        const confirmed = await confirm(
             needsBrowser
                 ? `Займёт 30–60 минут и несколько долларов. Сервис соберёт образ бэкенда в Docker (первая сборка на коммит — ещё несколько минут), поднимет отдельное e2e-окружение и фронтенд из ветки PR, а Claude напишет и прогонит тесты: ${cases(selected.length + extraCases.length)}. ${isWindows ? 'Компьютер' : 'Mac'} будет заметно нагружен. В PR ничего не публикуется.`
                 : `e2e-кейсов нет, поэтому Docker и браузер не понадобятся: Claude напишет и прогонит юнит и компонентные тесты на Vitest — ${cases(selected.length)}. Это быстрее и дешевле прогона с e2e. В PR ничего не публикуется.`,

@@ -1,4 +1,4 @@
-import { ask } from '@tauri-apps/plugin-dialog';
+import { confirm } from '../dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Fragment, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { errorText, type ApiClient } from '../api/client';
@@ -116,7 +116,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
     const startJob = (kind: 'triage' | 'learn') => api && run(() => api.POST('/backlog/jobs', { body: { kind } }));
 
     const confirmTriage = async () => {
-        const confirmed = await ask(
+        const confirmed = await confirm(
             'Модель прочитает код основной ветки каждого репозитория и отметит, какие проблемы уже исправлены или пропали. Закрываете вы. Записи, уже проверенные на той же версии кода, пропускаются. Около $1 за 10 записей, несколько минут.',
             { title: `Разобрать ${waiting} записей по текущему коду?`, kind: 'info', okLabel: 'Разобрать', cancelLabel: 'Отмена' },
         );
