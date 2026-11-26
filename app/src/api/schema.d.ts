@@ -1031,9 +1031,12 @@ export interface paths {
                     content: {
                         "application/json": {
                             /** @description Задача */
-                            job: {
+                            job: ({
+                                /** @description Состояние running и процесс задачи жив */
+                                running?: boolean;
+                            } & {
                                 [key: string]: unknown;
-                            } | null;
+                            }) | null;
                             /** @description Последний разбор */
                             scan: {
                                 [key: string]: unknown;

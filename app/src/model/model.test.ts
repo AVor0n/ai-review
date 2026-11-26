@@ -161,7 +161,7 @@ describe('заглушки', () => {
     const env = { cli: '/home/me/tools/pr-reviewer/bin/pr-reviewer', logDir: '/home/me/.local/state/pr-reviewer' };
 
     it('Mac — текст про старое окно, без команд', () => {
-        expect(stub({ kind: 'tab', tab: 'backlog' }, 'mac', env)).toEqual({ tab: 'backlog', title: 'Бэклог', text: 'Экран переедет в следующих версиях. Пока он есть в старом окне', commands: [] });
+        expect(stub({ kind: 'tab', tab: 'log' }, 'mac', env)).toEqual({ tab: 'log', title: 'Журнал', text: 'Экран переедет в следующих версиях. Пока он есть в старом окне', commands: [] });
     });
 
     it('Windows — команды с полным путём к CLI, домашняя папка сокращена', () => {

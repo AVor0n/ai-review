@@ -7,6 +7,7 @@ import type { ChangeEvent } from './api/events';
 import { Overview, type OverviewHandlers } from './components/Overview';
 import { Stub } from './components/Stub';
 import { StatsScreen } from './stats/StatsScreen';
+import { BacklogScreen } from './backlog/BacklogScreen';
 import { MemorySheet } from './memory/MemorySheet';
 import { ArchSheet } from './arch/ArchSheet';
 import { FixSheet } from './fix/FixSheet';
@@ -44,7 +45,7 @@ export const App = () => {
     const [now, setNow] = useState(() => new Date());
     const [stub, setStub] = useState<StubTarget | null>(null);
     // Перенесённые экраны; неперенесённые открывают заглушку поверх них
-    const [screen, setScreen] = useState<'overview' | 'stats'>('overview');
+    const [screen, setScreen] = useState<'overview' | 'backlog' | 'stats'>('overview');
     const [statsVersion, setStatsVersion] = useState(0);
     // Лист «Память ревьюеров» поверх поповера, на той вкладке, где его открыли
     const [memorySheet, setMemorySheet] = useState<string | null>(null);
@@ -285,7 +286,7 @@ export const App = () => {
                         <div className="segmented" role="tablist">
                             {TABS.map((item) => (
                                 <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => {
-                                        if (item.id === 'overview' || item.id === 'stats') {
+                                        if (item.id === 'overview' || item.id === 'backlog' || item.id === 'stats') {
                                             setScreen(item.id);
                                             setStub(null);
                                         } else setStub({ kind: 'tab', tab: item.id });
@@ -297,6 +298,8 @@ export const App = () => {
                     </div>
                     {shownStub ? (
                         <Stub stub={shownStub} onCopy={copy} />
+                    ) : screen === 'backlog' ? (
+                        <BacklogScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : screen === 'stats' ? (
                         <StatsScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : (

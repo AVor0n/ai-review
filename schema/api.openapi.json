@@ -921,7 +921,13 @@
                                             "nullable": true,
                                             "type": "object",
                                             "description": "Задача",
-                                            "additionalProperties": true
+                                            "additionalProperties": true,
+                                            "properties": {
+                                                "running": {
+                                                    "type": "boolean",
+                                                    "description": "Состояние running и процесс задачи жив"
+                                                }
+                                            }
                                         },
                                         "scan": {
                                             "nullable": true,

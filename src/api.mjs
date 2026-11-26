@@ -63,15 +63,22 @@ const journal = (file, query) => {
     return limit > 0 ? rows.slice(-limit) : rows;
 };
 
-const isAlive = (pidFile) => {
-    const pid = Number(readFileSafe(pidFile));
+const pidAlive = (pid) => {
     if (!pid) return false;
     try {
         process.kill(pid, 0);
         return true;
-    } catch {
-        return false;
+    } catch (error) {
+        return error.code === 'EPERM';
     }
+};
+
+const isAlive = (pidFile) => pidAlive(Number(readFileSafe(pidFile)));
+
+// «Идёт» без живого процесса — след прерванного запуска: приложение не может проверить pid само (на Windows он в WSL)
+const backlogJob = () => {
+    const job = readJson(join(DATA_DIR, 'backlog-job.json'), null);
+    return job && { ...job, running: job.state === 'running' && pidAlive(Number(job.pid)) };
 };
 
 const readFileSafe = (path) => {
@@ -169,7 +176,7 @@ const routes = (deps) => {
         { method: 'GET', path: '/qa/history', read: ({ query }) => journal('qa.jsonl', query) },
         { method: 'GET', path: '/qa/{repo}/{pr}/markdown', ...cliAction(({ params, query, config }) => ['qa', 'show', '--repo', repoParam(params, config), '--pr', prParam(params), ...(query.get('plan') === 'true' ? ['--plan'] : [])]) },
         { method: 'GET', path: '/backlog', read: () => readJson(join(DATA_DIR, 'backlog.json'), { items: [] }) },
-        { method: 'GET', path: '/backlog/job', read: () => ({ job: readJson(join(DATA_DIR, 'backlog-job.json'), null), scan: readJson(join(DATA_DIR, 'backlog-scan.json'), null) }) },
+        { method: 'GET', path: '/backlog/job', read: () => ({ job: backlogJob(), scan: readJson(join(DATA_DIR, 'backlog-scan.json'), null) }) },
         { method: 'GET', path: '/backlog/markdown', ...cliAction(({ query }) => ['backlog', 'export', ...(query.get('all') === 'true' ? ['--all'] : [])]) },
         { method: 'GET', path: '/memory/{repo}', read: ({ params }) => memoryJson(repoParam(params, loadConfig())) },
         { method: 'GET', path: '/memory/{repo}/plan', ...cliAction(({ params, config }) => ['memory', 'review', repoParam(params, config), '--show', '--json'], { json: true }) },

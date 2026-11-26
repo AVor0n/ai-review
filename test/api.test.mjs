@@ -243,3 +243,14 @@ test('файлы прогона тестирования: картинка от�
     assert.equal((await call('GET', '/qa/backend/7/file?path=C1/none.png')).status, 404);
     assert.equal((await call('GET', '/qa/backend/8/file?path=C1/shot.png')).status, 404);
 });
+
+test('задача бэклога: running — только при живом процессе, иначе след прерванного запуска', async () => {
+    writeFileSync(join(DATA_DIR, 'backlog-job.json'), JSON.stringify({ kind: 'triage', state: 'running', pid: process.pid }));
+    const alive = await call('GET', '/backlog/job');
+    assert.deepEqual(conforms('GET', '/backlog/job', alive.json), []);
+    assert.equal(alive.json.job.running, true);
+    writeFileSync(join(DATA_DIR, 'backlog-job.json'), JSON.stringify({ kind: 'triage', state: 'running', pid: 2 ** 22 + 7 }));
+    assert.equal((await call('GET', '/backlog/job')).json.job.running, false);
+    writeFileSync(join(DATA_DIR, 'backlog-job.json'), JSON.stringify({ kind: 'learn', state: 'done', pid: process.pid }));
+    assert.equal((await call('GET', '/backlog/job')).json.job.running, false);
+});
