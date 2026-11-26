@@ -103,6 +103,18 @@ fn taskbar_dark() -> bool {
 
 // Кадры значка рисует вебвью (product/design/web: иконки и знаки моделей). Несколько кадров — анимация:
 // вращение знака модели или мигание; max_ticks — сколько смен кадра, после них горит первый кадр
+// Картинка и признак шаблона — одним вызовом: в tray-icon 0.25 на macOS set_icon сбрасывает шаблон,
+// и значок «ожидание» оставался чёрным на тёмной строке меню вместо цвета системы
+fn apply_tray_icon(tray: &TrayIcon, image: Image<'static>, template: bool) -> tauri::Result<()> {
+    #[cfg(target_os = "macos")]
+    return tray.set_icon_with_as_template(Some(image), template);
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = template;
+        tray.set_icon(Some(image))
+    }
+}
+
 #[tauri::command]
 fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks: Option<u32>, template: bool, title: Option<String>) -> Result<(), String> {
     let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
@@ -113,11 +125,7 @@ fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks:
         .map_err(|error| error.to_string())?;
     let first = images.first().cloned().ok_or("нет кадров")?;
     let generation = app.state::<TrayAnimation>().0.fetch_add(1, Ordering::SeqCst) + 1;
-    #[cfg(target_os = "macos")]
-    tray.set_icon_as_template(template).map_err(|error| error.to_string())?;
-    #[cfg(not(target_os = "macos"))]
-    let _ = template;
-    tray.set_icon(Some(first)).map_err(|error| error.to_string())?;
+    apply_tray_icon(&tray, first, template).map_err(|error| error.to_string())?;
     // Число PR без ревью справа от значка — только на macOS; на Windows оно нарисовано бейджем в кадре
     #[cfg(target_os = "macos")]
     tray.set_title(title).map_err(|error| error.to_string())?;
@@ -135,7 +143,7 @@ fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks:
                 let done = max_ticks.is_some_and(|max| tick >= max);
                 let image = images[if done { 0 } else { tick as usize % images.len() }].clone();
                 if let Some(tray) = app.tray_by_id(TRAY_ID) {
-                    let _ = tray.set_icon(Some(image));
+                    let _ = apply_tray_icon(&tray, image, template);
                 }
                 if done {
                     return;
