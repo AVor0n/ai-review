@@ -261,9 +261,9 @@ const ensureDocker = () => {
 
 // Образ бэкенда весит ~600 МБ, а нужен только тот, что под текущий прогон. Тестирование идёт по одному,
 // поэтому остальные образы ничьи; занятый контейнером docker без -f удалить не даст
-// До #40 образ назывался <проект>-backend-qa: по этой форме имени он и находится, имён проектов в коде нет
-const LEGACY_BACKEND_IMAGE = /^[a-z0-9][a-z0-9._-]*-backend-qa$/;
-export const legacyBackendImages = (images) => images.filter((image) => LEGACY_BACKEND_IMAGE.test(image.split(':')[0]) && !image.endsWith(':<none>'));
+// До #40 образ назывался <qa.backend>-qa — ровно по этому имени из настроек он и находится.
+// Шаблон по форме имени задел бы чужие образы вида *-backend-qa
+export const legacyBackendImages = (images, backend) => (backend ? images.filter((image) => image.startsWith(`${backend}-qa:`) && !image.endsWith(':<none>')) : []);
 
 // null — Docker не ответил (не установлен или не запущен)
 const dockerImages = () => {
@@ -278,18 +278,20 @@ const removeImages = (images, what) => {
     else logError(`тестирование: не удалось удалить ${what} — ${result.stderr.trim()}`);
 };
 
-// Старые образы со старым именем после переименования (#40) иначе не удалились бы никогда. false — Docker не ответил, попробовать позже
-export const removeLegacyBackendImages = () => {
+// Образы со старым именем после переименования (#40) иначе не удалились бы никогда. Один раз, при переносе у старой установки.
+// false — Docker не ответил, попробовать позже
+export const removeLegacyBackendImages = (backend) => {
+    if (!backend) return true;
     const images = dockerImages();
     if (!images) return false;
-    removeImages(legacyBackendImages(images), 'образы бэкенда со старым именем');
+    removeImages(legacyBackendImages(images, backend), 'образы бэкенда со старым именем');
     return true;
 };
 
 const pruneBackendImages = (keep) => {
     const images = dockerImages() ?? [];
     const old = images.filter((image) => image.startsWith(`${BACKEND_IMAGE}:`) && image !== keep && !image.endsWith(':<none>'));
-    removeImages([...old, ...legacyBackendImages(images)], 'старые образы бэкенда');
+    removeImages(old, 'старые образы бэкенда');
 };
 
 const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, onCompose }) => {

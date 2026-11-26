@@ -70,20 +70,24 @@ const testedRepos = () => {
 
 export const runMigrations = ({ log = () => {} } = {}) => {
     let done = readJson(MARKER, {});
-    // Образ бэкенда QA со старым именем (590 МБ): удаляется, когда Docker ответит; до тех пор попытка при каждом запуске CLI
-    if (!done.qaImages && removeLegacyBackendImages()) {
-        done = { ...done, qaImages: new Date().toISOString() };
+    const mark = (key) => {
+        done = { ...done, [key]: new Date().toISOString() };
         writeJson(MARKER, done);
-    }
-    if (done.projectNames) return;
-    // Новая установка — общие умолчания, переносить нечего
-    if (existsSync(join(DATA_DIR, 'state.json'))) {
-        const config = loadConfig();
-        const patch = projectNamesPatch(config, { branches: snapshotBranches(config.repos.map((repo) => repo.slug)), testedRepos: testedRepos() });
-        if (patch) {
-            saveConfig({ ...config, ...patch });
-            log(`настройки: имена проекта перенесены в config.json — ${Object.keys(patch).join(', ')}`);
+    };
+    // Новая установка (нет state.json) — общие умолчания, переносить нечего
+    const legacy = existsSync(join(DATA_DIR, 'state.json'));
+    if (!done.projectNames) {
+        if (legacy) {
+            const config = loadConfig();
+            const patch = projectNamesPatch(config, { branches: snapshotBranches(config.repos.map((repo) => repo.slug)), testedRepos: testedRepos() });
+            if (patch) {
+                saveConfig({ ...config, ...patch });
+                log(`настройки: имена проекта перенесены в config.json — ${Object.keys(patch).join(', ')}`);
+            }
         }
+        mark('projectNames');
     }
-    writeJson(MARKER, { ...done, projectNames: new Date().toISOString() });
+    // Образ бэкенда QA со старым именем <qa.backend>-qa (590 МБ) — только у старой установки и после переноса: qa.backend пишет он.
+    // Удаляется, когда Docker ответит; до тех пор попытка при каждом запуске CLI
+    if (!done.qaImages && (!legacy || removeLegacyBackendImages(loadConfig().qa?.backend))) mark('qaImages');
 };
