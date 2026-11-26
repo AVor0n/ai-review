@@ -211,13 +211,13 @@ systemd=true
 **Windows.** Сервис — в WSL (раздел «Linux и WSL2»), приложение — в самой Windows:
 
 1. Проверьте, что API сервиса запущен: в Ubuntu `systemctl --user status pr-reviewer-api` — `active`.
-2. Скачайте установщик `PR Reviewer_…_x64-setup.exe` из последнего релиза и запустите. Подписи нет: при первом запуске — «Подробнее → Выполнить в любом случае».
+2. Скачайте установщик `PR Reviewer_…_x64-setup.exe` из [последнего релиза](https://github.com/AVor0n/pr-reviewer/releases/latest) и запустите. Подписи нет: при первом запуске — «Подробнее → Выполнить в любом случае».
 3. Значок появится в области уведомлений (может быть спрятан под стрелкой ^ — перетащите его на панель). Левый клик — поповер, правый — меню. Приложение само прописывается в автозапуск.
 4. Если API остановлен, поповер покажет «Сервис не запущен» и команду для PowerShell: `wsl systemctl --user restart pr-reviewer-api`.
 
 Пути к файлам из WSL (служебные копии, config.json, файлы прогона) приложение открывает в Проводнике и VS Code через `\\wsl.localhost\…`. Сборка на Windows ещё не проверялась вживую на этом этапе (Q53): замечания — отдельными issues.
 
-**Разработка.** `cd app && npm ci && npx tauri dev` (Rust по `app/rust-toolchain.toml`). С `PR_REVIEWER_SHOW=1` dev-сборка сразу показывает поповер и не прячет его — для скриншотов рядом с макетом. В dev нет CSP релизной сборки: то, что зависит от CSP и окон, проверяйте в `npx tauri build --bundles app`. Тесты приложения — `npm test` в `app/`. Сборки для macOS (`.dmg`) и Windows (`.exe`) собирает GitHub Actions: вкладка Actions → **app** → Run workflow или пуш тега `app-v*`.
+**Разработка.** `cd app && npm ci && npx tauri dev` (Rust по `app/rust-toolchain.toml`). С `PR_REVIEWER_SHOW=1` dev-сборка сразу показывает поповер и не прячет его — для скриншотов рядом с макетом. В dev нет CSP релизной сборки: то, что зависит от CSP и окон, проверяйте в `npx tauri build --bundles app`. Тесты приложения — `npm test` в `app/`. Сборки для macOS (`.dmg`) и Windows (`.exe`) собирает GitHub Actions. Пуш тега `app-v*` (версия из `app/src-tauri/tauri.conf.json`, например `app-v0.1.0`) собирает обе и публикует в [Releases](https://github.com/AVor0n/pr-reviewer/releases); вкладка Actions → **app** → Run workflow собирает их артефактами прогона, без релиза.
 
 ## Исследование подбора правил
 

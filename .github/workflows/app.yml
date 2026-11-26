@@ -1,5 +1,6 @@
-# Сборка приложения в трее (app/, Tauri 2) для macOS и Windows. Запуск — вручную (Actions → app → Run workflow)
-# или тегом app-v*. Подписи и нотаризации нет: сборки для себя, ставятся вручную. Артефакты — pr-reviewer-macOS и pr-reviewer-Windows
+# Сборка приложения в трее (app/, Tauri 2) для macOS и Windows. Тег app-v<версия> собирает обе и публикует GitHub Release;
+# ручной запуск (Actions → app → Run workflow) — проверка сборки без релиза, только артефакты прогона.
+# Подписи и нотаризации нет. Артефакты — pr-reviewer-macOS и pr-reviewer-Windows
 name: app
 
 on:
@@ -16,6 +17,11 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Тег совпадает с версией приложения
+              if: startsWith(github.ref, 'refs/tags/app-v')
+              run: |
+                  want="app-v$(jq -r .version app/src-tauri/tauri.conf.json)"
+                  test "$GITHUB_REF_NAME" = "$want" || { echo "Тег $GITHUB_REF_NAME, а версия приложения — $want"; exit 1; }
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
@@ -71,3 +77,29 @@ jobs:
                   name: pr-reviewer-${{ runner.os }}
                   path: ${{ matrix.artifact }}
                   if-no-files-found: error
+
+    release:
+        needs: build
+        if: startsWith(github.ref, 'refs/tags/app-v')
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  path: dist
+                  merge-multiple: true
+            - name: GitHub Release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  version="${GITHUB_REF_NAME#app-v}"
+                  cat > notes.md <<EOF
+                  PR Reviewer tray app $version.
+
+                  - macOS (Apple Silicon and Intel): \`.dmg\`. Not signed or notarized: after the first launch is blocked, allow it in System Settings → Privacy & Security → Open Anyway.
+                  - Windows: \`…_x64-setup.exe\`. Not signed: on first run choose "More info → Run anyway".
+
+                  The app needs the PR Reviewer service running (macOS: \`./install.sh\`; Windows: the service in WSL2). See README.
+                  EOF
+                  gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "PR Reviewer $version" --notes-file notes.md
