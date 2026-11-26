@@ -373,15 +373,15 @@
 <template id="tpl-sheet-ignore">
   <div class="sheet__head"><span class="sheet__titles"><span class="sheet__title">Исключения из диффа</span><span class="sheet__subtitle">Файлы по этим шаблонам вырезаются из диффа PR перед ревью — меньше токенов и ложных замечаний. Формат glob, ** — любое число папок. Действует со следующего ревью.</span></span><slot data-tpl="tpl-close"></slot></div>
   <div class="section__card" style="height: 200px; overflow: auto">
-    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/yarn.lock</span><button class="icon-button" style="color: var(--red); font-size: 15px" title="Снова отдавать моделям"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
+    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/yarn.lock</span><button class="icon-button icon-button--remove" title="Снова отдавать моделям"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
     <div class="row-divider"></div>
-    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/package-lock.json</span><button class="icon-button" style="color: var(--red); font-size: 15px"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
+    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/package-lock.json</span><button class="icon-button icon-button--remove"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
     <div class="row-divider"></div>
-    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/*.snap</span><button class="icon-button" style="color: var(--red); font-size: 15px"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
+    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/*.snap</span><button class="icon-button icon-button--remove"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
     <div class="row-divider"></div>
-    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">src/generated/**</span><button class="icon-button" style="color: var(--red); font-size: 15px"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
+    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">src/generated/**</span><button class="icon-button icon-button--remove"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
     <div class="row-divider"></div>
-    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/*.min.js</span><button class="icon-button" style="color: var(--red); font-size: 15px"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
+    <div class="settings-row" style="min-height: 0; padding-block: 7px"><span class="settings-row__title settings-row__value--mono">**/*.min.js</span><button class="icon-button icon-button--remove"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></button></div>
   </div>
   <div class="input-card"><svg class="icon" style="color: var(--green)"><use href="../web/icons.svg#i-plus-circle-fill"/></svg><input placeholder="Шаблон, например **/generated/**"></div>
 </template>

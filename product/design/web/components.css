@@ -3204,3 +3204,27 @@
 .row-divider--log {
   --divider-inset: 28px;
 }
+
+/*
+ * Размеры значков «Настроек» под SwiftUI (#56). Глиф Phosphor занимает 65–85 % своего квадрата,
+ * а SF Symbol на том же кегле выходит крупнее, поэтому кегль здесь больше, чем в SettingsView.swift:
+ * подобран по замеру, чтобы видимый глиф совпал с SF Symbol.
+ */
+.icon-tile { font-size: 18px; }                          /* shippingbox.fill 13 pt → 16 px */
+.icon-tile--small { font-size: 20px; }                   /* значки событий 12 pt semibold → 15 px */
+.settings-row__chevron { font-size: 16px; }              /* chevron.right 11 pt → 12 px */
+.settings-row--add .icon { font-size: 28px; }            /* plus.circle.fill 20 pt → 23 px */
+.settings-row .icon-button { font-size: 21px; }          /* ellipsis 13 pt → 14 px */
+.select .icon { font-size: 15px; }                       /* chevron.up.chevron.down 10 pt → 13 px */
+.input-card > .icon { font-size: 22px; }                 /* plus.circle.fill 15 pt → 18 px */
+.sheet__back .icon { font-size: 19px; }                  /* chevron.left 13 pt → 14 px */
+
+.memory-chip .icon {
+  margin: -1.5px 0;                                      /* brain 12 pt → 18 px; высота чипа прежняя */
+  font-size: 18px;
+}
+
+.icon-button.icon-button--remove {
+  font-size: 22px;                                       /* minus.circle.fill 15 pt → 18 px */
+  color: var(--red);
+}
