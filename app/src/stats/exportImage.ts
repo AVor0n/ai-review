@@ -52,3 +52,32 @@ export const exportImage = async (content: HTMLElement, name: string) => {
     if (!blob) throw new Error('Не удалось собрать картинку');
     await invoke('save_image', new Uint8Array(await blob.arrayBuffer()), { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
 };
+
+// Снимок из нескольких частей друг под другом — лист отчёта: шапка и карточки без прокрутки, своя ширина и поля
+export const exportParts = async (parts: HTMLElement[], name: string, { width, padding, gap }: { width: number; padding: number; gap: number }) => {
+    const options = (part: HTMLElement) => ({ pixelRatio: SCALE, width: width - 2 * padding, height: part.scrollHeight, style: { width: `${width - 2 * padding}px`, margin: '0' } });
+    const images: HTMLCanvasElement[] = [];
+    const restore = parts.map(freezeSvgColors);
+    try {
+        for (const part of parts) {
+            if (part.querySelector('.model-mark')) await toCanvas(part, options(part));
+            images.push(await toCanvas(part, options(part)));
+        }
+    } finally {
+        restore.forEach((undo) => undo());
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = width * SCALE;
+    canvas.height = (2 * padding + images.reduce((total, image) => total + image.height / SCALE, 0) + gap * (images.length - 1)) * SCALE;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = getComputedStyle(parts[0].closest('.sheet') ?? parts[0]).backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    let top = padding;
+    for (const image of images) {
+        context.drawImage(image, padding * SCALE, top * SCALE);
+        top += image.height / SCALE + gap;
+    }
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Не удалось собрать картинку');
+    await invoke('save_image', new Uint8Array(await blob.arrayBuffer()), { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
+};

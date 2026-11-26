@@ -169,7 +169,7 @@ describe('заглушки', () => {
         expect(token.tab).toBe('settings');
         expect(token.commands.map((command) => command.text)).toEqual(['~/tools/pr-reviewer/bin/pr-reviewer secret set bitbucket', '~/tools/pr-reviewer/bin/pr-reviewer token bitbucket 365']);
         expect(stub({ kind: 'tab', tab: 'log' }, 'win', env).commands[1].text).toBe('tail -f ~/.local/state/pr-reviewer/worker.log');
-        expect(stub({ kind: 'arch', repo: 'frontend', pr: 2828 }, 'win', env)).toMatchObject({ tab: 'overview', title: 'Архитектурное ревью' });
+        expect(stub({ kind: 'qa', repo: 'frontend', pr: 2828 }, 'win', env)).toMatchObject({ tab: 'overview', title: 'Тестирование PR' });
     });
 });
 
