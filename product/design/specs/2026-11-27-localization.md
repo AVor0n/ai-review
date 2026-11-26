@@ -59,7 +59,9 @@
 
 **Даты и время** форматируются через `Intl` с локалью `en-GB`, а не `en-US`. Так получается 24-часовой формат без AM/PM и тот же порядок «день месяц», что в русском, и строка короче:
 - `27 Nov`, `27 Nov 2026`, `15:05`, `27 November at 15:05`;
-- относительное время: «только что» → `just now`, «5 мин назад» → `5 min ago`, «до завтра 15:05» → `until tomorrow 15:05`, «до 27 нояб.» → `until 27 Nov`;
+- относительное время — через `Intl.RelativeTimeFormat` en-GB, стиль `short`: `just now`, `5 min ago`, `3 hr ago`, `yesterday`, `2 mo ago`. `hr` и `mo` дальше расходятся с `h` в длительностях, это допустимо: так пишет сам `Intl` (решено при вычитке 27.11);
+- «до завтра 15:05» → `until tomorrow 15:05`, «до 27 нояб.» → `until 27 Nov`;
+- числовых дат вроде `19/10/2026` нет — месяц пишем словом: `19 Oct`, `19 Oct 2026`;
 - «вчера», «сегодня» → `yesterday`, `today`.
 
 Ручные массивы месяцев (`MONTHS_SHORT`, `MONTHS_FULL`, `MONTHS_GENITIVE` в `stats/`) заменить на `Intl` с выбранным языком.
@@ -82,7 +84,8 @@
 | замечание | finding | Только то, что оставила модель. Уровни: `P0–P1 findings`. Не comment и не issue |
 | находки (сырые, до отбора, статистика) | found | «12 находок в 4 ревью» → `12 found in 4 reviews`. Отдельного существительного не вводим, чтобы не путать с finding |
 | комментарий | comment | Сообщение человека в Bitbucket |
-| комментарии людей; комментарии ревьюеров | team comments | Уведомление `Team comments`, график `Team comments per day` |
+| комментарии людей | team comments | Уведомление `Team comments` |
+| комментарии ревьюеров (график статистики) | reviewer comments | `Reviewer comments per day`. На графике — замечания и ответы моделей, а не комментарии людей (уточнено при вычитке 27.11) |
 | ответ | reply | `Replies in threads` |
 | тред; обсуждение | thread | |
 | голова PR | head | Только в подсказках: `the PR head` |
@@ -189,9 +192,11 @@
 | running | идёт ревью | reviewing |
 | limit | лимит исчерпан …, ревью будет после сброса | limit reached …, review resumes after reset |
 | manual | только вручную | manual only |
-| skip rebase | повторное ревью не нужно — после rebase изменения те же | no re-review needed: same changes after rebase |
-| skip ignored | ревью не понадобилось — в диффе только исключённые файлы | no review needed: only excluded files in the diff |
-| skip empty | ревью не понадобилось — в PR нет изменений относительно целевой ветки | no review needed: no changes against the target branch |
+| skip rebase | повторное ревью не нужно — после rebase изменения те же | no re-review needed, same changes after rebase |
+| skip ignored | ревью не понадобилось — в диффе только исключённые файлы | no review needed, only excluded files in the diff |
+| skip empty | ревью не понадобилось — в PR нет изменений относительно целевой ветки | no review needed, no changes against the target branch |
+
+После `{name}:` второе двоеточие не ставим — пишем запятую. Без имени модели (подсказка у счётчика) остаётся двоеточие: `No review needed: only excluded files in the diff`.
 | галочка счётчика | Модели проверили последний коммит и замечаний не нашли | Models reviewed the latest commit and found nothing |
 | время обновления | Обновлён … | Updated … |
 
