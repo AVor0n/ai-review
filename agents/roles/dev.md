@@ -17,6 +17,8 @@
 
 ## В работе
 
+- #70 (баннер «не установлен / остановлен», f7bdcf8): In review, CI зелёный; баннер на экране не смотрели → qa или пользователь на сборке из CI.
+- #71 (пометка «правки не закоммичены» в CI, 7a736b9): In review → проверить итог прогона app 45871592934 и «Настройки» его сборки.
 - #69 (`product/` → `agents/`): In review, ждёт qa → после проверки закрывает PM.
 - #66 (модели по задачам): ждёт одобрения макета пользователем (`agents/design/mockups/2026-11-27-tauri-task-models.html`, пока не в git) → In progress; строки — сразу в оба словаря.
 - #64: кода пока не требует.
@@ -33,4 +35,6 @@
 - **`.claude/`.** Глобальный `~/.gitignore` автора прячет `.claude` целиком, поэтому в `.gitignore` репозитория стоит `!.claude/` перед `.claude/*` и `!.claude/launch.json`. Рендеры SF Symbols для макетов исключены локально в `.git/info/exclude` (`agents/design/mockups/2026-11-27-icon-weight/sf/`) — на новой машине добавить туда же.
 - **Песочница Bash.** Цикл zsh по массиву (`for a in $areas`) проверка прав блокирует как word-split — файлы писать через Write или перечислять явно.
 - **Предупреждение сборки** `INEFFECTIVE_DYNAMIC_IMPORT` про `@tauri-apps/api/core` (из `i18n/index.ts`) безвредно, сборка проходит.
+- **Rust на Windows** (26.11): MSVC Build Tools нет. Стоят `scoop install rustup mingw` и тулчейн `1.95.0-x86_64-pc-windows-gnu`; проверка — `cargo +1.95.0-x86_64-pc-windows-gnu check` в `app/src-tauri`, в PATH нужны `~/scoop/persist/rustup/.cargo/bin` и `~/scoop/apps/mingw/current/bin` (без него — «dlltool not found»). Полная сборка exe — workflow `app` на `main` (без тега релиза нет); новый запуск на той же ветке отменяет идущий.
+- **autocrlf на Windows**: перезаписанный файл с LF (`gen:api` → `schema.d.ts`) `git status` считает изменённым, хотя `git diff` пустой — отсюда #71. После `npm run build` верни файл через `git checkout --`.
 - **Значок в строке меню** для computer-use ищи по скриншоту: рядом есть похожие значки, клик по координатам вслепую попадает в чужое приложение.
