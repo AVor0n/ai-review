@@ -72,6 +72,15 @@ jobs:
             - name: Сборка
               working-directory: app
               run: npx tauri build ${{ matrix.args }}
+            # Без подписи бандла macOS называет скачанное приложение повреждённым; подпись ad-hoc — из tauri.conf.json
+            - name: Подпись приложения в .dmg
+              if: runner.os == 'macOS'
+              run: |
+                  dmg=$(ls app/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg)
+                  mnt=$(mktemp -d)
+                  hdiutil attach -nobrowse -readonly -mountpoint "$mnt" "$dmg"
+                  codesign --verify --deep --strict --verbose=2 "$mnt/PR Reviewer.app"
+                  hdiutil detach "$mnt"
             - uses: actions/upload-artifact@v7
               with:
                   name: pr-reviewer-${{ runner.os }}

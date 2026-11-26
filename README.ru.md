@@ -217,7 +217,7 @@ systemd=true
 
 Пути к файлам из WSL (служебные копии, config.json, файлы прогона) приложение открывает в Проводнике и VS Code через `\\wsl.localhost\…`. Сборка на Windows ещё не проверялась вживую на этом этапе (Q53): замечания — отдельными issues.
 
-**Разработка.** `cd app && npm ci && npx tauri dev` (Rust по `app/rust-toolchain.toml`). С `PR_REVIEWER_SHOW=1` dev-сборка сразу показывает поповер и не прячет его — для скриншотов рядом с макетом. В dev нет CSP релизной сборки: то, что зависит от CSP и окон, проверяйте в `npx tauri build --bundles app`. Тесты приложения — `npm test` в `app/`. Сборки для macOS (`.dmg`) и Windows (`.exe`) собирает GitHub Actions. Пуш тега `app-v*` (версия из `app/src-tauri/tauri.conf.json`, например `app-v0.1.0`) собирает обе и публикует в [Releases](https://github.com/AVor0n/ai-review/releases); вкладка Actions → **app** → Run workflow собирает их артефактами прогона, без релиза.
+**Разработка.** `cd app && npm ci && npx tauri dev` (Rust по `app/rust-toolchain.toml`). С `PR_REVIEWER_SHOW=1` dev-сборка сразу показывает поповер и не прячет его — для скриншотов рядом с макетом. В dev нет CSP релизной сборки: то, что зависит от CSP и окон, проверяйте в `npx tauri build --bundles app`. Тесты приложения — `npm test` в `app/`. Сборки для macOS (`.dmg`) и Windows (`.exe`) собирает GitHub Actions. Пуш тега `app-v*` (версия из `app/src-tauri/tauri.conf.json`, например `app-v0.1.0`) собирает обе и публикует в [Releases](https://github.com/AVor0n/ai-review/releases); вкладка Actions → **app** → Run workflow на ветке собирает их артефактами прогона, без релиза (на теге `app-v*` — публикует релиз).
 
 ## Исследование подбора правил
 

@@ -217,7 +217,7 @@ The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon
 
 The app opens WSL paths (service clones, `config.json`, test run files) in Explorer and VS Code through `\\wsl.localhost\…`.
 
-**Development.** `cd app && npm ci && npx tauri dev` (Rust per `app/rust-toolchain.toml`). With `PR_REVIEWER_SHOW=1` the dev build shows the popover at once and does not hide it — for screenshots next to mockups. Dev builds have no release CSP: check anything that depends on CSP or windows with `npx tauri build --bundles app`. App tests — `npm test` in `app/`. macOS (`.dmg`) and Windows (`.exe`) builds are made by GitHub Actions. Pushing a tag `app-v*` (the version from `app/src-tauri/tauri.conf.json`, e.g. `app-v0.1.0`) builds both and publishes them on [Releases](https://github.com/AVor0n/ai-review/releases); Actions → **app** → Run workflow builds them as run artifacts without a release.
+**Development.** `cd app && npm ci && npx tauri dev` (Rust per `app/rust-toolchain.toml`). With `PR_REVIEWER_SHOW=1` the dev build shows the popover at once and does not hide it — for screenshots next to mockups. Dev builds have no release CSP: check anything that depends on CSP or windows with `npx tauri build --bundles app`. App tests — `npm test` in `app/`. macOS (`.dmg`) and Windows (`.exe`) builds are made by GitHub Actions. Pushing a tag `app-v*` (the version from `app/src-tauri/tauri.conf.json`, e.g. `app-v0.1.0`) builds both and publishes them on [Releases](https://github.com/AVor0n/ai-review/releases); Actions → **app** → Run workflow on a branch builds them as run artifacts without a release (run on an `app-v*` tag, it publishes the release).
 
 ## Rule selection research
 
