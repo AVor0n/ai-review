@@ -45,6 +45,6 @@ git push -q origin "${C}:refs/heads/main"
 - Сообщение занятой сессии ждёт в очереди и может прийти после её отчёта: если спрашивает уже отвеченное — переслать ответ.
 - `CLAUDE.md` и `AGENTS.md` в глобальном `~/.gitignore` — `CLAUDE.md` добавлен через `git add -f`, дальше git его отслеживает.
 - Windows: `gh` стоит через Scoop, `scoop\shims` в пользовательском PATH. Если Bash не находит `gh` — приложение Claude запущено до установки, его надо перезапустить. Для доски токену нужен scope `project` (`gh auth refresh -s project`).
-- Windows → WSL: команды для Ubuntu писать в файл в scratchpad и запускать `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu --cd ~ -e bash /mnt/c/…/script.sh`. Инлайн через PowerShell ломает кавычки, без `--cd ~` WSL стартует в `/mnt/c/…` и показывает подсказку о медленном диске. Node в WSL — через nvm, в скрипте сначала `. ~/.nvm/nvm.sh`.
+- Windows → WSL: команды для Ubuntu писать в файл в scratchpad и запускать `MSYS_NO_PATHCONV=1 wsl.exe -d Ubuntu --cd '~' -e bash /mnt/c/…/script.sh` (`~` в кавычках, иначе Git Bash раскроет его в `/c/Users/…` и WSL не стартует). Инлайн через PowerShell ломает кавычки, без `--cd` WSL стартует в `/mnt/c/…` и показывает подсказку о медленном диске. Node в WSL — через nvm, в скрипте сначала `. ~/.nvm/nvm.sh`.
 - В выводе сервиса из WSL (журнал, `config.json`) есть имена репозиториев клиента — в issues и коммиты переносить только обезличенно.
 - `clear_session` не чистит эту сессию (Remote Control включён) — `/clear` делает пользователь.
