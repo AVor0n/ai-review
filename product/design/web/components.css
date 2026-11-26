@@ -3205,40 +3205,16 @@
   --divider-inset: 28px;
 }
 
-/*
- * Размеры значков «Настроек» под SwiftUI (#56). Глиф Phosphor занимает 65–85 % своего квадрата,
- * а SF Symbol на том же кегле выходит крупнее, поэтому кегль здесь больше, чем в SettingsView.swift:
- * подобран по замеру, чтобы видимый глиф совпал с SF Symbol.
- */
-.icon-tile { font-size: 18px; }                          /* shippingbox.fill 13 pt → 16 px */
-.icon-tile--small { font-size: 20px; }                   /* значки событий 12 pt semibold → 15 px */
-.settings-row__chevron { font-size: 16px; }              /* chevron.right 11 pt → 12 px */
-.settings-row--add .icon { font-size: 28px; }            /* plus.circle.fill 20 pt → 23 px */
-.settings-row .icon-button { font-size: 21px; }          /* ellipsis 13 pt → 14 px */
-.select .icon { font-size: 15px; }                       /* chevron.up.chevron.down 10 pt → 13 px */
-.input-card > .icon { font-size: 22px; }                 /* plus.circle.fill 15 pt → 18 px */
-.sheet__back .icon { font-size: 19px; }                  /* chevron.left 13 pt → 14 px */
-
-.memory-chip .icon {
-  margin: -1.5px 0;                                      /* brain 12 pt → 18 px; высота чипа прежняя */
-  font-size: 18px;
-}
-
-.icon-button.icon-button--remove {
-  font-size: 22px;                                       /* minus.circle.fill 15 pt → 18 px */
-  color: var(--red);
-}
-
 /* Значок слева от текста строки или карточки: ход разбора памяти, «Сохранены» в QA */
 .lead-icon {
   flex: none;
   margin-top: 1px;
-  font-size: 15px;
+  font-size: 14px;                                       /* hourglass, checkmark.circle.fill 13 pt */
   color: var(--c, var(--label-2));
 }
 
 .lead-icon--small {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 /* Устаревший лимит модели: оранжевый треугольник перед текстом (exclamationmark.triangle.fill 9 pt) */
@@ -3247,3 +3223,73 @@
   font-size: 12px;
   color: var(--orange);
 }
+
+.icon-button.icon-button--remove {
+  font-size: 20px;                                       /* minus.circle.fill 15 pt */
+  color: var(--red);
+}
+
+/*
+ * Размеры значков под SwiftUI (#56 и сверка 27.11).
+ * Глиф Phosphor занимает 65–85 % своего квадрата, а SF Symbol на том же кегле крупнее.
+ * Кегль подобран по замеру видимой части глифа (без полей картинки SF Symbol):
+ * значок Phosphor на экране такого же размера, как SF Symbol того же места в SwiftUI.
+ * В комментарии — SF Symbol и его кегль в SwiftUI.
+ */
+
+/* Поповер */
+.status-bar .icon-button { font-size: 18px; }                    /* stop.circle, play.circle 14 medium */
+.status-bar .icon-button .icon--14 { font-size: 16px; }          /* arrow.clockwise 13 medium */
+.banner__icon { font-size: 16px; }                               /* key.fill, brain, exclamationmark.triangle.fill 13 */
+.close-button { font-size: 14px; }                               /* xmark 10 bold */
+.banner-more .icon { font-size: 14px; }                          /* chevron.down 10 semibold */
+.section__header .icon { font-size: 15px; }                      /* pause.circle.fill 11 medium */
+.section__header .section__chevron { font-size: 11px; }          /* chevron.right 9 bold */
+.threads .icon { font-size: 17px; }                              /* bubble.left, checkmark.bubble 12 */
+.row-action { font-size: 16px; }                                 /* wand.and.stars, building.columns, testtube.2 13 medium */
+
+/* Статистика */
+.filter .icon { font-size: 14px; }                               /* shippingbox, person, cpu 12 */
+.filter__chevron.icon { font-size: 11px; }                       /* chevron.down 8 bold */
+.stats-title .icon { font-size: 25px; }                          /* text.bubble 17 bold */
+.square-button { font-size: 18px; }                              /* camera 12 */
+
+/* Листы */
+.round-button { font-size: 16px; }                               /* arrow.up.forward.app 12 semibold */
+.round-button--close { font-size: 16px; }                        /* xmark 11 bold */
+.report-status .icon { font-size: 17px; }                        /* checkmark.seal.fill и др. 13 medium */
+.status-label .icon { font-size: 17px; }                         /* checkmark.circle.fill 13 medium */
+.form-message .icon { font-size: 14px; }                         /* exclamationmark.triangle.fill 11 */
+.place__marker { font-size: 16px; }                              /* scissors, questionmark.circle и др. 13 */
+.bullet { grid-template-columns: 14px 1fr; }
+.bullet .icon { font-size: 14px; }                               /* plus/minus.circle.fill 11 */
+.step__mark { width: 16px; height: 16px; font-size: 16px; }      /* checkmark.circle.fill 13 */
+.qa-case__status { width: 17px; font-size: 17px; }               /* xmark.octagon.fill и др. 14 */
+.qa-case__chevron { font-size: 11px; }                           /* chevron.right 9 bold */
+.bug-box__title .icon { font-size: 17px; }                       /* ladybug.fill 13 semibold */
+.thumb__video .icon { font-size: 30px; }                         /* play.circle.fill 24 */
+.info-card__icon { font-size: 26px; }                            /* wand.and.stars, clock.arrow.circlepath 22 */
+
+/* Память */
+.history-line__icon { font-size: 11px; }                         /* plus, minus, pencil 10 bold */
+.lesson__actions .icon-button { font-size: 14px; }               /* pencil, trash 12 */
+.lesson__usage .icon { font-size: 12px; }                        /* bolt 11 */
+
+/* Бэклог и журнал */
+.link-button--icon .icon { font-size: 18px; }                    /* stethoscope, doc.on.doc, arrow.up.forward.app 12 */
+.backlog-row__chevron { font-size: 11px; }                       /* chevron.right 9 bold */
+.triage-block__title .icon { font-size: 14px; }                  /* checkmark.circle и др. 11 medium */
+.log-row__mark .icon { font-size: 14px; }                        /* exclamationmark.triangle.fill 11 */
+.log-row__toggle { font-size: 14px; }                            /* chevron.down 10 semibold */
+
+/* Настройки (#56) */
+.icon-tile { font-size: 15px; }                                  /* shippingbox.fill 13 */
+.icon-tile--small { font-size: 18px; }                           /* значки событий 12 semibold */
+.settings-row__chevron { font-size: 14px; }                      /* chevron.right 11 semibold */
+.settings-row--add .icon { font-size: 23px; }                    /* plus.circle.fill 20 */
+.settings-row .icon-button { font-size: 18px; }                  /* ellipsis 13 */
+.select .icon { font-size: 15px; }                               /* chevron.up.chevron.down 10 semibold */
+.input-card > .icon { font-size: 20px; }                         /* plus.circle.fill 15 */
+.sheet__back .icon { font-size: 18px; }                          /* chevron.left 13 semibold */
+.memory-chip .icon { font-size: 16px; }                          /* brain 12 */
+.settings-row .icon-button.icon-button--remove { font-size: 20px; }  /* minus.circle.fill 15 */
