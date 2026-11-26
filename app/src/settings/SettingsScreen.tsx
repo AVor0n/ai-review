@@ -378,9 +378,11 @@ export const SettingsScreen = ({
                                     options={(['system', 'ru', 'en'] as const).map((id) => ({ id, title: t(`common.language.${id}`) }))}
                                     value={language}
                                     width={160}
-                                    onSelect={(id) => {
+                                    onSelect={async (id) => {
+                                        // Выбор живёт в config.json: если сервис его не сохранил, окно возвращается к прежнему языку, а не расходится с файлом до перезапуска
+                                        const previous = language;
                                         setLangSetting(id as LangSetting);
-                                        if (api) run(() => api.PUT('/settings/language', { body: { language: id as LangSetting } }));
+                                        if (api && (await run(() => api.PUT('/settings/language', { body: { language: id as LangSetting } })))) setLangSetting(previous);
                                     }}
                                 />
                             </div>
