@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { banners, moreMessages } from './banners';
-import { availability, headline, reviewState, tokens, unreviewedPrs, workerStall } from './derive';
-import { ago, plural, resetShort } from './format';
+import { availability, canTest, headline, isTaskBranch, qaConfigured, reviewState, tokens, unreviewedPrs, workerStall } from './derive';
+import { ago, plural, resetShort, shortRepoName } from './format';
 import { defaultPrefs, muteUntil } from './prefs';
 import { capsules, fixAction, modelHint, sortedPrs, threadsCounter } from './row';
 import { trayModel, type MenuEntry } from './tray';
@@ -189,5 +189,28 @@ describe('трей', () => {
         const items = texts(trayModel(data(), prefs, NOW).menu);
         expect(items).toContain('Уведомления: выключены до 16:00');
         expect(items).toContain('Выключить на другое время');
+    });
+});
+
+describe('имена проекта из настроек', () => {
+    const config = (patch: Partial<Data['config']>): Data['config'] => ({ repos: [], agents: {}, ...patch });
+
+    it('по умолчанию в фон идёт ветка с любым ключом задачи Jira', () => {
+        expect(isTaskBranch(config({}), 'feature/PROJ-1234-filter')).toBe(true);
+        expect(isTaskBranch(config({}), 'hotfix/login')).toBe(false);
+        expect(isTaskBranch(config({ branchPattern: 'release/' }), 'release/1.2')).toBe(true);
+    });
+
+    it('без qa.frontend и qa.backend тестирование выключено', () => {
+        expect(qaConfigured(config({}))).toBe(false);
+        expect(canTest(config({ qa: { frontend: 'frontend' } }), 'frontend')).toBe(false);
+        expect(canTest(config({ qa: { frontend: 'frontend', backend: 'backend' } }), 'frontend')).toBe(true);
+        expect(canTest(config({ qa: { frontend: 'frontend', backend: 'backend' } }), 'backend')).toBe(false);
+    });
+
+    it('префикс для показа отрезается только если задан', () => {
+        expect(shortRepoName('team-frontend')).toBe('team-frontend');
+        expect(shortRepoName('team-frontend', 'team-')).toBe('frontend');
+        expect(shortRepoName('team-', 'team-')).toBe('team-');
     });
 });

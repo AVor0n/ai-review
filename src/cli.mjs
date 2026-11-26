@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { killAgents, listCursorModels } from './agents.mjs';
 import { archWorker, listArchStates, loadArchState, renderArchReport, requestArch, stopArch } from './arch.mjs';
 import { STATUSES, itemPlace, loadBacklog, renderBacklog, setBacklogStatus } from './backlog.mjs';
-import { QA_STATES, listQaStates, loadQaState, qaSettings, qaWorker, renderQaPlan, renderQaReport, requestQaPlan, requestQaRun, saveQaTests, stopQa } from './qa.mjs';
+import { QA_STATES, listQaStates, loadQaState, qaRepoProblem, qaSettings, qaWorker, renderQaPlan, renderQaReport, requestQaPlan, requestQaRun, saveQaTests, stopQa } from './qa.mjs';
 import { STALE, VERDICTS, learnBacklog, startInBackground, stopJob, triageBacklog } from './backlog-jobs.mjs';
 import { cloneDir, isCloned } from './git.mjs';
 import { createBitbucket } from './bitbucket.mjs';
@@ -24,6 +24,7 @@ import { keepAwake, kickstartWorker } from './platform.mjs';
 import { saveSecret, secretStatus, secretTargets } from './secrets.mjs';
 import { exportData, importData } from './transfer.mjs';
 import { TOKEN_FILE, apiPort, ensureToken, serveApi } from './api.mjs';
+import { runMigrations } from './migrate.mjs';
 import {
     DATA_DIR,
     acquireLock,
@@ -55,6 +56,12 @@ import {
 } from './store.mjs';
 
 const [command = 'help', ...args] = process.argv.slice(2);
+// До любой команды: старые значения проекта переезжают в config.json один раз, чтобы у пользователя ничего не поменялось
+try {
+    runMigrations({ log });
+} catch (error) {
+    logError(`настройки: перенос в config.json не удался — ${error.message}`);
+}
 const hasFlag = (name) => args.includes(name);
 const option = (name) => {
     const index = args.indexOf(name);
@@ -647,8 +654,8 @@ const qaCommand = () => {
         if (saved.prBranch && saved.branch !== saved.prBranch) console.log(`Копия на ветке ${saved.branch ?? '(нет ветки)'}, а PR — ${saved.prBranch}: тесты написаны под код PR и до переключения на его ветку могут не пройти.`);
         return;
     }
-    const frontend = qaSettings(loadConfig()).frontend;
-    if (repo.slug !== frontend) throw new Error(`Тестирование в браузере пока только для ${frontend}`);
+    const problem = qaRepoProblem(loadConfig(), repo.slug);
+    if (problem) throw new Error(problem);
     const note = option('--note') ?? '';
     if (action === 'plan') {
         requestQaPlan(repo.slug, pr, note);

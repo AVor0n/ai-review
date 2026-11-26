@@ -180,7 +180,8 @@ const openThreadComments = (comments) => {
     return open.flatMap(({ root, replies }) => [root, ...replies.filter((reply) => !reply.deleted)]);
 };
 
-const taskId = (branch) => /PROJ-(\d+)/i.exec(branch)?.[1] ?? null;
+// Ключ задачи Jira из ветки целиком: PROJ-1234
+const taskKey = (branch) => /[A-Z][A-Z0-9]+-\d+/i.exec(branch)?.[0]?.toUpperCase() ?? null;
 
 const SAFE_READ = 'Read,Grep,Glob,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git blame:*)';
 
@@ -287,9 +288,9 @@ const runFix = async ({ config, bitbucket, repo, prId, mode = 'fix' }) => {
     const backup = `backup/${branch}-${stamp}`;
     git(dir, 'branch', '-f', backup, 'HEAD');
     const runner = existsSync(join(dir, 'yarn.lock')) ? 'yarn' : 'npm run';
-    const id = taskId(branch);
+    const key = taskKey(branch);
     // В режиме rebase свой коммит появляется, только если после переноса пришлось чинить проверки
-    const message = rebaseOnly ? `fix: ${id ? `PROJ-${id} ` : ''}adapt to ${base}` : id ? `fix: PROJ-${id} review comments` : 'fix: review comments';
+    const message = rebaseOnly ? `fix: ${key ? `${key} ` : ''}adapt to ${base}` : key ? `fix: ${key} review comments` : 'fix: review comments';
 
     // Прошлый запуск сохранил правки, а ни ветка PR, ни открытые замечания с тех пор не менялись — повторять работу модели незачем
     const saved = readJson(resumeFile(repo.slug, prId), null);

@@ -1,5 +1,6 @@
-import { agentName, canTest, findingUrl, importantFindings, isTaskBranch } from '../model/derive';
-import { archAction, fixAction, modelButtons, qaAction, threadsCounter, updatedText, type RowAction } from '../model/row';
+import { agentName, canTest, qaConfigured, findingUrl, importantFindings, isTaskBranch } from '../model/derive';
+import { QA_OFF, archAction, fixAction, modelButtons, qaAction, threadsCounter, updatedText, type RowAction } from '../model/row';
+import type { SettingsSheet } from '../settings/model';
 import type { Data, PullRequest } from '../model/types';
 import { Icon } from './Icon';
 
@@ -9,6 +10,7 @@ export type RowHandlers = {
     fix: (repo: string, pr: PullRequest, rebase: boolean) => void;
     arch: (repo: string, pr: PullRequest) => void;
     report: (kind: 'fix' | 'arch' | 'qa', repo: string, pr: number) => void;
+    settings: (sheet: SettingsSheet | null) => void;
 };
 
 const ActionButton = ({ action, onClick }: { action: RowAction; onClick: () => void }) => {
@@ -75,7 +77,12 @@ export const PrRow = ({ data, repo, pr, now, on }: { data: Data; repo: string; p
                 onClick={() => (fix.click === 'report' ? on.report('fix', repo, pr.id) : fix.click === 'none' ? undefined : on.fix(repo, pr, fix.click === 'start-rebase'))}
             />
             <ActionButton action={arch} onClick={() => (arch.click === 'report' ? on.report('arch', repo, pr.id) : on.arch(repo, pr))} />
-            {canTest(data.config, repo) && <ActionButton action={qaAction(data, repo, pr)} onClick={() => on.report('qa', repo, pr.id)} />}
+            {canTest(data.config, repo) ? (
+                <ActionButton action={qaAction(data, repo, pr)} onClick={() => on.report('qa', repo, pr.id)} />
+            ) : (
+                // Пока репозитории QA не заданы, кнопка объясняет, что настроить, — у всех PR, ведь фронтенд ещё не выбран
+                !qaConfigured(data.config) && <ActionButton action={QA_OFF} onClick={() => on.settings('config')} />
+            )}
             <span className="pr-row__updated" title={updated.hint}>
                 {updated.text}
             </span>

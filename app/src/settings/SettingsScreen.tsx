@@ -6,7 +6,7 @@ import { Fragment, useCallback, useEffect, useState, type CSSProperties } from '
 import { errorText, type ApiClient } from '../api/client';
 import { Icon } from '../components/Icon';
 import { newLessons } from '../model/banners';
-import { agentIds, agentName, tokens } from '../model/derive';
+import { DEFAULT_BRANCH_PATTERN, agentIds, agentName, tokens } from '../model/derive';
 import { muteUntil, isMuted, type Prefs } from '../model/prefs';
 import { loadNotifications, muteSummary, saveNotifications, type NotificationSettings, KINDS } from '../model/notifications';
 import type { Data } from '../model/types';
@@ -429,7 +429,7 @@ export const SettingsScreen = ({
                         <div className="section__card">
                             <NavRow
                                 title="Ветки для ревью"
-                                value={config.branchPattern ?? 'PROJ-\\d+'}
+                                value={config.branchPattern ?? DEFAULT_BRANCH_PATTERN}
                                 mono
                                 hint="Фоновое ревью берёт только PR, исходная ветка которых подходит под шаблон. Вручную можно отревьюить любой PR"
                                 onClick={() => setSheet('branches')}
@@ -489,7 +489,7 @@ export const SettingsScreen = ({
             )}
             {sheet === 'branches' && (
                 <BranchesSheet
-                    saved={config.branchPattern ?? 'PROJ-\\d+'}
+                    saved={config.branchPattern ?? DEFAULT_BRANCH_PATTERN}
                     prs={prs}
                     onSave={(pattern) => api && run(() => api.PUT('/settings/branches', { body: { pattern } }))}
                     onClose={() => setSheet(null)}

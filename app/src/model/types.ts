@@ -28,7 +28,8 @@ export type Config = {
     ignorePaths?: string[];
     bitbucket?: { keychainService?: string; tokenLifetimeDays?: number; email?: string };
     arch?: { agent?: string };
-    qa?: { frontend?: string };
+    qa?: { frontend?: string; backend?: string };
+    displayPrefix?: string;
 };
 
 export type OpenThread = { id: number };

@@ -3,7 +3,6 @@ import type { Banner, BannerAction } from '../model/banners';
 import { agentName, headline, isPaused, isRunning, runningReviews } from '../model/derive';
 import { ago, roleName, shortRepoName } from '../model/format';
 import { capsules, sortedPrs } from '../model/row';
-import type { SettingsSheet } from '../settings/model';
 import type { Data } from '../model/types';
 import { Banners } from './Banners';
 import { Icon } from './Icon';
@@ -11,7 +10,6 @@ import { PrRow, type RowHandlers } from './PrRow';
 
 export type OverviewHandlers = RowHandlers & {
     command: (path: '/run-now' | '/stop' | '/resume' | '/sync') => void;
-    settings: (sheet: SettingsSheet | null) => void;
     toggleRepo: (slug: string) => void;
     banner: (action: BannerAction) => void;
     closeBanner: (close: NonNullable<Banner['close']>) => void;
@@ -49,7 +47,7 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
                 <span
                     className="status-text"
                     title={reviews
-                        .map((review) => `${shortRepoName(review.repo)} #${review.pr}${review.title ? ` «${review.title}»` : ''} · ${agentName(data.config, review.agent)}, ${roleName(review.role)}`)
+                        .map((review) => `${shortRepoName(review.repo, data.config.displayPrefix)} #${review.pr}${review.title ? ` «${review.title}»` : ''} · ${agentName(data.config, review.agent)}, ${roleName(review.role)}`)
                         .join('\n')}
                 >
                     Идут ревью:&nbsp;
@@ -57,7 +55,7 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
                         <Fragment key={`${review.repo}#${review.pr}#${review.agent}`}>
                             {index > 0 && <span className="status-text__sep"> · </span>}
                             <span className={`model-mark model--${review.agent} status-text__mark`} />
-                            {shortRepoName(review.repo)} #{review.pr}
+                            {shortRepoName(review.repo, data.config.displayPrefix)} #{review.pr}
                         </Fragment>
                     ))}
                 </span>

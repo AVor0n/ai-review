@@ -20,7 +20,7 @@ export type MenuEntry = { kind: 'item'; id?: string; text: string; enabled: bool
 
 export type TrayModel = { icon: TrayIcon; tooltip: string; menu: MenuEntry[] };
 
-const target = (data: Data, review: Review) => `${shortRepoName(review.repo)} #${review.pr} · ${agentName(data.config, review.agent)} (${roleName(review.role)})`;
+const target = (data: Data, review: Review) => `${shortRepoName(review.repo, data.config.displayPrefix)} #${review.pr} · ${agentName(data.config, review.agent)} (${roleName(review.role)})`;
 
 // «Выключены до 14:30»; бессрочно — просто «Выключены»
 export const muteSummary = (prefs: Prefs, now = new Date()) => (prefs.mutedUntil === 'forever' || !prefs.mutedUntil ? 'Выключены' : `Выключены до ${moment(new Date(prefs.mutedUntil), now)}`);

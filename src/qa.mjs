@@ -27,6 +27,7 @@ const QA_INPUT = join(INPUT_DIR_NAME, 'qa');
 // Своё окружение рядом с e2e человека: другой проект compose, имена контейнеров и порт бэкенда.
 // База наружу не публикуется — порт 5432 часто занят локальным Postgres или e2e
 const PROJECT = 'pr-reviewer-qa';
+const BACKEND_IMAGE = 'pr-reviewer-qa-backend';
 const BACKEND_PORT = 48180;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 
@@ -48,13 +49,21 @@ export const listQaStates = () => {
 };
 
 export const qaSettings = (config) => ({
-    frontend: config.qa?.frontend ?? 'frontend',
-    backend: config.qa?.backend ?? 'backend',
+    // Без умолчаний: пока репозитории не заданы, тестирование выключено
+    frontend: config.qa?.frontend ?? null,
+    backend: config.qa?.backend ?? null,
     model: config.qa?.model ?? null,
     planEffort: config.qa?.planEffort ?? 'high',
     effort: config.qa?.effort ?? 'high',
     timeoutMinutes: config.qa?.timeoutMinutes ?? 90,
 });
+
+// Почему этот репозиторий нельзя тестировать; null — можно
+export const qaRepoProblem = (config, slug) => {
+    const { frontend, backend } = qaSettings(config);
+    if (!frontend || !backend) return 'Тестирование не настроено: укажите qa.frontend и qa.backend в config.json';
+    return slug === frontend ? null : `Тестирование в браузере пока только для ${frontend}`;
+};
 
 const isAlive = (pid) => {
     try {
@@ -199,7 +208,8 @@ ${note ? `\nЧеловек просит обратить внимание (эт�
 const runPlan = async ({ config, bitbucket, request, onActivity }) => {
     const settings = qaSettings(config);
     const repo = config.repos.find((candidate) => candidate.slug === request.repo);
-    if (repo.slug !== settings.frontend) throw new Error(`тестирование в браузере пока только для ${settings.frontend}`);
+    const problem = qaRepoProblem(config, repo.slug);
+    if (problem) throw new Error(problem);
     const pr = await bitbucket.getPr(repo, request.pr);
     if (pr.state !== 'OPEN') throw new Error(`PR #${request.pr} уже не открыт`);
     const clone = ensureClone(repo);
@@ -218,11 +228,13 @@ const runPlan = async ({ config, bitbucket, request, onActivity }) => {
 // Ветка бэкенда с тем же номером задачи: фича, которую делали в двух репозиториях сразу, проверяется целиком
 const backendCommit = (backendClone, frontendBranch) => {
     fetchOrigin(backendClone);
-    const task = /PROJ-(\d+)/i.exec(frontendBranch)?.[1] ?? /^(\d+)$/.exec(frontendBranch)?.[1];
+    // Ключ задачи Jira (PROJ-1234) или голый номер; в ветке бэкенда ключ может быть другим или отсутствовать
+    const match = /([A-Z][A-Z0-9]+)-(\d+)/i.exec(frontendBranch);
+    const task = match?.[2] ?? /^(\d+)$/.exec(frontendBranch)?.[1];
     if (task) {
         const branches = git(backendClone, 'for-each-ref', '--format=%(refname:short)', 'refs/remotes/origin/')
             .split('\n')
-            .filter((ref) => new RegExp(`(^|[^0-9])(PROJ-)?${task}($|[^0-9])`, 'i').test(ref.replace(/^origin\//, '')));
+            .filter((ref) => new RegExp(`(^|[^0-9])([A-Z][A-Z0-9]*-)?${task}($|[^0-9])`, 'i').test(ref.replace(/^origin\//, '')));
         if (branches.length === 1) return { ref: branches[0], commit: git(backendClone, 'rev-parse', branches[0]) };
     }
     return { ref: 'origin/develop', commit: git(backendClone, 'rev-parse', 'origin/develop') };
@@ -250,7 +262,7 @@ const ensureDocker = () => {
 // Образ бэкенда весит ~600 МБ, а нужен только тот, что под текущий прогон. Тестирование идёт по одному,
 // поэтому остальные образы ничьи; занятый контейнером docker без -f удалить не даст
 const pruneBackendImages = (keep) => {
-    const list = spawnSync('docker', ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}', 'pr-reviewer-qa-backend'], { encoding: 'utf8' });
+    const list = spawnSync('docker', ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}', BACKEND_IMAGE], { encoding: 'utf8' });
     const old = list.status === 0 ? list.stdout.split('\n').filter((image) => image && image !== keep && !image.endsWith(':<none>')) : [];
     if (!old.length) return;
     const result = spawnSync('docker', ['image', 'rm', ...old], { encoding: 'utf8' });
@@ -265,7 +277,7 @@ const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, o
     ensureDocker();
     const backendClone = ensureClone(backendRepo);
     const backend = backendCommit(backendClone, frontendBranch);
-    const image = `pr-reviewer-qa-backend:${backend.commit.slice(0, 12)}`;
+    const image = `${BACKEND_IMAGE}:${backend.commit.slice(0, 12)}`;
     if (spawnSync('docker', ['image', 'inspect', image], { stdio: 'ignore' }).status !== 0) {
         step(`Сборка бэкенда из ${backend.ref}`);
         onActivity(`docker build ${image}`);

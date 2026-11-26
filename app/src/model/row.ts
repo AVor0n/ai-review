@@ -120,6 +120,9 @@ const noReviewHint = (data: Data, repo: string, pr: PullRequest, now: Date) => {
 export type ActionColor = 'green' | 'yellow' | 'orange' | 'red' | 'accent' | null;
 export type RowAction = { icon: string; spinner: boolean; color: ActionColor; stale: boolean; disabled: boolean; hint: string };
 
+// Тестирование, пока не заданы репозитории QA: приглушённая кнопка ведёт в config.json
+export const QA_OFF: RowAction = { icon: 'i-qa', spinner: false, color: null, stale: true, disabled: false, hint: 'Тестирование не настроено: укажите qa.frontend и qa.backend в config.json. Нажмите, чтобы открыть его' };
+
 // Что делает клик: start — подтверждение запуска, report — отчёт и ход (заглушка), none — кнопка выключена
 export type FixAction = RowAction & { click: 'start-fix' | 'start-rebase' | 'report' | 'none' };
 

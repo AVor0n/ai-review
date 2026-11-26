@@ -17,10 +17,11 @@ export const agentName = (config: Config, id: string) => config.agents[id]?.shor
 
 export const autoAgents = (config: Config) => agentIds(config).filter((id) => config.agents[id]?.auto !== false);
 
-// Тот же шаблон, что у фонового ревью в review.mjs: остальные PR ревьюятся только вручную
+// Тот же шаблон, что у фонового ревью в review.mjs: остальные PR ревьюятся только вручную. По умолчанию — любой ключ задачи Jira
+export const DEFAULT_BRANCH_PATTERN = '[A-Z][A-Z0-9]+-\\d+';
 export const isTaskBranch = (config: Config, branch: string) => {
     try {
-        return new RegExp(config.branchPattern ?? 'PROJ-\\d+', 'i').test(branch);
+        return new RegExp(config.branchPattern ?? DEFAULT_BRANCH_PATTERN, 'i').test(branch);
     } catch {
         return false;
     }
@@ -138,8 +139,9 @@ export const isArchStale = (arch: ArchState | null, pr: PullRequest) => {
     return !(head.startsWith(pr.head) || pr.head.startsWith(head));
 };
 
-// Тестировать в браузере сервис умеет только фронтенд из qa.frontend (qaSettings в qa.mjs)
-export const canTest = (config: Config, repo: string) => repo === (config.qa?.frontend ?? 'frontend');
+// Тестировать в браузере сервис умеет только фронтенд из qa.frontend; без qa.frontend и qa.backend тестирование выключено (qaRepoProblem в qa.mjs)
+export const qaConfigured = (config: Config) => !!config.qa?.frontend && !!config.qa?.backend;
+export const canTest = (config: Config, repo: string) => qaConfigured(config) && repo === config.qa?.frontend;
 
 export const archAgentName = (config: Config) => agentName(config, config.arch?.agent ?? 'claude');
 

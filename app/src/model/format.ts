@@ -68,7 +68,8 @@ export const plural = (count: number, one: string, few: string, many: string) =>
     return many;
 };
 
-export const shortRepoName = (slug: string) => (slug.startsWith('project-') ? slug.slice('project-'.length) : slug);
+// Короткое имя в подписях: без общей части имён репозиториев из настройки displayPrefix
+export const shortRepoName = (slug: string, prefix?: string) => (prefix && slug.startsWith(prefix) && slug.length > prefix.length ? slug.slice(prefix.length) : slug);
 
 export const roleName = (role: string) => ({ first: 'первым', second: 'следом', replies: 'ответы' })[role] ?? role;
 

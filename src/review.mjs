@@ -558,7 +558,8 @@ const reviewPr = async (ctx, repo, repoState, pr, forced = null) => {
 };
 
 // Фоном ревьюим только ветки задач: PR вроде develop → master — это перенос уже проверенного кода
-const DEFAULT_BRANCH_PATTERN = 'PROJ-\\d+';
+// Любой ключ задачи Jira в начале или середине имени ветки: PROJ-1234
+const DEFAULT_BRANCH_PATTERN = '[A-Z][A-Z0-9]+-\\d+';
 const isTaskBranch = (config, pr) => new RegExp(config.branchPattern ?? DEFAULT_BRANCH_PATTERN, 'i').test(pr.source.branch.name);
 
 export const reviewRepo = async (ctx, repo) => {
