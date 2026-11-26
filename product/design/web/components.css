@@ -1474,6 +1474,11 @@
   overflow-y: auto;
 }
 
+/* Дети тела не сжимаются: карточка с overflow: hidden иначе обрезает список вместо прокрутки */
+.sheet__body > * {
+  flex: none;
+}
+
 .sheet__footer {
   display: flex;
   align-items: center;
