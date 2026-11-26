@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Устанавливает воркер (launchd, раз в intervalMinutes) и иконку в строке состояния.
+# Устанавливает воркер (launchd, раз в intervalMinutes), локальный API и приложение в трее (Tauri) с автозапуском.
 # Повторный запуск безопасен: пересобирает и перезагружает оба агента.
 # ./install.sh --app-only — пересобрать и перезапустить только приложение.
 # Полная установка перезапускает воркер, поэтому ждёт конца идущего прохода; ./install.sh --now — не ждать, проход прервётся.
@@ -10,48 +10,32 @@ DATA_DIR="$HOME/Library/Application Support/pr-reviewer"
 LOG_DIR="$HOME/Library/Logs/pr-reviewer"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 APP_DIR="$HOME/Applications/PR Reviewer.app"
+APP_BINARY=pr-reviewer-app
+TEST_APP="/Applications/PR Reviewer Tauri.app"
 WORKER_LABEL=com.avoronin.pr-reviewer
-MENUBAR_LABEL=com.avoronin.pr-reviewer.menubar
+# Как bundle id приложения Tauri в app/src-tauri/tauri.conf.json
+APP_LABEL=com.avoronin.pr-reviewer.tray
+OLD_MENUBAR_LABEL=com.avoronin.pr-reviewer.menubar
 API_LABEL=com.avoronin.pr-reviewer.api
 GUI_DOMAIN="gui/$(id -u)"
 
-# Бандл собирается рядом и подменяет установленный только целиком: упавшая сборка не ломает работающее приложение
+# Приложение в трее — Tauri из app/. Бандл собирается в target/ и подменяет установленный только целиком:
+# упавшая сборка не ломает работающее приложение. Коммит сборки виден внизу «Настроек»
 build_app() {
-    local staging="$APP_DIR.new" previous="$APP_DIR.old"
-    rm -rf "$staging" "$previous"
-    mkdir -p "$staging/Contents/MacOS" "$staging/Contents/Resources"
-    if ! swiftc -O -swift-version 5 -o "$staging/Contents/MacOS/PRReviewer" "$TOOL_DIR"/menubar/*.swift; then
-        rm -rf "$staging"
+    local app="$TOOL_DIR/app" staging="$APP_DIR.new" previous="$APP_DIR.old"
+    local built="$app/src-tauri/target/release/bundle/macos/PR Reviewer.app"
+    # Зависимости — только когда их нет или поменялся package-lock.json
+    if [[ ! -f $app/node_modules/.package-lock.json || $app/package-lock.json -nt $app/node_modules/.package-lock.json ]]; then
+        (cd "$app" && npm ci --no-audit --no-fund) || { echo "npm ci в app/ не удался, установленное приложение не тронуто"; return 1; }
+    fi
+    echo "Собираю приложение (несколько минут при первой сборке)…"
+    if ! (cd "$app" && npx tauri build --bundles app); then
         echo "Сборка приложения не удалась, установленное приложение не тронуто"
         return 1
     fi
-    cp "$TOOL_DIR/assets/AppIcon.icns" "$staging/Contents/Resources/AppIcon.icns"
-    # Коммит сборки виден внизу настроек окна. Незакоммиченные правки считаются только в том, из чего собран бандл
-    local commit dirty=false
-    commit=$(git -C "$TOOL_DIR" rev-parse HEAD 2>/dev/null || true)
-    if [[ -n $commit && -n $(git -C "$TOOL_DIR" status --porcelain -- menubar assets install.sh scripts/install-macos.zsh 2>/dev/null) ]]; then
-        dirty=true
-    fi
-    cat > "$staging/Contents/Info.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIdentifier</key><string>$MENUBAR_LABEL</string>
-    <key>CFBundleName</key><string>PR Reviewer</string>
-    <key>CFBundleExecutable</key><string>PRReviewer</string>
-    <key>CFBundleIconFile</key><string>AppIcon</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.1.0</string>
-    <key>LSUIElement</key><true/>
-    <key>PRReviewerCLI</key><string>$TOOL_DIR/bin/pr-reviewer</string>
-    <key>PRReviewerBuildCommit</key><string>$commit</string>
-    <key>PRReviewerBuildDate</key><string>$(date -u +%Y-%m-%dT%H:%M:%SZ)</string>
-    <key>PRReviewerBuildDirty</key><$dirty/>
-</dict>
-</plist>
-EOF
-    codesign --force --sign - "$staging" >/dev/null 2>&1 || true
+    rm -rf "$staging" "$previous"
+    ditto "$built" "$staging"
+    codesign --force --deep --sign - "$staging" >/dev/null 2>&1 || true
     if [[ -d $APP_DIR ]]; then
         mv "$APP_DIR" "$previous"
     fi
@@ -59,6 +43,24 @@ EOF
     rm -rf "$previous"
     # Finder и Spotlight кэшируют иконку бандла; новая дата изменения заставляет их перечитать её
     touch "$APP_DIR"
+}
+
+# Окно SwiftUI до #54: свой агент launchd. Плюс временная копия Tauri для проверки паритета и пункт автозапуска,
+# который приложение до #54 ставило себе само. Всё это заменяет агент приложения ниже
+remove_old_app() {
+    launchctl bootout "$GUI_DOMAIN/$OLD_MENUBAR_LABEL" 2>/dev/null || true
+    rm -f "$AGENTS_DIR/$OLD_MENUBAR_LABEL.plist" "$AGENTS_DIR/PR Reviewer.plist"
+    pkill -f "$TEST_APP/Contents/MacOS/" 2>/dev/null || true
+    rm -rf "$TEST_APP"
+}
+
+# Второй экземпляр приложения не стартует (single-instance): перед запуском из launchd закрываем запущенный вручную
+stop_app() {
+    pkill -f "$APP_DIR/Contents/MacOS/$APP_BINARY" 2>/dev/null || true
+    for _ in {1..25}; do
+        pgrep -f "$APP_DIR/Contents/MacOS/$APP_BINARY" >/dev/null || break
+        sleep 0.2
+    done
 }
 
 worker_pid() {
@@ -93,27 +95,37 @@ wait_for_pass() {
     echo "Проход закончился, продолжаю установку."
 }
 
+# Приложение собирается из исходников: Node и npm для фронтенда, Rust для Tauri. Rust ставится через rustup,
+# версию берёт app/rust-toolchain.toml
+require_build_tools() {
+    [[ -d $HOME/.cargo/bin ]] && path=("$HOME/.cargo/bin" $path)
+    command -v npm >/dev/null || { echo "Не найден npm в PATH"; exit 1; }
+    command -v cargo >/dev/null || { echo "Не найден cargo: поставьте Rust (https://rustup.rs) и запустите ./install.sh снова"; exit 1; }
+}
+
 INSTALL_NOW=0
 [[ ${1:-} == --now ]] && INSTALL_NOW=1
 
 # --app-only: только приложение — без проверки токенов и конфига; воркер и его идущий проход не трогаются
 if [[ ${1:-} == --app-only ]]; then
-    command -v swiftc >/dev/null || { echo "Не найден swiftc в PATH"; exit 1; }
-    if ! launchctl print "$GUI_DOMAIN/$MENUBAR_LABEL" >/dev/null 2>&1; then
+    require_build_tools
+    if ! launchctl print "$GUI_DOMAIN/$APP_LABEL" >/dev/null 2>&1; then
         echo "Приложение ещё не установлено: сначала запустите ./install.sh"
         exit 1
     fi
     mkdir -p "${APP_DIR:h}"
     build_app
+    stop_app
     # kickstart -k перезапускает приложение, даже если из него вышли
-    launchctl kickstart -k "$GUI_DOMAIN/$MENUBAR_LABEL"
+    launchctl kickstart -k "$GUI_DOMAIN/$APP_LABEL"
     echo "Приложение пересобрано и перезапущено, фоновый сервис не тронут."
     exit 0
 fi
 
-for binary in node claude codex git swiftc; do
+for binary in node claude codex git; do
     command -v "$binary" >/dev/null || { echo "Не найден $binary в PATH"; exit 1; }
 done
+require_build_tools
 NODE_BIN=$(command -v node)
 CLAUDE_BIN=$(command -v claude)
 CODEX_BIN=$(command -v codex)
@@ -215,15 +227,18 @@ EOF
 
 build_app
 
-cat > "$AGENTS_DIR/$MENUBAR_LABEL.plist" <<EOF
+remove_old_app
+
+# Автозапуск приложения при входе; после падения launchd поднимает его снова, после «Выйти» из меню — нет
+cat > "$AGENTS_DIR/$APP_LABEL.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>Label</key><string>$MENUBAR_LABEL</string>
+    <key>Label</key><string>$APP_LABEL</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$APP_DIR/Contents/MacOS/PRReviewer</string>
+        <string>$APP_DIR/Contents/MacOS/$APP_BINARY</string>
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key>
@@ -276,13 +291,14 @@ reload_agent() {
 
 # Проход мог начаться, пока собиралось приложение
 wait_for_pass
-for label in $WORKER_LABEL $MENUBAR_LABEL $API_LABEL; do
+stop_app
+for label in $WORKER_LABEL $API_LABEL $APP_LABEL; do
     reload_agent $label
 done
 
-echo "Установлено: фоновая проверка раз в $INTERVAL_MINUTES мин (меняется в настройках окна) и иконка в строке состояния."
+echo "Установлено: фоновая проверка раз в $INTERVAL_MINUTES мин (меняется в настройках приложения) и приложение в трее: $APP_DIR, запускается при входе."
 if [[ -n ${FIRST_INSTALL:-} ]]; then
     echo "Сервис на паузе. Проверьте без публикации:"
     echo "  $TOOL_DIR/bin/pr-reviewer run --dry-run --pr <id>"
-    echo "затем снимите паузу: $TOOL_DIR/bin/pr-reviewer resume (или переключатель «Фоновое ревью» в настройках окна)"
+    echo "затем снимите паузу: $TOOL_DIR/bin/pr-reviewer resume (или переключатель «Фоновое ревью» в настройках приложения)"
 fi

@@ -546,7 +546,16 @@ pub fn run() {
             if debug_show() {
                 toggle_popover(app.handle());
             }
-            // Автозапуск при входе приложение само не включает: пока рядом живёт окно SwiftUI, его включит install.sh (#54)
+            // Автозапуск при входе: на macOS — агент launchd из install.sh (#54), на Windows установщика со своим автозапуском нет —
+            // включает само собранное приложение. Dev-сборка в систему не прописывается
+            #[cfg(target_os = "windows")]
+            if !cfg!(debug_assertions) {
+                use tauri_plugin_autostart::ManagerExt;
+                let autostart = app.autolaunch();
+                if !autostart.is_enabled().unwrap_or(false) {
+                    let _ = autostart.enable();
+                }
+            }
             Ok(())
         })
         .on_window_event(|window, event| match (window.label(), event) {

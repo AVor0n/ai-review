@@ -4,11 +4,15 @@
 set -uo pipefail
 
 GUI_DOMAIN="gui/$(id -u)"
-for label in com.avoronin.pr-reviewer com.avoronin.pr-reviewer.menubar com.avoronin.pr-reviewer.api; do
+# .menubar — агент окна SwiftUI до #54: убирается и у тех, кто не переустанавливал
+for label in com.avoronin.pr-reviewer com.avoronin.pr-reviewer.api com.avoronin.pr-reviewer.tray com.avoronin.pr-reviewer.menubar; do
     launchctl bootout "$GUI_DOMAIN/$label" 2>/dev/null
     rm -f "$HOME/Library/LaunchAgents/$label.plist"
 done
-rm -rf "$HOME/Applications/PR Reviewer.app" "${0:A:h:h}/bin"
+pkill -f "PR Reviewer.app/Contents/MacOS/pr-reviewer-app" 2>/dev/null
+pkill -f "PR Reviewer Tauri.app/Contents/MacOS/pr-reviewer-app" 2>/dev/null
+rm -f "$HOME/Library/LaunchAgents/PR Reviewer.plist"
+rm -rf "$HOME/Applications/PR Reviewer.app" "/Applications/PR Reviewer Tauri.app" "${0:A:h:h}/bin"
 
 if [[ ${1:-} == --purge ]]; then
     rm -rf "$HOME/Library/Application Support/pr-reviewer" "$HOME/Library/Logs/pr-reviewer"
