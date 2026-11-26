@@ -1,5 +1,6 @@
-# Сборка приложения в трее (app/, Tauri 2) для macOS и Windows. Тег app-v<версия> собирает обе и публикует GitHub Release;
-# ручной запуск (Actions → app → Run workflow) — проверка сборки без релиза, только артефакты прогона.
+# Сборка приложения в трее (app/, Tauri 2) для macOS и Windows. Запуск на теге app-v<версия> собирает обе и публикует
+# GitHub Release, на ветке — только артефакты прогона. Пуш тега в этом репозитории workflow не запускает (#67):
+# после тега — gh workflow run app --ref app-v<версия>.
 # Подписи и нотаризации нет. Артефакты — pr-reviewer-macOS и pr-reviewer-Windows
 name: app
 

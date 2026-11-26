@@ -217,7 +217,16 @@ The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon
 
 The app opens WSL paths (service clones, `config.json`, test run files) in Explorer and VS Code through `\\wsl.localhost\…`.
 
-**Development.** `cd app && npm ci && npx tauri dev` (Rust per `app/rust-toolchain.toml`). With `PR_REVIEWER_SHOW=1` the dev build shows the popover at once and does not hide it — for screenshots next to mockups. Dev builds have no release CSP: check anything that depends on CSP or windows with `npx tauri build --bundles app`. App tests — `npm test` in `app/`. macOS (`.dmg`) and Windows (`.exe`) builds are made by GitHub Actions. Pushing a tag `app-v*` (the version from `app/src-tauri/tauri.conf.json`, e.g. `app-v0.1.0`) builds both and publishes them on [Releases](https://github.com/AVor0n/ai-review/releases); Actions → **app** → Run workflow on a branch builds them as run artifacts without a release (run on an `app-v*` tag, it publishes the release).
+**Development.** `cd app && npm ci && npx tauri dev` (Rust per `app/rust-toolchain.toml`). With `PR_REVIEWER_SHOW=1` the dev build shows the popover at once and does not hide it — for screenshots next to mockups. Dev builds have no release CSP: check anything that depends on CSP or windows with `npx tauri build --bundles app`. App tests — `npm test` in `app/`. macOS (`.dmg`) and Windows (`.exe`) builds are made by GitHub Actions, workflow **app**. Run on a branch, it builds them as run artifacts without a release. Run on a tag `app-v<version>` (the version from `app/src-tauri/tauri.conf.json`), it also publishes them on [Releases](https://github.com/AVor0n/ai-review/releases).
+
+To release, bump the version, push it to `main`, then:
+
+```bash
+git tag -a app-v0.1.2 -m "PR Reviewer 0.1.2" && git push origin app-v0.1.2
+gh workflow run app --ref app-v0.1.2
+```
+
+The workflow is also set to start on a tag push, but in this repository GitHub does not start it on that event (#67), so run it by hand: the command above or Actions → **app** → Run workflow with the tag selected.
 
 ## Rule selection research
 
