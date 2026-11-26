@@ -5,7 +5,7 @@ import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { isAbsolute, join } from 'node:path';
 import { lessonUsage } from './memory-review.mjs';
-import { loadMemory, loadMemoryHistory } from './memory.mjs';
+import { loadMemoryHistory, readMemory } from './memory.mjs';
 import { validate } from './json-schema.mjs';
 import { DATA_DIR, GIT_ROOT, LOG_DIR } from './platform.mjs';
 import { saveSecret, secretStatus, secretTargets } from './secrets.mjs';
@@ -118,7 +118,9 @@ const routes = (deps) => {
     const { loadConfig } = deps;
     const memoryJson = (slug) => {
         const { usage, since, runs } = lessonUsage(slug);
-        return { since, runs, lessons: loadMemory(slug).map((lesson) => ({ ...lesson, usage: usage.get(lesson.id) ?? null })) };
+        // Повреждённая память — не ошибка запроса: правил нет, причина в broken. Журнал сервиса при этом не трогаем — его ведёт ревью
+        const { lessons, broken } = readMemory(slug);
+        return { since, runs, broken: broken ?? null, lessons: lessons.map((lesson) => ({ ...lesson, usage: usage.get(lesson.id) ?? null })) };
     };
     return [
         // Чтение
@@ -319,7 +321,8 @@ const readBody = (req) =>
 // Изменения файлов данных → события SSE. Тип события говорит, какой ресурс перечитать
 export const eventType = (rel) => {
     const [head] = rel.split('/');
-    if (['status.json', 'paused', 'queue', 'worker.pid'].includes(head)) return 'status';
+    // heartbeat — пульс прохода раз в 30 с: по нему приложение понимает, что проход не завис
+    if (['status.json', 'paused', 'queue', 'worker.pid', 'heartbeat'].includes(head)) return 'status';
     if (head === 'prs') return 'prs';
     if (head === 'state.json') return 'state';
     if (head === 'limits.json') return 'limits';

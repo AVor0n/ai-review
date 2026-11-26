@@ -119,13 +119,17 @@ export const App = () => {
             setScreen('overview');
             setBannersExpanded(false);
             setNow(new Date());
-            if (apiRef.current) refreshSecrets(apiRef.current);
+            // Статус — заново: при открытии поповера шапка и баннеры не должны показывать устаревший проход
+            if (apiRef.current) {
+                refreshSecrets(apiRef.current);
+                onEvent(apiRef.current, { type: 'status', at: new Date().toISOString() });
+            }
             syncIfStale();
         });
         return () => {
             unlisten.then((stop) => stop());
         };
-    }, [refreshSecrets, syncIfStale]);
+    }, [refreshSecrets, syncIfStale, onEvent]);
 
     // Первое подключение — тоже повод обновить список PR, если он старый
     const firstLoad = useRef(true);
@@ -136,11 +140,14 @@ export const App = () => {
         }
     }, [hasData, syncIfStale]);
 
+    // Одно уведомление на один простой: каждая неудачная попытка даёт новый объект связи, но since у простоя тот же
+    const downSince = connection.phase === 'down' ? connection.since : null;
     useEffect(() => {
-        if (connection.phase !== 'down') return;
-        const timer = setTimeout(() => notify('PR Reviewer: сервис не отвечает', serviceDown().text), Math.max(0, connection.since + DOWN_NOTICE_MS - Date.now()));
+        if (downSince === null) return;
+        const { text, command } = serviceDown();
+        const timer = setTimeout(() => notify('PR Reviewer: сервис не отвечает', `${text}\n${command}`), Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
         return () => clearTimeout(timer);
-    }, [connection]);
+    }, [downSince]);
 
     // Значок, подсказка и меню трея. Пока идёт первое подключение, остаётся стартовый значок
     useEffect(() => {

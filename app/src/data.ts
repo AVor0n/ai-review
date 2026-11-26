@@ -12,6 +12,8 @@ const loadMemory = async (api: ApiClient, config: Config): Promise<Patch> => {
     const memoryBroken: Record<string, string> = {};
     for (const { slug, result } of results) {
         if (result.data) memory[slug] = (result.data.lessons ?? []) as Lesson[];
+        // Повреждённый файл памяти сервис отдаёт с причиной в broken, а не ошибкой запроса
+        if (result.data?.broken) memoryBroken[slug] = result.data.broken;
         else if (result.error) memoryBroken[slug] = errorText(result.error);
     }
     return { memory, memoryBroken };

@@ -3893,6 +3893,11 @@
                     "runs": {
                         "type": "integer"
                     },
+                    "broken": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Файл памяти не читается: причина и путь. Правил тогда нет, ревью идёт без них"
+                    },
                     "lessons": {
                         "type": "array",
                         "items": {
@@ -3904,6 +3909,7 @@
                 "required": [
                     "since",
                     "runs",
+                    "broken",
                     "lessons"
                 ]
             },

@@ -11,7 +11,7 @@ process.env.HOME = home;
 // На Linux пути данных идут от XDG-переменных, если они заданы: убираем, чтобы тест не задел настоящие данные
 for (const name of ['XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CONFIG_HOME']) delete process.env[name];
 const { DATA_DIR, LOG_DIR } = await import('../src/platform.mjs');
-const { EXPORTS_DIR, createApi, isLoopback, routeList } = await import('../src/api.mjs');
+const { EXPORTS_DIR, createApi, eventType, isLoopback, routeList } = await import('../src/api.mjs');
 const { validate } = await import('../src/json-schema.mjs');
 const { TOOL_DIR, writeJson } = await import('../src/store.mjs');
 const configDir = join(home, 'tool');
@@ -207,4 +207,22 @@ test('событие приходит после изменения файла �
     await Promise.race([received, new Promise((_, reject) => setTimeout(() => reject(new Error('нет события за 5 с')), 5000))]);
     req.destroy();
     assert.ok(events.some((event) => event.type === 'limits'));
+});
+
+test('пульс прохода — событие status: иначе приложение считало бы проход зависшим', () => {
+    assert.equal(eventType('heartbeat'), 'status');
+});
+
+test('повреждённая память — 200 с причиной в broken, без правил', async () => {
+    mkdirSync(join(DATA_DIR, 'memory'), { recursive: true });
+    writeFileSync(join(DATA_DIR, 'memory/backend.json'), '{ не json');
+    const broken = await call('GET', '/memory/backend');
+    assert.equal(broken.status, 200);
+    assert.deepEqual(conforms('GET', '/memory/{repo}', broken.json), []);
+    assert.deepEqual(broken.json.lessons, []);
+    assert.match(broken.json.broken, /память backend повреждена/);
+    writeFileSync(join(DATA_DIR, 'memory/backend.json'), JSON.stringify({ lessons: [{ id: 'a', text: 'правило', at: '2026-11-01T00:00:00Z' }] }));
+    const fine = await call('GET', '/memory/backend');
+    assert.equal(fine.json.broken, null);
+    assert.equal(fine.json.lessons.length, 1);
 });

@@ -4129,6 +4129,8 @@ export interface components {
         Memory: {
             since: string | null;
             runs: number;
+            /** @description Файл памяти не читается: причина и путь. Правил тогда нет, ревью идёт без них */
+            broken: string | null;
             lessons: {
                 [key: string]: unknown;
             }[];

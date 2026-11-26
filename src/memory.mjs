@@ -35,7 +35,8 @@ const brief = (lesson) => ({ id: lesson.id, text: lesson.text });
 
 // Файл можно править руками (в VS Code из окна памяти), поэтому битый JSON — не «пустая память»:
 // ревью идёт без правил, а запись в файл запрещена, иначе следующее выученное правило затёрло бы всё остальное
-const readMemory = (slug) => {
+// broken — текст причины, если файл памяти не читается: его показывает приложение баннером «Память повреждена»
+export const readMemory = (slug) => {
     const path = memoryFile(slug);
     if (!existsSync(path)) return { lessons: [] };
     try {
