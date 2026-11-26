@@ -36,6 +36,10 @@
   --purple: #af52de;                   /* разбор памяти */
   --indigo: #5856d6;                   /* уровень кейса QA */
 
+  /* Подсветка JSON в редакторе config.json: чистый жёлтый на белом нечитаем, поэтому янтарный */
+  --code-number: #2a78d6;
+  --code-boolean: #b07800;
+
   /* Модели (AgentMark.color) */
   --model-claude: #d97857;
   --model-codex: #5c5c5c;              /* графитовый: чистый чёрный рядом с Claude слишком тяжёлый */
@@ -156,6 +160,8 @@
     --gray: #98989d;
     --purple: #bf5af2;
     --indigo: #5e5ce6;
+    --code-number: #5a9ef0;
+    --code-boolean: #e8c15a;
     --model-codex: #cccccc;
     --chart-1: #3987e5;
     --chart-2: #d95926;
@@ -194,6 +200,8 @@
   --gray: #98989d;
   --purple: #bf5af2;
   --indigo: #5e5ce6;
+  --code-number: #5a9ef0;
+  --code-boolean: #e8c15a;
   --model-codex: #cccccc;
   --chart-1: #3987e5;
   --chart-2: #d95926;
@@ -230,6 +238,8 @@
   --gray: #8e8e93;
   --purple: #af52de;
   --indigo: #5856d6;
+  --code-number: #2a78d6;
+  --code-boolean: #b07800;
   --model-codex: #5c5c5c;
   --chart-1: #2a78d6;
   --chart-2: #eb6834;

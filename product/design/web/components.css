@@ -2685,3 +2685,522 @@
 .inline-editor input::placeholder {
   color: var(--label-3);
 }
+
+/* ---------- Настройки ---------- */
+
+/* Переключатель как в «Настройках» iOS: зелёный, когда включён */
+.switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  appearance: none;
+  background: var(--track);
+  border-radius: var(--radius-capsule);
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.switch::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: transform var(--duration-fast) var(--ease);
+  content: "";
+}
+
+.switch:checked {
+  background: var(--green);
+}
+
+.switch:checked::after {
+  transform: translateX(14px);
+}
+
+.switch:disabled {
+  opacity: var(--dim-opacity);
+}
+
+/* Выбор из списка: по клику — системное меню с галочкой у выбранного */
+.select {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-6);
+  width: var(--select-width, 160px);
+  height: 24px;
+  padding: 0 var(--space-10);
+  font-size: var(--text-body);
+  background: var(--track);
+  border-radius: var(--radius-thumb);
+}
+
+.select__value {
+  flex: 1;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.select .icon {
+  font-size: 10px;
+  color: var(--label-2);
+}
+
+.select-note {
+  flex: none;
+  width: 160px;
+  font-size: var(--text-callout);
+  color: var(--label-3);
+  text-align: center;
+}
+
+/* Степпер «−  +» */
+.stepper {
+  display: inline-flex;
+  flex: none;
+  overflow: hidden;
+  background: var(--track);
+  border-radius: var(--radius-thumb);
+}
+
+.stepper button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.stepper button + button {
+  border-left: 0.5px solid var(--separator);
+}
+
+.stepper button:disabled {
+  opacity: var(--disabled-opacity);
+}
+
+/* Строка настроек: подпись слева, значение и элемент справа */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 40px;
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-body);
+}
+
+.settings-row--nav {
+  width: 100%;
+  padding-block: var(--space-10);
+  text-align: left;
+}
+
+.settings-row--nav:hover {
+  background: var(--hover);
+}
+
+.settings-row--dim {
+  opacity: var(--dim-opacity);
+}
+
+.settings-row__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.settings-row__sub {
+  overflow: hidden;
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.settings-row__error {
+  font-size: var(--text-subhead);
+  color: var(--red);
+  user-select: text;
+}
+
+.settings-row__value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+}
+
+.settings-row__value--mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-callout);
+}
+
+.settings-row__chevron {
+  flex: none;
+  font-size: 11px;
+  color: var(--label-3);
+}
+
+.settings-row--add {
+  color: var(--accent);
+}
+
+.settings-row--add .icon {
+  font-size: 20px;
+  color: var(--green);
+}
+
+.settings-row__lead {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+}
+
+/* Плитка-иконка слева от строки: репозиторий, модель, событие уведомления */
+.icon-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--c, var(--accent));
+  border-radius: 7px;
+}
+
+.icon-tile--track {
+  background: var(--track);
+}
+
+.icon-tile--small {
+  width: 26px;
+  height: 26px;
+  font-size: 12px;
+  border-radius: var(--radius-thumb);
+}
+
+.icon-tile .model-mark {
+  --model-mark: 16px;
+}
+
+.icon-tile--off {
+  opacity: 0.5;
+}
+
+.row-divider--tile {
+  --divider-inset: 52px;
+}
+
+.row-divider--tile-small {
+  --divider-inset: 50px;
+}
+
+/* Память репозитория: мозг и число правил; точка — новые правила (синяя) или повреждённый файл (красная) */
+.memory-chip {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 3px var(--space-8);
+  font-size: var(--text-callout);
+  font-variant-numeric: tabular-nums;
+  color: var(--c, var(--label-2));
+  background: var(--track);
+  border-radius: var(--radius-capsule);
+}
+
+.memory-chip--marked {
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+}
+
+.memory-chip--marked::after {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  background: var(--c);
+  border-radius: 50%;
+  content: "";
+}
+
+/* Остаток лимита: зелёный, жёлтый ближе к концу, оранжевый, когда почти исчерпан */
+.limit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subhead);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.limit--low {
+  color: var(--orange);
+}
+
+.limit--none {
+  color: var(--label-3);
+}
+
+.limit-bar {
+  flex: none;
+  width: 36px;
+  height: 4px;
+  overflow: hidden;
+  background: var(--track);
+  border-radius: var(--radius-capsule);
+}
+
+.limit-bar span {
+  display: block;
+  width: var(--remaining);
+  height: 100%;
+  background: var(--c, var(--green));
+  border-radius: var(--radius-capsule);
+}
+
+.build-info {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subhead);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-3);
+  user-select: text;
+}
+
+/* Лист с заголовком по центру и «‹ Назад» слева (переход внутри листа) */
+.sheet__head--center {
+  position: relative;
+  justify-content: center;
+  align-items: center;
+}
+
+.sheet__head--center .sheet__title {
+  text-align: center;
+}
+
+.sheet__head--center .sheet__back {
+  position: absolute;
+  left: 0;
+}
+
+.sheet__head--center .round-button {
+  position: absolute;
+  right: 0;
+}
+
+.sheet__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+  color: var(--accent);
+}
+
+.sheet__back .icon {
+  font-size: 13px;
+}
+
+/* Поле в карточке без своей рамки: шаблон веток, новое исключение */
+.input-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: 9px var(--space-12);
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.input-card input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  color: var(--label);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.input-card input::placeholder {
+  color: var(--label-3);
+}
+
+.input-card > .icon {
+  flex: none;
+  font-size: 15px;
+}
+
+.form-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--c, var(--label-2));
+}
+
+.form-message .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* Редактор config.json: моноширинный текст с подсветкой JSON */
+.code-editor {
+  height: 340px;
+  margin: 0;
+  padding: var(--space-8) var(--space-10);
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-callout);
+  line-height: 1.45;
+  white-space: pre;
+  background: var(--card);
+  border-radius: var(--radius-card);
+  outline: none;
+  user-select: text;
+}
+
+.code-editor .k { color: var(--label); }
+.code-editor .s { color: var(--label-2); }
+.code-editor .n { color: var(--code-number); }
+.code-editor .b { color: var(--code-boolean); }
+.code-editor .p { color: var(--label-3); }
+
+.code-editor .caret {
+  border-left: 1.5px solid var(--accent);
+  margin-left: -0.75px;
+}
+
+/* Описание поля под курсором; высота постоянная, чтобы лист не прыгал */
+.field-help {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 44px;
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.field-help__path {
+  font-family: var(--font-mono);
+  color: var(--label);
+}
+
+.field-help--empty {
+  color: var(--label-3);
+}
+
+/* ---------- Журнал ---------- */
+
+.log-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-12);
+}
+
+/* Ошибка: оранжевая подложка 6 % и треугольник вместо точки */
+.log-row--error {
+  background: color-mix(in srgb, var(--orange) 6%, transparent);
+}
+
+.log-row__mark {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  width: 12px;
+}
+
+.log-row__mark::before {
+  width: 4px;
+  height: 4px;
+  background: var(--label-3);
+  border-radius: 50%;
+  transform: translateY(-2px);
+  content: "";
+}
+
+.log-row--error .log-row__mark::before {
+  display: none;
+}
+
+.log-row__mark .icon {
+  font-size: 11px;
+  color: var(--orange);
+}
+
+.log-row__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.log-row__time {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+}
+
+.log-row__message {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: color-mix(in srgb, var(--label) 85%, transparent);
+  white-space: pre-wrap;
+  word-break: break-word;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  user-select: text;
+}
+
+.log-row--error .log-row__message {
+  color: var(--label);
+}
+
+.log-row--expanded .log-row__message {
+  display: block;
+}
+
+.log-row__toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  color: var(--label-3);
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.log-row--expanded .log-row__toggle {
+  transform: rotate(180deg);
+}
+
+.row-divider--log {
+  --divider-inset: 28px;
+}
