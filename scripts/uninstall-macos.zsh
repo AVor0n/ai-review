@@ -12,6 +12,8 @@ done
 pkill -f "PR Reviewer.app/Contents/MacOS/pr-reviewer-app" 2>/dev/null
 pkill -f "PR Reviewer Tauri.app/Contents/MacOS/pr-reviewer-app" 2>/dev/null
 rm -f "$HOME/Library/LaunchAgents/PR Reviewer.plist"
+# Пункт «Объекты входа» с путём приложения, если он остался от окна SwiftUI
+osascript -e "tell application \"System Events\" to delete (every login item whose path is \"$HOME/Applications/PR Reviewer.app\")" >/dev/null 2>&1
 rm -rf "$HOME/Applications/PR Reviewer.app" "/Applications/PR Reviewer Tauri.app" "${0:A:h:h}/bin"
 
 if [[ ${1:-} == --purge ]]; then

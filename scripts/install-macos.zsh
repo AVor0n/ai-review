@@ -54,6 +54,16 @@ remove_old_app() {
     rm -rf "$TEST_APP"
 }
 
+# Пункт «Объекты входа» с путём приложения (остался от окна SwiftUI, bundle id …menubar): при входе он запускал бы
+# приложение второй раз, и single-instance переключал поповер. Автозапуск — дело агента launchd ниже
+remove_login_item() {
+    local script="tell application \"System Events\" to delete (every login item whose path is \"$APP_DIR\")"
+    osascript -e "$script" >/dev/null 2>&1 || true
+    if osascript -e "tell application \"System Events\" to get path of every login item" 2>/dev/null | grep -qF "$APP_DIR"; then
+        echo "Не удалось убрать «PR Reviewer» из объектов входа (нет доступа к System Events). Уберите вручную: Системные настройки → Основные → Объекты входа"
+    fi
+}
+
 # Второй экземпляр приложения не стартует (single-instance): перед запуском из launchd закрываем запущенный вручную
 stop_app() {
     pkill -f "$APP_DIR/Contents/MacOS/$APP_BINARY" 2>/dev/null || true
@@ -115,6 +125,7 @@ if [[ ${1:-} == --app-only ]]; then
     fi
     mkdir -p "${APP_DIR:h}"
     build_app
+    remove_login_item
     stop_app
     # kickstart -k перезапускает приложение, даже если из него вышли
     launchctl kickstart -k "$GUI_DOMAIN/$APP_LABEL"
@@ -228,6 +239,7 @@ EOF
 build_app
 
 remove_old_app
+remove_login_item
 
 # Автозапуск приложения при входе; после падения launchd поднимает его снова, после «Выйти» из меню — нет
 cat > "$AGENTS_DIR/$APP_LABEL.plist" <<EOF
