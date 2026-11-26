@@ -2,6 +2,7 @@ import { ask } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useCallback, useEffect, useState, type KeyboardEvent } from 'react';
 import { errorText, type ApiClient } from '../api/client';
+import { CommandError } from '../components/CommandError';
 import { Icon } from '../components/Icon';
 import { DiffLine, Markdown } from '../components/Markdown';
 import { ago, parse } from '../model/format';
@@ -168,6 +169,8 @@ export const MemorySheet = ({
     const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
     const [historyPrs, setHistoryPrs] = useState(100);
     const [now, setNow] = useState(Date.now());
+    // Ошибка правки, добавления или удаления правила: текст правила при этом не теряется
+    const [commandError, setCommandError] = useState<string | null>(null);
 
     const loadPlan = useCallback(async () => setPlan(((await api.GET('/memory/{repo}/plan', { params: { path: { repo: slug } } })).data as Plan | null | undefined) ?? null), [api, slug]);
     const loadHistory = useCallback(async () => setHistory((((await api.GET('/memory/{repo}/history', { params: { path: { repo: slug } } })).data as Change[] | undefined) ?? []).slice(-HISTORY_LIMIT).reverse()), [api, slug]);
@@ -202,21 +205,24 @@ export const MemorySheet = ({
     const add = async () => {
         const text = draft.trim();
         if (!text) return;
-        setDraft('');
-        await api.POST('/memory/{repo}/lessons', { params: { path: { repo: slug } }, body: { text } });
+        const result = await run(() => api.POST('/memory/{repo}/lessons', { params: { path: { repo: slug } }, body: { text } }));
+        setCommandError(result.ok ? null : result.output);
+        if (result.ok) setDraft('');
         loadMemory();
     };
 
     const save = async () => {
         if (!editing || !editing.text.trim()) return;
         const { id, text } = editing;
-        setEditing(null);
-        await api.PUT('/memory/{repo}/lessons/{id}', { params: { path: { repo: slug, id } }, body: { text: text.trim() } });
+        const result = await run(() => api.PUT('/memory/{repo}/lessons/{id}', { params: { path: { repo: slug, id } }, body: { text: text.trim() } }));
+        setCommandError(result.ok ? null : result.output);
+        if (result.ok) setEditing(null);
         loadMemory();
     };
 
     const remove = async (id: string) => {
-        await api.DELETE('/memory/{repo}/lessons/{id}', { params: { path: { repo: slug, id } } });
+        const result = await run(() => api.DELETE('/memory/{repo}/lessons/{id}', { params: { path: { repo: slug, id } } }));
+        setCommandError(result.ok ? null : result.output);
         loadMemory();
     };
 
@@ -339,6 +345,7 @@ export const MemorySheet = ({
                     </button>
                 </div>
 
+                {commandError && <CommandError text={commandError} onClose={() => setCommandError(null)} />}
                 {broken ? (
                     <div className="sheet__body" style={{ '--sheet-body': '300px' } as React.CSSProperties}>
                         <div className="info-card" style={{ gap: 'var(--space-8)' }}>

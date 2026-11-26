@@ -1,6 +1,7 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { ApiClient } from '../api/client';
+import { errorText, type ApiClient } from '../api/client';
+import { CommandError } from '../components/CommandError';
 import { Icon } from '../components/Icon';
 import { Markdown } from '../components/Markdown';
 import { agentName, archOf, isArchStale } from '../model/derive';
@@ -218,7 +219,9 @@ export const ArchSheet = ({ api, data, repo, prId, onRerun, onClose }: { api: Ap
     const [now, setNow] = useState(Date.now());
     const [copied, setCopied] = useState(false);
     const [saving, setSaving] = useState(false);
+    // В картинку — только заголовок и название PR, без кнопки закрытия
     const head = useRef<HTMLDivElement>(null);
+    const [commandError, setCommandError] = useState<string | null>(null);
     const body = useRef<HTMLDivElement>(null);
     const name = (id: string) => agentName(data.config, id);
 
@@ -234,10 +237,15 @@ export const ArchSheet = ({ api, data, repo, prId, onRerun, onClose }: { api: Ap
     const stale = !!arch && isArchStale(arch as never, pr);
 
     const copyMarkdown = async () => {
-        const { data: answer } = await api.GET('/arch/{repo}/{pr}/markdown', { params: { path: { repo, pr: prId } } });
+        const { data: answer, error } = await api.GET('/arch/{repo}/{pr}/markdown', { params: { path: { repo, pr: prId } } });
         const text = (answer as { output?: string } | undefined)?.output;
-        if (!text) return;
-        await navigator.clipboard.writeText(text).catch(() => {});
+        if (error || !text) return setCommandError(error ? errorText(error) : 'Отчёт пуст: копировать нечего');
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (failure) {
+            return setCommandError(`Не удалось скопировать в буфер обмена: ${String(failure)}`);
+        }
+        setCommandError(null);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -247,7 +255,9 @@ export const ArchSheet = ({ api, data, repo, prId, onRerun, onClose }: { api: Ap
         if (!head.current || !body.current || saving) return;
         setSaving(true);
         const sections = ([...body.current.children] as HTMLElement[]).filter((part) => !part.dataset.skipExport);
-        await exportParts([head.current, ...sections], `pr-reviewer-arch-${repo}-${prId}`, { width: SHEET_WIDTH, padding: SHEET_PADDING, gap: parseFloat(getComputedStyle(body.current).rowGap) || 0 }).catch(() => {});
+        await exportParts([head.current, ...sections], `pr-reviewer-arch-${repo}-${prId}`, { width: SHEET_WIDTH, padding: SHEET_PADDING, gap: parseFloat(getComputedStyle(body.current).rowGap) || 0 })
+            .then(() => setCommandError(null))
+            .catch((failure) => setCommandError(`Не удалось сохранить картинку: ${String(failure)}`));
         setSaving(false);
     };
 
@@ -294,8 +304,8 @@ export const ArchSheet = ({ api, data, repo, prId, onRerun, onClose }: { api: Ap
     return (
         <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()} onKeyDown={(event) => event.key === 'Escape' && onClose()}>
             <div className="sheet sheet--wide sheet--tall" role="dialog" aria-label={`Архитектурное ревью #${pr.id}`}>
-                <div className="sheet__head" ref={head}>
-                    <div className="sheet__titles">
+                <div className="sheet__head">
+                    <div className="sheet__titles" ref={head}>
                         <div className="sheet__title">Архитектурное ревью #{pr.id}</div>
                         <div className="sheet__subtitle sheet__subtitle--line">{pr.title}</div>
                     </div>
@@ -304,6 +314,7 @@ export const ArchSheet = ({ api, data, repo, prId, onRerun, onClose }: { api: Ap
                     </button>
                 </div>
                 {status}
+                {commandError && <CommandError text={commandError} onClose={() => setCommandError(null)} />}
                 {result && !active && stale && (
                     <div className="banner banner--warning">
                         <Icon id="i-history" className="icon banner__icon" />
