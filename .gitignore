@@ -17,3 +17,6 @@ bin/
 node_modules/
 *.tmp
 pr-reviewer-export-*.tar.gz
+
+# Id сессий Claude — свои на каждой машине (agents/roles/README.md, «Сессии»)
+agents/roles/sessions.local.md

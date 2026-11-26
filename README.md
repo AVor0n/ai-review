@@ -49,7 +49,9 @@ Tray app (Tauri 2: Rust + React, app/)
 
 The product was built by a team of Claude Code sessions led by the author: PM, dev, designer and qa. The author set goals and made decisions; the roles worked in separate sessions and messaged each other directly. Everything they left is in the repository:
 
-- [`agents/backlog.md`](agents/backlog.md) — the team's rules: roles, message routes, the board, how a task goes from idea to check. The tasks themselves are on the [GitHub board](https://github.com/users/AVor0n/projects/10) and in issues; early history is in [`agents/archive/`](agents/archive/).
+- [`CLAUDE.md`](CLAUDE.md) — the entry point every session reads: shared rules and how a session finds its role.
+- [`agents/roles/`](agents/roles/) — one file per role (standing rules, work in progress, lessons learned), the session table and message routes. A session can be cleared at any moment and pick up from its file — and anyone who clones the repository continues with the same context.
+- [`agents/backlog.md`](agents/backlog.md) — board rules: how a task goes from idea to check. The tasks themselves are on the [GitHub board](https://github.com/users/AVor0n/projects/10) and in issues; early history is in [`agents/archive/`](agents/archive/).
 - [`agents/specs/`](agents/specs/) — PM specifications. Questions to the author are numbered across the whole project (Q1, Q2, …) with the decisions next to them.
 - [`agents/design/`](agents/design/) — HTML mockups, screen specifications and the design system [`web/`](agents/design/web/) the app takes its styles and icons from.
 - [`agents/bugs/`](agents/bugs/) — qa reports: what was checked, how, what was found and what the author decided.
