@@ -10,8 +10,10 @@ const git = (args: string) => {
     }
 };
 
-// Строка сборки в «Настройках»: из какого коммита собрано приложение и были ли незакоммиченные правки
-const build = { commit: git('rev-parse HEAD'), date: new Date().toISOString(), dirty: git('status --porcelain -- .') !== '' };
+// Строка сборки в «Настройках»: из какого коммита собрано приложение и были ли незакоммиченные правки.
+// PR_REVIEWER_BUILD_COMMIT — сборка из выгрузки коммита без .git (чистая копия main или CI): коммит известен снаружи
+const commit = process.env.PR_REVIEWER_BUILD_COMMIT;
+const build = { commit: commit ?? git('rev-parse HEAD'), date: new Date().toISOString(), dirty: commit ? false : git('status --porcelain -- .') !== '' };
 
 // Порт и папка — как ждёт tauri.conf.json. Стили берутся из дизайн-системы product/design/web — она вне app/
 export default defineConfig({
