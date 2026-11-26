@@ -6,7 +6,7 @@ import type { Prefs } from './prefs';
 import type { Data, Lesson } from './types';
 import type { StubTarget } from './stubs';
 
-export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'stub'; target: StubTarget } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
+export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'stub'; target: StubTarget } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
 
 export type Banner = {
     id: string;
@@ -66,7 +66,7 @@ const memoryBanner = (slug: string, count: number, limit: number): Banner => {
             : full
               ? 'Новые правила вытесняют наименее полезные автоматические. Удалите лишние или поправьте нужные — исправленные вручную не вытесняются.'
               : 'Скоро новые правила начнут вытеснять наименее полезные. Просмотрите память: удалите лишнее, поправьте нужное — исправленные вручную правила не вытесняются.',
-        actions: [{ label: 'Проверить правила', kind: 'stub', target: { kind: 'memory', slug } }],
+        actions: [{ label: 'Проверить правила', kind: 'memory', slug }],
     };
 };
 
@@ -118,7 +118,7 @@ export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | n
             title: `Новые правила в памяти ${repo.slug}: ${fresh.length}`,
             text: latest.text,
             clamp: true,
-            actions: [{ label: 'Посмотреть', kind: 'stub', target: { kind: 'memory', slug: repo.slug } }],
+            actions: [{ label: 'Посмотреть', kind: 'memory', slug: repo.slug }],
             close: { hint: 'Скрыть баннер. Подсветка памяти в настройках останется, пока вы её не откроете', kind: 'lessons', key: repo.slug },
         });
     }

@@ -7,6 +7,10 @@ import type { ChangeEvent } from './api/events';
 import { Overview, type OverviewHandlers } from './components/Overview';
 import { Stub } from './components/Stub';
 import { StatsScreen } from './stats/StatsScreen';
+import { MemorySheet } from './memory/MemorySheet';
+import { updateJobs } from './memory/jobs';
+import { newLessons } from './model/banners';
+import { invoke } from '@tauri-apps/api/core';
 import { useData } from './data';
 import { banners as buildBanners, serviceDownBanner, type Banner, type BannerAction } from './model/banners';
 import { archAgentName, threads } from './model/derive';
@@ -39,6 +43,23 @@ export const App = () => {
     // Перенесённые экраны; неперенесённые открывают заглушку поверх них
     const [screen, setScreen] = useState<'overview' | 'stats'>('overview');
     const [statsVersion, setStatsVersion] = useState(0);
+    // Лист «Память ревьюеров» поверх поповера, на той вкладке, где его открыли
+    const [memorySheet, setMemorySheet] = useState<string | null>(null);
+    const [canOpenInCode, setCanOpenInCode] = useState(false);
+    useEffect(() => {
+        invoke<boolean>('code_available').then(setCanOpenInCode, () => setCanOpenInCode(false));
+    }, []);
+    // Новые правила считаются просмотренными, когда лист закрыли: пока он открыт, точки помогают их найти
+    const closeMemorySheet = useCallback(() => {
+        setMemorySheet((slug) => {
+            if (slug) {
+                updateJobs(slug, { applied: undefined, restored: undefined });
+                updateMemorySeen.current(slug);
+            }
+            return null;
+        });
+    }, []);
+    const updateMemorySeen = useRef<(slug: string) => void>(() => {});
     const [bannersExpanded, setBannersExpanded] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
@@ -117,6 +138,7 @@ export const App = () => {
             document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`);
             setStub(null);
             setScreen('overview');
+            closeMemorySheet();
             setBannersExpanded(false);
             setNow(new Date());
             // Статус — заново: при открытии поповера шапка и баннеры не должны показывать устаревший проход
@@ -129,7 +151,7 @@ export const App = () => {
         return () => {
             unlisten.then((stop) => stop());
         };
-    }, [refreshSecrets, syncIfStale, onEvent]);
+    }, [refreshSecrets, syncIfStale, onEvent, closeMemorySheet]);
 
     // Первое подключение — тоже повод обновить список PR, если он старый
     const firstLoad = useRef(true);
@@ -181,6 +203,8 @@ export const App = () => {
         setSyncError(error ? errorText(error as Schemas['Error']) : null);
     }, []);
 
+    updateMemorySeen.current = (slug) => updatePrefs((previous) => ({ ...previous, memorySeenAt: { ...previous.memorySeenAt, [slug]: new Date().toISOString() } }));
+
     const handlers: OverviewHandlers = {
         command,
         stub: setStub,
@@ -212,6 +236,7 @@ export const App = () => {
             })),
         banner: (action: BannerAction) => {
             if (action.kind === 'stub') setStub(action.target);
+            else if (action.kind === 'memory') setMemorySheet(action.slug);
             else if (action.kind === 'stop') command('/stop');
             else if (action.kind === 'copy') copy(action.text);
             else retry();
@@ -267,6 +292,18 @@ export const App = () => {
                         <StatsScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : (
                         <Overview state={{ offline, data: hasData ? data : null, banners, bannersExpanded, collapsed: prefs.collapsedRepos, syncing, now }} on={handlers} />
+                    )}
+                    {memorySheet && connection.phase === 'up' && (
+                        <MemorySheet
+                            api={connection.api}
+                            slug={memorySheet}
+                            memoryPath={`${connection.health.dataDir}/memory/${memorySheet}.json`}
+                            canOpenInCode={canOpenInCode}
+                            openInCode={(path) => invoke('open_in_code', { path }).catch(() => {})}
+                            fresh={new Set(newLessons(data.memory[memorySheet] ?? [], prefs.memorySeenAt[memorySheet]).map((lesson) => lesson.id))}
+                            version={statsVersion}
+                            onClose={closeMemorySheet}
+                        />
                     )}
                 </main>
             </div>

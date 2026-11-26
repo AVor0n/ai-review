@@ -182,6 +182,55 @@ fn set_tray_menu(app: AppHandle, items: Vec<MenuEntry>) -> Result<(), String> {
     tray.set_menu(Some(menu)).map_err(|error| error.to_string())
 }
 
+// VS Code для файлов сервиса (память, config.json). На Windows файл лежит в WSL: путь переводит wslpath в \\wsl.localhost\…
+#[tauri::command]
+fn code_available() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("mdfind")
+            .arg("kMDItemCFBundleIdentifier == 'com.microsoft.VSCode'")
+            .output()
+            .map(|out| !out.stdout.is_empty())
+            .unwrap_or(false)
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        std::process::Command::new("where").arg("code").creation_flags(CREATE_NO_WINDOW).output().map(|out| out.status.success()).unwrap_or(false)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        false
+    }
+}
+
+#[tauri::command]
+fn open_in_code(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let status = std::process::Command::new("open").args(["-b", "com.microsoft.VSCode", &path]).status().map_err(|error| error.to_string())?;
+        if status.success() { Ok(()) } else { Err("не удалось открыть VS Code".into()) }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let converted = std::process::Command::new("wsl.exe").args(["-e", "wslpath", "-w", &path]).creation_flags(CREATE_NO_WINDOW).output().map_err(|error| error.to_string())?;
+        let windows_path = String::from_utf8_lossy(&converted.stdout).trim().to_string();
+        if windows_path.is_empty() {
+            return Err("WSL не перевёл путь к файлу".into());
+        }
+        std::process::Command::new("cmd").args(["/c", "code", &windows_path]).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = path;
+        Err("VS Code открывается только на macOS и Windows".into())
+    }
+}
+
 // Картинка вкладки (камера статистики): PNG приходит телом запроса, имя — заголовком. Файл — в «Загрузки», затем открывается
 #[tauri::command]
 fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
@@ -311,7 +360,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]

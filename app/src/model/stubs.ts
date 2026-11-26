@@ -15,7 +15,6 @@ export type StubTarget =
     | { kind: 'tab'; tab: Exclude<TabId, 'overview' | 'stats'> }
     | { kind: 'connect' }
     | { kind: 'token'; id: string; title: string; lifetimeDays: number | null }
-    | { kind: 'memory'; slug: string }
     | { kind: 'fix' | 'arch' | 'qa'; repo: string; pr: number };
 
 export type Command = { text: string; note: string };
@@ -63,16 +62,6 @@ const content = (target: StubTarget, cli: string, logDir: string): Omit<Stub, 't
                 commands: [
                     { text: `${cli} secret set ${target.id}`, note: 'сохранить новый токен: значение спросит без показа' },
                     { text: `${cli} token ${target.id} ${target.lifetimeDays || 365}`, note: 'срок жизни в днях — по нему обзор предупреждает заранее' },
-                ],
-            };
-        case 'memory':
-            return {
-                tab: 'settings',
-                title: `Память ${target.slug}`,
-                commands: [
-                    { text: `${cli} memory list ${target.slug}`, note: 'правила памяти' },
-                    { text: `${cli} memory remove ${target.slug} <id>`, note: 'удалить правило' },
-                    { text: `${cli} memory review ${target.slug}`, note: 'разбор: склеить дубли, убрать бесполезное и устаревшее' },
                 ],
             };
         case 'fix':
