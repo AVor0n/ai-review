@@ -4089,6 +4089,8 @@ export interface components {
             dataDir: string;
             logDir: string;
             tokenFile: string;
+            /** @description Путь к bin/pr-reviewer: его ставит install.sh, в PATH он не попадает */
+            cli: string;
             worker: {
                 running: boolean;
                 heartbeat: string | null;

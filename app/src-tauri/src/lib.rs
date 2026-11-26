@@ -1,10 +1,14 @@
 // Приложение в трее: значок, поповер у значка, меню по правому клику, токен локального API.
 // Данные и действия — только через API сервиса (B-29); здесь то, что вебвью сам сделать не может
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Mutex,
+};
+use std::time::Duration;
 
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{IsMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, Rect, WindowEvent,
 };
@@ -25,30 +29,12 @@ const SCREEN_EDGE: f64 = 8.0;
 // Где значок: последний прямоугольник из события трея — по нему ставится поповер и стрелка
 struct TrayRect(Mutex<Option<Rect>>);
 
-struct MenuItems {
-    status: MenuItem<tauri::Wry>,
-    pause: MenuItem<tauri::Wry>,
-}
+// Номер текущей анимации значка: новый набор кадров останавливает поток прежнего
+struct TrayAnimation(AtomicU64);
 
-// Значок шаблоном: на macOS строка меню сама красит его под тему; на Windows цвет выбираем по теме панели задач
-fn tray_image(state: &str) -> tauri::Result<Image<'static>> {
-    let bytes: &[u8] = match state {
-        "running" => include_bytes!("../icons/tray/running.png"),
-        "error" => include_bytes!("../icons/tray/error.png"),
-        "paused" => include_bytes!("../icons/tray/paused.png"),
-        _ => include_bytes!("../icons/tray/idle.png"),
-    };
-    let image = Image::from_bytes(bytes)?;
-    if cfg!(target_os = "macos") || light_taskbar() {
-        return Ok(image.to_owned());
-    }
-    let mut rgba = image.rgba().to_vec();
-    for pixel in rgba.chunks_exact_mut(4) {
-        pixel[0] = 255;
-        pixel[1] = 255;
-        pixel[2] = 255;
-    }
-    Ok(Image::new_owned(rgba, image.width(), image.height()))
+// Значок до первого кадра из вебвью: «ожидание», шаблоном
+fn initial_tray_image() -> tauri::Result<Image<'static>> {
+    Ok(Image::from_bytes(include_bytes!("../icons/tray/idle.png"))?.to_owned())
 }
 
 #[cfg(target_os = "windows")]
@@ -100,20 +86,100 @@ fn api_token() -> Result<String, String> {
     }
 }
 
-// Состояние значка и строки меню задаёт вебвью: он знает статус из API
+// Тема панели задач Windows: значок там система не перекрашивает, вебвью рисует его белым или чёрным
 #[tauri::command]
-fn set_tray_state(app: AppHandle, state: String, tooltip: String, status_line: String, paused: bool) -> Result<(), String> {
+fn taskbar_dark() -> bool {
+    cfg!(target_os = "windows") && !light_taskbar()
+}
+
+// Кадры значка рисует вебвью (product/design/web: иконки и знаки моделей). Несколько кадров — анимация:
+// вращение знака модели или мигание; max_ticks — сколько смен кадра, после них горит первый кадр
+#[tauri::command]
+fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks: Option<u32>, template: bool, title: Option<String>) -> Result<(), String> {
     let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
-    tray.set_icon(Some(tray_image(&state).map_err(|error| error.to_string())?)).map_err(|error| error.to_string())?;
+    let images = frames
+        .iter()
+        .map(|bytes| Image::from_bytes(bytes).map(|image| image.to_owned()))
+        .collect::<tauri::Result<Vec<Image<'static>>>>()
+        .map_err(|error| error.to_string())?;
+    let first = images.first().cloned().ok_or("нет кадров")?;
+    let generation = app.state::<TrayAnimation>().0.fetch_add(1, Ordering::SeqCst) + 1;
     #[cfg(target_os = "macos")]
-    tray.set_icon_as_template(true).map_err(|error| error.to_string())?;
-    tray.set_tooltip(Some(tooltip)).map_err(|error| error.to_string())?;
-    if let Some(items) = app.try_state::<Mutex<MenuItems>>() {
-        let items = items.lock().map_err(|error| error.to_string())?;
-        items.status.set_text(status_line).map_err(|error| error.to_string())?;
-        items.pause.set_text(if paused { "Включить фоновое ревью" } else { "Выключить фоновое ревью" }).map_err(|error| error.to_string())?;
+    tray.set_icon_as_template(template).map_err(|error| error.to_string())?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = template;
+    tray.set_icon(Some(first)).map_err(|error| error.to_string())?;
+    // Число PR без ревью справа от значка — только на macOS; на Windows оно нарисовано бейджем в кадре
+    #[cfg(target_os = "macos")]
+    tray.set_title(title).map_err(|error| error.to_string())?;
+    #[cfg(not(target_os = "macos"))]
+    let _ = title;
+    if images.len() > 1 {
+        std::thread::spawn(move || {
+            let mut tick: u32 = 0;
+            loop {
+                std::thread::sleep(Duration::from_millis(frame_ms));
+                if app.state::<TrayAnimation>().0.load(Ordering::SeqCst) != generation {
+                    return;
+                }
+                tick += 1;
+                let done = max_ticks.is_some_and(|max| tick >= max);
+                let image = images[if done { 0 } else { tick as usize % images.len() }].clone();
+                if let Some(tray) = app.tray_by_id(TRAY_ID) {
+                    let _ = tray.set_icon(Some(image));
+                }
+                if done {
+                    return;
+                }
+            }
+        });
     }
     Ok(())
+}
+
+#[tauri::command]
+fn set_tray_tooltip(app: AppHandle, tooltip: String) -> Result<(), String> {
+    let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
+    tray.set_tooltip(Some(tooltip)).map_err(|error| error.to_string())
+}
+
+// Пункты меню по правому клику собирает вебвью (src/model/tray.ts): он знает статус сервиса
+#[derive(serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+enum MenuEntry {
+    Item { id: Option<String>, text: String, enabled: bool },
+    Separator,
+    Submenu { text: String, items: Vec<MenuEntry> },
+}
+
+fn menu_items(app: &AppHandle, entries: &[MenuEntry]) -> tauri::Result<Vec<Box<dyn IsMenuItem<tauri::Wry>>>> {
+    let mut result: Vec<Box<dyn IsMenuItem<tauri::Wry>>> = Vec::new();
+    for (index, entry) in entries.iter().enumerate() {
+        match entry {
+            MenuEntry::Item { id, text, enabled } => {
+                let id = id.clone().unwrap_or_else(|| format!("info-{index}"));
+                // ⌘Q у «Выйти» — как у приложений строки меню macOS
+                let accelerator = (cfg!(target_os = "macos") && id == "quit").then_some("CmdOrCtrl+Q");
+                result.push(Box::new(MenuItem::with_id(app, id, text, *enabled, accelerator)?));
+            }
+            MenuEntry::Separator => result.push(Box::new(PredefinedMenuItem::separator(app)?)),
+            MenuEntry::Submenu { text, items } => {
+                let children = menu_items(app, items)?;
+                let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = children.iter().map(|item| item.as_ref()).collect();
+                result.push(Box::new(Submenu::with_items(app, text, true, &refs)?));
+            }
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+fn set_tray_menu(app: AppHandle, items: Vec<MenuEntry>) -> Result<(), String> {
+    let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
+    let children = menu_items(&app, &items).map_err(|error| error.to_string())?;
+    let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = children.iter().map(|item| item.as_ref()).collect();
+    let menu = Menu::with_items(&app, &refs).map_err(|error| error.to_string())?;
+    tray.set_menu(Some(menu)).map_err(|error| error.to_string())
 }
 
 #[derive(Clone, serde::Serialize)]
@@ -150,17 +216,33 @@ fn place_popover(app: &AppHandle, window: &tauri::WebviewWindow) -> PopoverPlace
         None => (work_right - 120.0, work_bottom, 24.0, 40.0),
     };
     let clamp = |left: f64| left.max(work_left + SCREEN_EDGE).min(work_right - SCREEN_EDGE - POPOVER_WIDTH);
+    let clamp_top = |top: f64| top.max(work_top + SCREEN_EDGE).min(work_bottom - SCREEN_EDGE - POPOVER_HEIGHT);
     let (frame_left, window_y, height) = if cfg!(target_os = "macos") {
         let left = clamp(icon_left + icon_width / 2.0 - POPOVER_WIDTH / 2.0);
         (left, icon_top + icon_height - MAC_TOP_MARGIN, MAC_TOP_MARGIN + MAC_ARROW + POPOVER_HEIGHT + SHADOW_MARGIN)
     } else {
-        let left = clamp(icon_left + icon_width - POPOVER_WIDTH);
+        // Панель задач — там, где значок вне рабочей области: снизу (обычно), сверху, слева или справа.
+        // Поповер встаёт у значка на 12 px от панели, как всплывающие панели Windows 11
         let height = SHADOW_MARGIN * 2.0 + POPOVER_HEIGHT;
-        (left, work_bottom - WIN_TASKBAR_GAP - POPOVER_HEIGHT - SHADOW_MARGIN, height)
+        let (left, top) = if icon_top + icon_height <= work_top {
+            (clamp(icon_left + icon_width - POPOVER_WIDTH), work_top + WIN_TASKBAR_GAP)
+        } else if icon_left + icon_width <= work_left {
+            (work_left + WIN_TASKBAR_GAP, clamp_top(icon_top + icon_height - POPOVER_HEIGHT))
+        } else if icon_left >= work_right {
+            (work_right - WIN_TASKBAR_GAP - POPOVER_WIDTH, clamp_top(icon_top + icon_height - POPOVER_HEIGHT))
+        } else {
+            (clamp(icon_left + icon_width - POPOVER_WIDTH), work_bottom - WIN_TASKBAR_GAP - POPOVER_HEIGHT)
+        };
+        (left, top - SHADOW_MARGIN, height)
     };
     let _ = window.set_size(LogicalSize::new(POPOVER_WIDTH + SHADOW_MARGIN * 2.0, height));
     let _ = window.set_position(LogicalPosition::new(frame_left - SHADOW_MARGIN, window_y));
     PopoverPlacement { platform, arrow_x: icon_left + icon_width / 2.0 - frame_left }
+}
+
+// Только в dev-сборке: PR_REVIEWER_SHOW=1 показывает поповер сразу и не прячет его — для скриншотов рядом с макетом
+fn debug_show() -> bool {
+    cfg!(debug_assertions) && std::env::var_os("PR_REVIEWER_SHOW").is_some()
 }
 
 fn toggle_popover(app: &AppHandle) {
@@ -177,24 +259,17 @@ fn toggle_popover(app: &AppHandle) {
 }
 
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
-    let status = MenuItem::with_id(app, "status", "Подключение к сервису…", false, None::<&str>)?;
-    let open = MenuItem::with_id(app, "open", "Открыть PR Reviewer", true, None::<&str>)?;
-    let run_now = MenuItem::with_id(app, "run-now", "Проверить сейчас", true, None::<&str>)?;
-    let stop = MenuItem::with_id(app, "stop", "Прервать ревью", true, None::<&str>)?;
-    let pause = MenuItem::with_id(app, "toggle-pause", "Выключить фоновое ревью", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Выйти из PR Reviewer", true, None::<&str>)?;
-    let separator = || PredefinedMenuItem::separator(app);
-    let menu = Menu::with_items(app, &[&status, &separator()?, &open, &run_now, &stop, &pause, &separator()?, &quit])?;
-    app.manage(Mutex::new(MenuItems { status, pause }));
+    let status = MenuItem::with_id(app, "info-0", "Подключение к сервису…", false, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Выйти из PR Reviewer", true, cfg!(target_os = "macos").then_some("CmdOrCtrl+Q"))?;
+    let menu = Menu::with_items(app, &[&status, &PredefinedMenuItem::separator(app)?, &quit])?;
 
     TrayIconBuilder::with_id(TRAY_ID)
-        .icon(tray_image("idle")?)
+        .icon(initial_tray_image()?)
         .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("PR Reviewer")
         .menu(&menu)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| match event.id.as_ref() {
-            "open" => toggle_popover(app),
             "quit" => app.exit(0),
             // Действия выполняет вебвью через API: логика команд — у сервиса
             id => {
@@ -218,14 +293,20 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _, _| toggle_popover(app)))
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, set_tray_state])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             app.manage(TrayRect(Mutex::new(None)));
+            app.manage(TrayAnimation(AtomicU64::new(0)));
             build_tray(app.handle())?;
+            if debug_show() {
+                toggle_popover(app.handle());
+            }
             // Автозапуск при входе — только у собранного приложения: dev-сборка не должна прописываться в систему
             if !cfg!(debug_assertions) {
                 use tauri_plugin_autostart::ManagerExt;
@@ -238,7 +319,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             // Поповер прячется, как только теряет фокус, — как поповер строки меню
-            if let WindowEvent::Focused(false) = event {
+            if let (WindowEvent::Focused(false), false) = (event, debug_show()) {
                 let _ = window.hide();
             }
         })

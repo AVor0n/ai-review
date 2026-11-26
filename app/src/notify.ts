@@ -1,6 +1,7 @@
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { isMuted, loadPrefs } from './model/prefs';
 
-// Системные уведомления. Настройки и пауза уведомлений появятся вместе с экраном настроек
+// Системные уведомления. Пауза — из меню по правому клику; настройки по видам появятся вместе с экраном настроек
 let allowed: boolean | null = null;
 
 const ensurePermission = async () => {
@@ -10,6 +11,7 @@ const ensurePermission = async () => {
 };
 
 export const notify = async (title: string, body: string) => {
+    if (isMuted(loadPrefs())) return;
     if (await ensurePermission()) sendNotification({ title, body });
 };
 

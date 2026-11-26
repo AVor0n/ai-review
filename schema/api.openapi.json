@@ -3767,6 +3767,10 @@
                     "tokenFile": {
                         "type": "string"
                     },
+                    "cli": {
+                        "type": "string",
+                        "description": "Путь к bin/pr-reviewer: его ставит install.sh, в PATH он не попадает"
+                    },
                     "worker": {
                         "type": "object",
                         "properties": {
@@ -3799,6 +3803,7 @@
                     "dataDir",
                     "logDir",
                     "tokenFile",
+                    "cli",
                     "worker",
                     "paused",
                     "now"

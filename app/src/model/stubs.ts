@@ -1,0 +1,92 @@
+// Заглушки неперенесённых экранов (решение PM, раздел 6 макета 2026-11-25-tauri-popover.html):
+// на Mac экран пока в старом окне, на Windows — команды CLI для терминала Ubuntu в WSL
+export const TABS = [
+    { id: 'overview', title: 'Обзор' },
+    { id: 'backlog', title: 'Бэклог' },
+    { id: 'stats', title: 'Статистика' },
+    { id: 'log', title: 'Журнал' },
+    { id: 'settings', title: 'Настройки' },
+] as const;
+
+export type TabId = (typeof TABS)[number]['id'];
+
+export type StubTarget =
+    | { kind: 'tab'; tab: Exclude<TabId, 'overview'> }
+    | { kind: 'connect' }
+    | { kind: 'token'; id: string; title: string; lifetimeDays: number | null }
+    | { kind: 'memory'; slug: string }
+    | { kind: 'fix' | 'arch' | 'qa'; repo: string; pr: number };
+
+export type Command = { text: string; note: string };
+export type Stub = { tab: TabId; title: string; text: string; commands: Command[] };
+
+// Где сервис в WSL: путь к bin/pr-reviewer и папке журналов отдаёт /health
+export type CliEnv = { cli: string; logDir: string };
+
+// install.sh не кладёт pr-reviewer в PATH: команда — полный путь, домашняя папка сокращается до ~
+const shorten = (path: string) => path.replace(/^\/(?:home\/[^/]+|root)(?=\/)/, '~');
+
+const settingsCommands = (cli: string): Command[] => [
+    { text: `${cli} repo list`, note: 'подключённые репозитории; add <ссылка> — подключить новый' },
+    { text: `${cli} agent set claude --auto on`, note: 'модель, уровень reasoning, участие в фоновом ревью' },
+    { text: `${cli} interval 15`, note: 'как часто проверять PR в фоне, в минутах' },
+    { text: `${cli} secret status`, note: 'есть ли токены в хранилище' },
+    { text: `${cli} help`, note: 'все команды настроек' },
+];
+
+const logCommands = (cli: string, logDir: string): Command[] => [
+    { text: `${cli} status`, note: 'состояние и последние ревью' },
+    { text: `tail -f ${shorten(logDir)}/worker.log`, note: 'журнал сервиса' },
+];
+
+const content = (target: StubTarget, cli: string, logDir: string): Omit<Stub, 'text'> => {
+    switch (target.kind) {
+        case 'tab':
+            if (target.tab === 'backlog')
+                return {
+                    tab: 'backlog',
+                    title: 'Бэклог',
+                    commands: [
+                        { text: `${cli} backlog list`, note: 'записи, ждущие разбора' },
+                        { text: `${cli} backlog filed <id>`, note: 'итог разбора: задача заведена; drop <id> — отклонено' },
+                    ],
+                };
+            if (target.tab === 'stats') return { tab: 'stats', title: 'Статистика', commands: [{ text: `${cli} stats`, note: 'сравнение моделей' }] };
+            if (target.tab === 'log') return { tab: 'log', title: 'Журнал', commands: logCommands(cli, logDir) };
+            return { tab: 'settings', title: 'Настройки', commands: settingsCommands(cli) };
+        case 'connect':
+            return { tab: 'settings', title: 'Настройки', commands: [{ text: `${cli} repo add <ссылка>`, note: 'подключить репозиторий по ссылке Bitbucket' }, ...settingsCommands(cli).slice(1)] };
+        case 'token':
+            return {
+                tab: 'settings',
+                title: `Токен ${target.title}`,
+                commands: [
+                    { text: `${cli} secret set ${target.id}`, note: 'сохранить новый токен: значение спросит без показа' },
+                    { text: `${cli} token ${target.id} ${target.lifetimeDays || 365}`, note: 'срок жизни в днях — по нему обзор предупреждает заранее' },
+                ],
+            };
+        case 'memory':
+            return {
+                tab: 'settings',
+                title: `Память ${target.slug}`,
+                commands: [
+                    { text: `${cli} memory list ${target.slug}`, note: 'правила памяти' },
+                    { text: `${cli} memory remove ${target.slug} <id>`, note: 'удалить правило' },
+                    { text: `${cli} memory review ${target.slug}`, note: 'разбор: склеить дубли, убрать бесполезное и устаревшее' },
+                ],
+            };
+        case 'fix':
+            return { tab: 'overview', title: 'Отчёт доработки', commands: logCommands(cli, logDir) };
+        case 'arch':
+            return { tab: 'overview', title: 'Архитектурное ревью', commands: [{ text: `${cli} arch show --repo ${target.repo} --pr ${target.pr}`, note: 'отчёт и ход архитектурного ревью' }] };
+        case 'qa':
+            return { tab: 'overview', title: 'Тестирование PR', commands: [{ text: `${cli} qa show --repo ${target.repo} --pr ${target.pr}`, note: 'план и отчёт прогона' }] };
+    }
+};
+
+export const stub = (target: StubTarget, platform: 'mac' | 'win', env: CliEnv): Stub => {
+    const { tab, title, commands } = content(target, shorten(env.cli), env.logDir);
+    return platform === 'mac'
+        ? { tab, title, text: 'Экран переедет в следующих версиях. Пока он есть в старом окне', commands: [] }
+        : { tab, title, text: 'Экран переедет в следующих версиях. Пока — через командную строку в WSL', commands };
+};

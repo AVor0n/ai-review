@@ -1,49 +1,134 @@
 import { listen } from '@tauri-apps/api/event';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { errorText, type Schemas } from './api/client';
+import { ask } from '@tauri-apps/plugin-dialog';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { errorText, type ApiClient, type Schemas } from './api/client';
 import type { ChangeEvent } from './api/events';
+import { Overview, type OverviewHandlers } from './components/Overview';
+import { Stub } from './components/Stub';
+import { useData } from './data';
+import { banners as buildBanners, serviceDownBanner, type Banner, type BannerAction } from './model/banners';
+import { archAgentName, threads } from './model/derive';
+import { parse } from './model/format';
+import { loadPrefs, muteUntil, savePrefs, withSeenRepos, type Prefs } from './model/prefs';
+import { stub as stubContent, TABS, type CliEnv, type StubTarget, type TabId } from './model/stubs';
+import { trayModel } from './model/tray';
+import type { PullRequest } from './model/types';
 import { notify, reviewNotice } from './notify';
-import icons from '../../product/design/web/icons.svg?url';
-import { isWindows, serviceDown, useService, type Connection } from './service';
-import { applyTray, trayState } from './tray';
+import { isWindows, serviceDown, useService } from './service';
+import { applyTrayIcon, applyTrayMenu } from './trayIcon';
 
-type Config = { intervalMinutes?: number; agents?: Record<string, { shortName?: string }> };
 type StatsEntry = Parameters<typeof reviewNotice>[0];
+type Command = '/run-now' | '/stop' | '/pause' | '/resume' | '/sync';
 
 // Сервис молчит дольше минуты — сообщаем уведомлением: поповер в это время обычно закрыт
 const DOWN_NOTICE_MS = 60_000;
+// Список PR обновляется при открытии поповера, но не чаще раза в минуту: у токена Bitbucket лимит запросов в час
+const SYNC_ON_OPEN_AFTER_MS = 60_000;
+// Минуты в шапке и «обновлено N минут назад» пересчитываются сами
+const TICK_MS = 30_000;
+
+const platform = isWindows() ? 'win' : 'mac';
 
 export const App = () => {
-    const [status, setStatus] = useState<Schemas['Status'] | null>(null);
-    const [config, setConfig] = useState<Config>({});
+    const { data, memoryBroken, onEvent, refreshSecrets } = useData();
+    const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
+    const [now, setNow] = useState(() => new Date());
+    const [stub, setStub] = useState<StubTarget | null>(null);
+    const [bannersExpanded, setBannersExpanded] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncError, setSyncError] = useState<string | null>(null);
     const seenStatsAt = useRef(new Date().toISOString());
-    const connectionRef = useRef<Connection | null>(null);
+    const apiRef = useRef<ApiClient | null>(null);
+    const healthRef = useRef<Schemas['Health'] | null>(null);
+    const dataRef = useRef(data);
+    dataRef.current = data;
 
-    const onChange = useCallback(async (event: ChangeEvent) => {
-        const connection = connectionRef.current;
-        if (connection?.phase !== 'up') return;
-        const { api } = connection;
-        if (event.type === 'connected' || event.type === 'status') setStatus((await api.GET('/status')).data ?? null);
-        if (event.type === 'connected' || event.type === 'config') setConfig(((await api.GET('/config')).data as Config) ?? {});
-        if (event.type === 'stats') {
+    const updatePrefs = useCallback((change: (prefs: Prefs) => Prefs) => {
+        setPrefs((previous) => {
+            const next = change(previous);
+            savePrefs(next);
+            return next;
+        });
+    }, []);
+
+    const onChange = useCallback(
+        async (event: ChangeEvent, api: ApiClient) => {
+            await onEvent(api, event);
+            if (event.type !== 'stats') return;
             // since включает границу: запись с тем же временем уже показана
             const since = seenStatsAt.current;
-            const { data } = await api.GET('/stats', { params: { query: { since } } });
-            const entries = ((data ?? []) as StatsEntry[]).filter((entry) => entry.at > since);
-            if (entries.length) seenStatsAt.current = entries[entries.length - 1].at;
-            for (const entry of entries.filter((item) => item.pass !== 'replies')) {
-                const notice = reviewNotice(entry, (id) => config.agents?.[id]?.shortName ?? id);
+            const { data: entries } = await api.GET('/stats', { params: { query: { since } } });
+            const fresh = ((entries ?? []) as StatsEntry[]).filter((entry) => entry.at > since);
+            if (fresh.length) seenStatsAt.current = fresh[fresh.length - 1].at;
+            for (const entry of fresh.filter((item) => item.pass !== 'replies')) {
+                const notice = reviewNotice(entry, (id) => dataRef.current.config.agents[id]?.shortName ?? id);
                 notify(notice.title, notice.body);
             }
-        }
-    }, [config]);
+        },
+        [onEvent],
+    );
 
     const { connection, retry } = useService(onChange);
-    connectionRef.current = connection;
+    apiRef.current = connection.phase === 'up' ? connection.api : null;
+    if (connection.phase === 'up') healthRef.current = connection.health;
+    const offline = connection.phase === 'down';
+    const hasData = !!data.status;
 
     useEffect(() => {
-        applyTray(trayState(status, connection.phase === 'down', config.intervalMinutes ?? 15));
-    }, [status, connection.phase, config.intervalMinutes]);
+        const timer = setInterval(() => setNow(new Date()), TICK_MS);
+        return () => clearInterval(timer);
+    }, []);
+
+    // Новые репозитории начинают с «вся память просмотрена»
+    useEffect(() => {
+        if (data.config.repos.length) updatePrefs((previous) => withSeenRepos(previous, data.config.repos.map((repo) => repo.slug)));
+    }, [data.config.repos, updatePrefs]);
+
+    const command = useCallback(
+        async (path: Command) => {
+            const api = apiRef.current;
+            if (!api) return notify('PR Reviewer: сервис не запущен', serviceDown().text);
+            if (path === '/sync') setSyncing(true);
+            const { error } = await api.POST(path);
+            if (path === '/sync') setSyncing(false);
+            setSyncError(error ? errorText(error) : null);
+        },
+        [],
+    );
+
+    const syncIfStale = useCallback(() => {
+        const current = dataRef.current;
+        const stale = current.config.repos.some((repo) => {
+            const fetched = parse(current.snapshots[repo.slug]?.fetchedAt);
+            return !fetched || Date.now() - fetched.getTime() > SYNC_ON_OPEN_AFTER_MS;
+        });
+        if (stale && apiRef.current) command('/sync');
+    }, [command]);
+
+    // Rust ставит окно у значка и передаёт, где центр стрелки. При каждом открытии — «Обзор», баннеры свёрнуты
+    useEffect(() => {
+        const unlisten = listen<{ arrowX: number }>('popover-shown', ({ payload }) => {
+            document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`);
+            setStub(null);
+            setBannersExpanded(false);
+            setNow(new Date());
+            if (apiRef.current) refreshSecrets(apiRef.current);
+            syncIfStale();
+        });
+        return () => {
+            unlisten.then((stop) => stop());
+        };
+    }, [refreshSecrets, syncIfStale]);
+
+    // Первое подключение — тоже повод обновить список PR, если он старый
+    const firstLoad = useRef(true);
+    useEffect(() => {
+        if (hasData && firstLoad.current) {
+            firstLoad.current = false;
+            syncIfStale();
+        }
+    }, [hasData, syncIfStale]);
 
     useEffect(() => {
         if (connection.phase !== 'down') return;
@@ -51,31 +136,95 @@ export const App = () => {
         return () => clearTimeout(timer);
     }, [connection]);
 
-    // Rust ставит окно у значка и передаёт, где центр стрелки
+    // Значок, подсказка и меню трея. Пока идёт первое подключение, остаётся стартовый значок
     useEffect(() => {
-        const unlisten = listen<{ arrowX: number }>('popover-shown', ({ payload }) => document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`));
-        return () => {
-            unlisten.then((stop) => stop());
-        };
-    }, []);
+        if (connection.phase === 'connecting' || (connection.phase === 'up' && !hasData)) return;
+        const tray = trayModel(connection.phase === 'up' ? data : null, prefs, now);
+        applyTrayIcon(tray.icon, tray.tooltip);
+        applyTrayMenu(tray.menu);
+    }, [connection.phase, hasData, data, prefs, now]);
 
-    // Меню по правому клику: Rust передаёт выбранный пункт, действие выполняет API
+    // Меню по правому клику: Rust передаёт выбранный пункт
     useEffect(() => {
-        const unlisten = listen<string>('menu', async ({ payload }) => {
-            const current = connectionRef.current;
-            if (current?.phase !== 'up') return notify('PR Reviewer: сервис не запущен', serviceDown().text);
-            const { api } = current;
-            const result =
-                payload === 'run-now' ? await api.POST('/run-now') : payload === 'stop' ? await api.POST('/stop') : payload === 'toggle-pause' ? await (status?.paused ? api.POST('/resume') : api.POST('/pause')) : null;
-            if (result?.error) notify('PR Reviewer', errorText(result.error));
+        const unlisten = listen<string>('menu', ({ payload }) => {
+            if (payload === 'unmute') return updatePrefs((previous) => ({ ...previous, mutedUntil: null }));
+            if (payload.startsWith('mute:')) {
+                const hours = payload === 'mute:forever' ? null : Number(payload.slice('mute:'.length));
+                return updatePrefs((previous) => ({ ...previous, mutedUntil: muteUntil(hours) }));
+            }
+            // pause в CLI заодно прерывает идущее ревью
+            if (payload === 'toggle-pause') return command(dataRef.current.status?.paused ? '/resume' : '/pause');
+            if (payload === 'run-now' || payload === 'stop') return command(`/${payload}`);
         });
         return () => {
             unlisten.then((stop) => stop());
         };
-    }, [status?.paused]);
+    }, [command, updatePrefs]);
+
+    const copy = useCallback((text: string) => navigator.clipboard.writeText(text).catch(() => {}), []);
+
+    const runAction = useCallback(async (request: () => Promise<{ error?: unknown }>) => {
+        const { error } = await request();
+        setSyncError(error ? errorText(error as Schemas['Error']) : null);
+    }, []);
+
+    const handlers: OverviewHandlers = {
+        command,
+        stub: setStub,
+        open: (url) => openUrl(url).catch(() => {}),
+        review: (repo, pr, agent) => apiRef.current && runAction(() => apiRef.current!.POST('/reviews', { body: { repo, pr, agent } })),
+        // Подтверждения — системный диалог с текстами из OverviewView.swift
+        fix: async (repo: string, pr: PullRequest, rebase: boolean) => {
+            const conflicts = pr.conflicts === true ? ', будут конфликты — их разрешит Claude, а если вариант неочевиден, rebase отменится' : '';
+            const confirmed = await ask(
+                rebase
+                    ? `Ветка ${pr.source} отстала от ${pr.destination} на ${pr.behind ?? 0} коммит(ов)${conflicts}. После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.`
+                    : `Claude перенесёт ветку ${pr.source} на свежую ${pr.destination}, исправит открытые замечания (${threads(pr).open}), закоммитит, прогонит проверки и, если они прошли, сделает push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.`,
+                { title: rebase ? `Сделать rebase #${pr.id} на ${pr.destination}?` : `Доработать #${pr.id} по замечаниям?`, kind: 'info', okLabel: rebase ? 'Rebase' : 'Доработать', cancelLabel: 'Отмена' },
+            );
+            if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/fixes/{repo}/{pr}', { params: { path: { repo, pr: pr.id } }, body: { rebase } }));
+        },
+        arch: async (repo: string, pr: PullRequest) => {
+            const confirmed = await ask(
+                `${archAgentName(dataRef.current.config)} оценит решение целиком: цель, альтернативы с ценой переделки, где можно проще, серьёзные риски. Это займёт до часа. Отчёт останется только здесь, в PR ничего не публикуется.`,
+                { title: `Архитектурное ревью #${pr.id}?`, kind: 'info', okLabel: 'Запустить', cancelLabel: 'Отмена' },
+            );
+            if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/arch/{repo}/{pr}', { params: { path: { repo, pr: pr.id } } }));
+        },
+        report: (kind, repo, pr) => setStub({ kind, repo, pr }),
+        toggleRepo: (slug) =>
+            updatePrefs((previous) => ({
+                ...previous,
+                collapsedRepos: previous.collapsedRepos.includes(slug) ? previous.collapsedRepos.filter((item) => item !== slug) : [...previous.collapsedRepos, slug],
+            })),
+        banner: (action: BannerAction) => {
+            if (action.kind === 'stub') setStub(action.target);
+            else if (action.kind === 'stop') command('/stop');
+            else if (action.kind === 'copy') copy(action.text);
+            else retry();
+        },
+        closeBanner: (close: NonNullable<Banner['close']>) => {
+            const at = new Date().toISOString();
+            updatePrefs((previous) =>
+                close.kind === 'token'
+                    ? { ...previous, tokenBannerClosedAt: { ...previous.tokenBannerClosedAt, [close.key]: at } }
+                    : { ...previous, memoryBannerClosedAt: { ...previous.memoryBannerClosedAt, [close.key]: at } },
+            );
+        },
+        toggleBanners: () => setBannersExpanded((value) => !value),
+    };
+
+    const banners = useMemo(() => {
+        const list = hasData ? buildBanners(data, prefs, { syncError, memoryBroken }, now) : [];
+        return offline ? [serviceDownBanner(serviceDown()), ...list] : list;
+    }, [hasData, data, prefs, syncError, memoryBroken, now, offline]);
+
+    // Пути CLI и журнала в WSL — из /health; до первого ответа сервиса — как ставит install.sh
+    const env: CliEnv = { cli: healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer', logDir: healthRef.current?.logDir ?? '~/.local/state/pr-reviewer' };
+    const shownStub = stub ? stubContent(stub, platform, env) : null;
+    const tab: TabId = shownStub?.tab ?? 'overview';
 
     // Рамка — классы дизайн-системы (product/design/web/components.css): на Mac стрелка к значку, на Windows без неё
-    const platform = isWindows() ? 'win' : 'mac';
     return (
         <div className={`window-frame window-frame--${platform}`}>
             <div className={`popover-frame popover-frame--${platform}`}>
@@ -84,42 +233,21 @@ export const App = () => {
                         <path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor" />
                     </svg>
                 )}
-                <main className="popover">
-                    <div className="popover__body">
-                        {connection.phase === 'down' && (
-                            <div className="banners">
-                                <div className="banner banner--critical" role="alert" title={connection.reason}>
-                                    <svg className="icon banner__icon" aria-hidden="true">
-                                        <use href={`${icons}#i-power`} />
-                                    </svg>
-                                    <div className="banner__body">
-                                        <div className="banner__title">Сервис не запущен</div>
-                                        <div className="banner__text">{serviceDown().text}</div>
-                                        <div className="banner__command selectable">{serviceDown().command}</div>
-                                    </div>
-                                    <div className="banner__actions">
-                                        <button className="link-button" onClick={() => navigator.clipboard.writeText(serviceDown().command)}>
-                                            Скопировать команду
-                                        </button>
-                                        <button className="link-button" onClick={retry}>
-                                            Проверить снова
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        {connection.phase === 'down' && (
-                            <div className="empty-state">
-                                <svg className="icon empty-state__icon" aria-hidden="true">
-                                    <use href={`${icons}#i-tray`} />
-                                </svg>
-                                <div className="empty-state__title">Нет данных</div>
-                                <div className="empty-state__text">Список PR появится, когда сервис ответит</div>
-                            </div>
-                        )}
-                        {connection.phase === 'connecting' && <p className="placeholder">Подключение к сервису…</p>}
-                        {connection.phase === 'up' && <p className="placeholder">{trayState(status, false, config.intervalMinutes ?? 15).line}</p>}
+                <main className="popover app">
+                    <div className="tabs">
+                        <div className="segmented" role="tablist">
+                            {TABS.map((item) => (
+                                <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => setStub(item.id === 'overview' ? null : { kind: 'tab', tab: item.id })}>
+                                    {item.title}
+                                </button>
+                            ))}
+                        </div>
                     </div>
+                    {shownStub ? (
+                        <Stub stub={shownStub} onCopy={copy} />
+                    ) : (
+                        <Overview state={{ offline, data: hasData ? data : null, banners, bannersExpanded, collapsed: prefs.collapsedRepos, syncing, now }} on={handlers} />
+                    )}
                 </main>
             </div>
         </div>

@@ -21,7 +21,8 @@ const CONFIG_SCHEMA = join(TOOL_DIR, 'schema/config.schema.json');
 const CLI = join(TOOL_DIR, 'src/cli.mjs');
 const ACTION_TIMEOUT_MS = 10 * 60_000;
 // Источники приложения Tauri: macOS и Linux — tauri://localhost, Windows (WebView2) — http(s)://tauri.localhost
-const TAURI_ORIGINS = ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost'];
+// Плюс dev-сборка приложения (страница Vite из tauri.conf.json devUrl): без токена API ей всё равно ничего не отдаст
+const TAURI_ORIGINS = ['tauri://localhost', 'http://tauri.localhost', 'https://tauri.localhost', 'http://localhost:1420'];
 
 export const ensureToken = () => {
     if (!existsSync(TOKEN_FILE)) {
@@ -121,7 +122,7 @@ const routes = (deps) => {
     };
     return [
         // Чтение
-        { method: 'GET', path: '/health', read: () => ({ ...version(), platform: process.platform, dataDir: DATA_DIR, logDir: LOG_DIR, tokenFile: TOKEN_FILE, worker: { running: isAlive(join(DATA_DIR, 'worker.pid')), heartbeat: readFileSafe(join(DATA_DIR, 'heartbeat')) }, paused: existsSync(join(DATA_DIR, 'paused')), now: new Date().toISOString() }) },
+        { method: 'GET', path: '/health', read: () => ({ ...version(), platform: process.platform, dataDir: DATA_DIR, logDir: LOG_DIR, tokenFile: TOKEN_FILE, cli: join(TOOL_DIR, 'bin', 'pr-reviewer'), worker: { running: isAlive(join(DATA_DIR, 'worker.pid')), heartbeat: readFileSafe(join(DATA_DIR, 'heartbeat')) }, paused: existsSync(join(DATA_DIR, 'paused')), now: new Date().toISOString() }) },
         {
             method: 'GET',
             path: '/status',

@@ -1,4 +1,5 @@
-// Значки трея для приложения на Tauri: пузырь с отметкой состояния, чёрный на прозрачном (шаблон для строки меню macOS).
+// Значок трея приложения на Tauri до первого кадра из вебвью: пузырь с галочкой, чёрный на прозрачном (шаблон для строки меню macOS).
+// Остальные состояния вебвью рисует сам из product/design/web (app/src/trayIcon.ts).
 // Свой рисунок, а не SF Symbols: значки нужны и на Windows. Запуск: swift assets/make-tray-icons.swift app/src-tauri/icons/tray
 import AppKit
 
@@ -38,27 +39,5 @@ draw("idle") { ctx in
     ctx.move(to: CGPoint(x: 14, y: 25))
     ctx.addLine(to: CGPoint(x: 20, y: 19))
     ctx.addLine(to: CGPoint(x: 30, y: 31))
-    ctx.strokePath()
-}
-draw("running") { ctx in
-    bubble(in: ctx)
-    for x in [14.0, 22.0, 30.0] { ctx.fillEllipse(in: CGRect(x: x - 2.6, y: 22.4, width: 5.2, height: 5.2)) }
-}
-draw("error") { ctx in
-    bubble(in: ctx)
-    ctx.setLineWidth(3.6)
-    ctx.move(to: CGPoint(x: 22, y: 33))
-    ctx.addLine(to: CGPoint(x: 22, y: 24))
-    ctx.strokePath()
-    ctx.fillEllipse(in: CGRect(x: 19.8, y: 16, width: 4.4, height: 4.4))
-}
-draw("paused") { ctx in
-    ctx.setLineWidth(3.2)
-    ctx.strokeEllipse(in: CGRect(x: 5, y: 5, width: 34, height: 34))
-    ctx.setLineWidth(3.6)
-    for x in [18.0, 26.0] {
-        ctx.move(to: CGPoint(x: x, y: 15))
-        ctx.addLine(to: CGPoint(x: x, y: 29))
-    }
     ctx.strokePath()
 }

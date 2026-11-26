@@ -10,7 +10,8 @@ export type Connection =
     | { phase: 'down'; reason: string; since: number }
     | { phase: 'up'; api: ApiClient; health: Schemas['Health'] };
 
-type Listener = (event: ChangeEvent) => void;
+// Клиент API — вместе с событием: состояние React с ним обновится позже, чем придёт первое событие
+type Listener = (event: ChangeEvent, api: ApiClient) => void;
 
 const RETRY_MS = [2_500, 2_500, 5_000, 10_000, 30_000];
 // Баннер — только после второй неудачи подряд (около 5 с): при запуске сервиса он не мигает
@@ -42,8 +43,8 @@ export const useService = (onChange: Listener) => {
                     failures = 0;
                     downSince = null;
                     setConnection({ phase: 'up', api, health });
-                    listener.current({ type: 'connected', at: new Date().toISOString() });
-                    await streamEvents(`${baseUrl()}/events`, token, (event) => listener.current(event), controller.signal);
+                    listener.current({ type: 'connected', at: new Date().toISOString() }, api);
+                    await streamEvents(`${baseUrl()}/events`, token, (event) => listener.current(event, api), controller.signal);
                     down('Поток событий оборвался');
                 } catch (error) {
                     if (controller.signal.aborted) return;

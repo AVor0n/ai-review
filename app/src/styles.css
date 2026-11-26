@@ -11,11 +11,3 @@ body {
 .window-frame--mac {
     padding-top: 4px;
 }
-/* Заготовка содержимого до макета поповера */
-.popover__body {
-    padding: 14px 16px;
-    overflow: auto;
-}
-.placeholder {
-    color: var(--label-2);
-}
