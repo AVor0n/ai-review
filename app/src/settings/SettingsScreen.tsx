@@ -30,6 +30,8 @@ import {
     type SettingsSheet,
 } from './model';
 import { NotificationsSheet } from './NotificationsSheet';
+import { LogSheet } from './LogSheet';
+import { errorsLastDay, type LogEntry } from './log';
 import { AddRepoSheet, IgnoreSheet } from './RepoSheets';
 import { TokensSheet } from './TokensSheet';
 
@@ -58,12 +60,13 @@ export const SettingsScreen = ({
     updatePrefs,
     platform,
     cli,
+    logDir,
+    logVersion,
     reposDir,
     canOpenInCode,
     sheet,
     setSheet,
     onOpenMemory,
-    onOpenLog,
     onCopy,
 }: {
     api: ApiClient | null;
@@ -73,12 +76,13 @@ export const SettingsScreen = ({
     updatePrefs: (update: (previous: Prefs) => Prefs) => void;
     platform: 'mac' | 'win';
     cli: string;
+    logDir: string | null;
+    logVersion: number;
     reposDir: string | null;
     canOpenInCode: boolean;
     sheet: SettingsSheet | null;
     setSheet: (sheet: SettingsSheet | null) => void;
     onOpenMemory: (slug: string) => void;
-    onOpenLog: () => void;
     onCopy: (text: string) => Promise<boolean>;
 }) => {
     const [theme, chooseTheme] = useState<Theme>(loadTheme);
@@ -90,6 +94,7 @@ export const SettingsScreen = ({
     const [cloneErrors, setCloneErrors] = useState<Record<string, string>>({});
     const [models, setModels] = useState<Models>({ codex: [], cursor: [] });
     const [error, setError] = useState<string | null>(null);
+    const [log, setLog] = useState<LogEntry[]>([]);
 
     const { config, status } = data;
     const paused = status?.paused === true;
@@ -110,6 +115,11 @@ export const SettingsScreen = ({
     useEffect(() => {
         loadClones();
     }, [loadClones, config.repos.length]);
+
+    // Журнал — и для счётчика ошибок в строке, и для листа; новые записи приходят событием log
+    useEffect(() => {
+        api?.GET('/log').then(({ data: answer }) => answer && setLog([...answer.entries].reverse()));
+    }, [api, logVersion]);
 
     // Список моделей Cursor зависит от аккаунта и тянется из сети — обновляем его не чаще раза в сутки; лимиты Codex и Cursor — раз в 5 минут
     useEffect(() => {
@@ -431,7 +441,7 @@ export const SettingsScreen = ({
                             <div className="row-divider" />
                             <NavRow title="config.json" onClick={() => setSheet('config')} />
                             <div className="row-divider" />
-                            <NavRow title="Журнал" hint="Журнал сервиса" onClick={onOpenLog} />
+                            <NavRow title="Журнал" value={errorsLastDay(log, now)} color="var(--orange)" hint="Журнал сервиса: последние 300 записей" onClick={() => setSheet('log')} />
                         </div>
                         <div className="section__footer">Шаблон веток касается только фонового ревью.</div>
                     </div>
@@ -504,6 +514,7 @@ export const SettingsScreen = ({
                     onClose={() => setSheet(null)}
                 />
             )}
+            {sheet === 'log' && <LogSheet entries={log} file={logDir ? `${logDir}/worker.log` : null} onError={setError} onClose={() => setSheet(null)} />}
             {sheet === 'config' && api && <ConfigSheet api={api} canOpenInCode={canOpenInCode} onOpenInCode={(path) => invoke('open_in_code', { path }).catch((reason) => setError(String(reason)))} onClose={() => setSheet(null)} />}
         </>
     );

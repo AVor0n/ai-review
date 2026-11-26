@@ -1502,6 +1502,16 @@ export interface paths {
                     content: {
                         "application/json": {
                             lines: string[];
+                            /** @description Записи из последних 256 КБ файла, от старых к новым. Многострочная запись (стек, вывод git) — одна */
+                            entries: {
+                                /** @description Смещение записи в файле: не меняется, пока файл не ротирован */
+                                id: number;
+                                /** @description Время записи, ISO */
+                                at: string;
+                                message: string;
+                                /** @description Метка ERROR или текст ошибки в старых записях */
+                                isError: boolean;
+                            }[];
                         };
                     };
                 };
@@ -4106,7 +4116,7 @@ export interface paths {
         };
         /**
          * Поток изменений (SSE)
-         * @description Сначала событие hello. Дальше на каждое изменение данных — событие change с полем type: status, prs, state, limits, fixes, arch, qa, backlog, memory, stats, models, config. Приложение после него перечитывает соответствующий ресурс. Раз в 25 с — комментарий-пинг.
+         * @description Сначала событие hello. Дальше на каждое изменение данных — событие change с полем type: status, prs, state, limits, fixes, arch, qa, backlog, memory, stats, models, config, log. Приложение после него перечитывает соответствующий ресурс. Раз в 25 с — комментарий-пинг.
          */
         get: {
             parameters: {
@@ -4318,7 +4328,7 @@ export interface components {
         };
         Event: {
             /** @enum {unknown} */
-            type: "status" | "prs" | "state" | "limits" | "fixes" | "arch" | "qa" | "backlog" | "memory" | "stats" | "models" | "config";
+            type: "status" | "prs" | "state" | "limits" | "fixes" | "arch" | "qa" | "backlog" | "memory" | "stats" | "models" | "config" | "log";
             /** Format: date-time */
             at: string;
         };

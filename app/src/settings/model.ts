@@ -3,7 +3,7 @@ import type { TokenInfo } from '../model/derive';
 import type { AgentConfig, Limit } from '../model/types';
 
 // Логика вкладки «Настройки» без разметки — перенос IntervalRow, AgentRow, TokensRow, TokensSheet и ConfigSchema из menubar/*.swift
-export type SettingsSheet = 'notifications' | 'tokens' | 'branches' | 'add-repo' | 'ignore' | 'config';
+export type SettingsSheet = 'notifications' | 'tokens' | 'branches' | 'add-repo' | 'ignore' | 'config' | 'log';
 export type Option = { id: string; title: string };
 
 // Шаги степпера: мелкие значения нужны редко, поэтому шкала разреженная

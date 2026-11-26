@@ -4,10 +4,9 @@ import { memoryLimit, tokens, workerStall, isRunning, type TokenInfo } from './d
 import { clock, minutesText, parse, plural, shortDate } from './format';
 import type { Prefs } from './prefs';
 import type { Data, Lesson } from './types';
-import type { StubTarget } from './stubs';
 import type { SettingsSheet } from '../settings/model';
 
-export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'stub'; target: StubTarget } | { kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
+export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
 
 export type Banner = {
     id: string;
@@ -73,7 +72,7 @@ const memoryBanner = (slug: string, count: number, limit: number): Banner => {
 
 export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | null; memoryBroken: Record<string, string> }, now = new Date()): Banner[] => {
     const result: Banner[] = [];
-    const log: BannerAction = { label: 'Журнал', kind: 'stub', target: { kind: 'tab', tab: 'log' } };
+    const log: BannerAction = { label: 'Журнал', kind: 'settings', sheet: 'log' };
     const stall = workerStall(data.status, now);
     if (stall)
         result.push({

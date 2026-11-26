@@ -1327,10 +1327,41 @@
                                             "items": {
                                                 "type": "string"
                                             }
+                                        },
+                                        "entries": {
+                                            "type": "array",
+                                            "description": "Записи из последних 256 КБ файла, от старых к новым. Многострочная запись (стек, вывод git) — одна",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "description": "Смещение записи в файле: не меняется, пока файл не ротирован"
+                                                    },
+                                                    "at": {
+                                                        "type": "string",
+                                                        "description": "Время записи, ISO"
+                                                    },
+                                                    "message": {
+                                                        "type": "string"
+                                                    },
+                                                    "isError": {
+                                                        "type": "boolean",
+                                                        "description": "Метка ERROR или текст ошибки в старых записях"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "id",
+                                                    "at",
+                                                    "message",
+                                                    "isError"
+                                                ]
+                                            }
                                         }
                                     },
                                     "required": [
-                                        "lines"
+                                        "lines",
+                                        "entries"
                                     ]
                                 }
                             }
@@ -3761,7 +3792,7 @@
         "/events": {
             "get": {
                 "summary": "Поток изменений (SSE)",
-                "description": "Сначала событие hello. Дальше на каждое изменение данных — событие change с полем type: status, prs, state, limits, fixes, arch, qa, backlog, memory, stats, models, config. Приложение после него перечитывает соответствующий ресурс. Раз в 25 с — комментарий-пинг.",
+                "description": "Сначала событие hello. Дальше на каждое изменение данных — событие change с полем type: status, prs, state, limits, fixes, arch, qa, backlog, memory, stats, models, config, log. Приложение после него перечитывает соответствующий ресурс. Раз в 25 с — комментарий-пинг.",
                 "responses": {
                     "200": {
                         "description": "text/event-stream",
@@ -4154,7 +4185,8 @@
                             "memory",
                             "stats",
                             "models",
-                            "config"
+                            "config",
+                            "log"
                         ]
                     },
                     "at": {

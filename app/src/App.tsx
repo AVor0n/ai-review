@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { errorText, type ApiClient, type Schemas } from './api/client';
 import type { ChangeEvent } from './api/events';
 import { Overview, type OverviewHandlers } from './components/Overview';
-import { Stub } from './components/Stub';
 import { StatsScreen } from './stats/StatsScreen';
 import { BacklogScreen } from './backlog/BacklogScreen';
 import { SettingsScreen } from './settings/SettingsScreen';
@@ -22,7 +21,7 @@ import { banners as buildBanners, serviceDownBanner, type Banner, type BannerAct
 import { agentName, archAgentName, threads } from './model/derive';
 import { parse } from './model/format';
 import { loadPrefs, muteUntil, savePrefs, withSeenRepos, type Prefs } from './model/prefs';
-import { stub as stubContent, TABS, type CliEnv, type StubTarget, type TabId } from './model/stubs';
+import { TABS } from './model/tabs';
 import { trayModel } from './model/tray';
 import type { PullRequest } from './model/types';
 import { notify, reviewNotice } from './notify';
@@ -47,12 +46,12 @@ export const App = () => {
     const { data, memoryBroken, onEvent, refreshSecrets } = useData();
     const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
     const [now, setNow] = useState(() => new Date());
-    const [stub, setStub] = useState<StubTarget | null>(null);
     // Перенесённые экраны; неперенесённые открывают заглушку поверх них
     const [screen, setScreen] = useState<'overview' | 'backlog' | 'stats' | 'settings'>('overview')
     // Лист настроек открывают и из обзора: «Обновить…» у токена, «Подключить…»
     const [settingsSheet, setSettingsSheet] = useState<SettingsSheet | null>(null);
     const [statsVersion, setStatsVersion] = useState(0);
+    const [logVersion, setLogVersion] = useState(0);
     // Лист «Память ревьюеров» поверх поповера, на той вкладке, где его открыли
     const [memorySheet, setMemorySheet] = useState<string | null>(null);
     const [archSheet, setArchSheet] = useState<{ repo: string; pr: number } | null>(null);
@@ -94,6 +93,7 @@ export const App = () => {
         async (event: ChangeEvent, api: ApiClient) => {
             await onEvent(api, event);
             if (['stats', 'fixes', 'arch', 'qa', 'backlog', 'memory'].includes(event.type)) setStatsVersion((value) => value + 1);
+            if (event.type === 'log') setLogVersion((value) => value + 1);
             if (event.type !== 'stats') return;
             // since включает границу: запись с тем же временем уже показана
             const since = seenStatsAt.current;
@@ -162,7 +162,6 @@ export const App = () => {
     useEffect(() => {
         const unlisten = listen<{ arrowX: number }>('popover-shown', ({ payload }) => {
             document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`);
-            setStub(null);
             setScreen('overview');
             closeMemorySheet();
             setArchSheet(null);
@@ -236,7 +235,6 @@ export const App = () => {
     updateMemorySeen.current = (slug) => updatePrefs((previous) => ({ ...previous, memorySeenAt: { ...previous.memorySeenAt, [slug]: new Date().toISOString() } }));
 
     const openSettings = (sheet: SettingsSheet | null) => {
-        setStub(null);
         setScreen('settings');
         setSettingsSheet(sheet);
     };
@@ -271,8 +269,7 @@ export const App = () => {
                 collapsedRepos: previous.collapsedRepos.includes(slug) ? previous.collapsedRepos.filter((item) => item !== slug) : [...previous.collapsedRepos, slug],
             })),
         banner: (action: BannerAction) => {
-            if (action.kind === 'stub') setStub(action.target);
-            else if (action.kind === 'settings') openSettings(action.sheet);
+            if (action.kind === 'settings') openSettings(action.sheet);
             else if (action.kind === 'memory') setMemorySheet(action.slug);
             else if (action.kind === 'stop') command('/stop');
             else if (action.kind === 'copy') copy(action.text);
@@ -294,10 +291,8 @@ export const App = () => {
         return offline ? [serviceDownBanner(serviceDown()), ...list] : list;
     }, [hasData, data, prefs, syncError, memoryBroken, now, offline]);
 
-    // Пути CLI и журнала в WSL — из /health; до первого ответа сервиса — как ставит install.sh
-    const env: CliEnv = { cli: healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer', logDir: healthRef.current?.logDir ?? '~/.local/state/pr-reviewer' };
-    const shownStub = stub ? stubContent(stub, platform, env) : null;
-    const tab: TabId = shownStub?.tab ?? screen;
+    // Путь к CLI в WSL — из /health; до первого ответа сервиса — как ставит install.sh
+    const cli = (healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer').replace(/^\/(?:home\/[^/]+|root)(?=\/)/, '~');
 
     // Рамка — классы дизайн-системы (product/design/web/components.css): на Mac стрелка к значку, на Windows без неё
     return (
@@ -312,20 +307,13 @@ export const App = () => {
                     <div className="tabs">
                         <div className="segmented" role="tablist">
                             {TABS.map((item) => (
-                                <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => {
-                                        if (item.id !== 'log') {
-                                            setScreen(item.id);
-                                            setStub(null);
-                                        } else setStub({ kind: 'tab', tab: 'log' });
-                                    }}>
+                                <button key={item.id} className="segmented__item" role="tab" aria-selected={screen === item.id} onClick={() => setScreen(item.id)}>
                                     {item.title}
                                 </button>
                             ))}
                         </div>
                     </div>
-                    {shownStub ? (
-                        <Stub stub={shownStub} onCopy={copy} />
-                    ) : screen === 'backlog' ? (
+                    {screen === 'backlog' ? (
                         <BacklogScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : screen === 'settings' ? (
                         <SettingsScreen
@@ -335,13 +323,14 @@ export const App = () => {
                             prefs={prefs}
                             updatePrefs={updatePrefs}
                             platform={platform}
-                            cli={env.cli}
+                            cli={cli}
+                            logDir={healthRef.current?.logDir ?? null}
+                            logVersion={logVersion}
                             reposDir={healthRef.current?.reposDir ?? null}
                             canOpenInCode={canOpenInCode}
                             sheet={settingsSheet}
                             setSheet={setSettingsSheet}
                             onOpenMemory={(slug) => setMemorySheet(slug)}
-                            onOpenLog={() => setStub({ kind: 'tab', tab: 'log' })}
                             onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)}
                         />
                     ) : screen === 'stats' ? (

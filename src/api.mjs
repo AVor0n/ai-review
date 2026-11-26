@@ -1,6 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, watch, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, createReadStream, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { extname, isAbsolute, join, resolve, sep } from 'node:path';
@@ -87,6 +87,60 @@ const readFileSafe = (path) => {
     } catch {
         return null;
     }
+};
+
+// Записи журнала из хвоста файла: файл ротируется на 5 МБ, а приложению хватает последних записей.
+// id — смещение записи в файле: номер в хвосте съезжал бы с каждой новой записью, и раскрытой оказывалась бы другая
+const LOG_TAIL = 256 * 1024;
+export const logEntries = (file) => {
+    if (!existsSync(file)) return [];
+    const fd = openSync(file, 'r');
+    let buffer;
+    let start;
+    try {
+        const size = fstatSync(fd).size;
+        start = Math.max(0, size - LOG_TAIL);
+        buffer = Buffer.alloc(size - start);
+        readSync(fd, buffer, 0, buffer.length, start);
+    } finally {
+        closeSync(fd);
+    }
+    const entries = [];
+    let current = null;
+    const flush = () => {
+        if (!current) return;
+        let message = current.lines.join('\n');
+        const marked = message.startsWith('ERROR ');
+        if (marked) message = message.slice('ERROR '.length);
+        // Записи до появления метки ERROR узнаём по тексту
+        const isError = marked || message.includes('Error:') || message.includes(': ошибка') || message.startsWith('ошибка');
+        entries.push({ id: current.id, at: current.at, message, isError });
+    };
+    let offset = start;
+    for (const bytes of splitLines(buffer)) {
+        const line = bytes.toString('utf8');
+        // Запись начинается с ISO-времени; строки без него — продолжение (стек, вывод git)
+        const space = line.indexOf(' ');
+        const at = space > 0 ? line.slice(0, space) : '';
+        if (/^\d{4}-\d\d-\d\dT[\d:.]+Z$/.test(at)) {
+            flush();
+            current = { id: offset, at, lines: [line.slice(space + 1)] };
+        } else if (current && line) current.lines.push(line);
+        offset += bytes.length + 1;
+    }
+    flush();
+    return entries;
+};
+
+const splitLines = (buffer) => {
+    const lines = [];
+    let from = 0;
+    for (let index = buffer.indexOf(10); index !== -1; index = buffer.indexOf(10, from)) {
+        lines.push(buffer.subarray(from, index));
+        from = index + 1;
+    }
+    lines.push(buffer.subarray(from));
+    return lines;
 };
 
 const tailLines = (file, count) => {
@@ -191,7 +245,7 @@ const routes = (deps) => {
             },
         },
         { method: 'GET', path: '/secrets', read: () => deps.secretStatus(loadConfig()) },
-        { method: 'GET', path: '/log', read: ({ query }) => ({ lines: tailLines(join(LOG_DIR, 'worker.log'), Math.min(5000, Number(query.get('lines')) || 500)) }) },
+        { method: 'GET', path: '/log', read: ({ query }) => ({ lines: tailLines(join(LOG_DIR, 'worker.log'), Math.min(5000, Number(query.get('lines')) || 500)), entries: logEntries(join(LOG_DIR, 'worker.log')) }) },
         {
             method: 'GET',
             path: '/models',
@@ -404,6 +458,9 @@ const startWatching = (broadcast, configDir) => {
             if (type) emit(type);
         }),
     ];
+    // Журнал лежит отдельно от данных; ротация меняет имя файла, поэтому следим за папкой
+    mkdirSync(LOG_DIR, { recursive: true });
+    watchers.push(watch(LOG_DIR, (_, name) => String(name).startsWith('worker.log') && emit('log')));
     // Следим за папкой, а не за файлом: config.json пишется через tmp+rename, и наблюдатель за файлом остался бы на старом inode
     watchers.push(watch(configDir, (_, name) => String(name) === 'config.json' && emit('config')));
     return () => {

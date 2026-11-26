@@ -4,7 +4,6 @@ import { availability, headline, reviewState, tokens, unreviewedPrs, workerStall
 import { ago, plural, resetShort } from './format';
 import { defaultPrefs, muteUntil } from './prefs';
 import { capsules, fixAction, modelHint, sortedPrs, threadsCounter } from './row';
-import { stub } from './stubs';
 import { trayModel, type MenuEntry } from './tray';
 import { emptyData, type Data, type PullRequest, type Status } from './types';
 
@@ -154,18 +153,6 @@ describe('баннеры', () => {
     it('проход завис, если пульса нет 15 минут', () => {
         expect(workerStall(status({ workerRunning: true, heartbeat: minutesAgo(25) }), NOW)?.minutes).toBe(25);
         expect(workerStall(status({ workerRunning: true, heartbeat: minutesAgo(5) }), NOW)).toBeNull();
-    });
-});
-
-describe('заглушки', () => {
-    const env = { cli: '/home/me/tools/pr-reviewer/bin/pr-reviewer', logDir: '/home/me/.local/state/pr-reviewer' };
-
-    it('Mac — текст про старое окно, без команд', () => {
-        expect(stub({ kind: 'tab', tab: 'log' }, 'mac', env)).toEqual({ tab: 'log', title: 'Журнал', text: 'Экран переедет в следующих версиях. Пока он есть в старом окне', commands: [] });
-    });
-
-    it('Windows — команды с полным путём к CLI, домашняя папка сокращена', () => {
-        expect(stub({ kind: 'tab', tab: 'log' }, 'win', env).commands[1].text).toBe('tail -f ~/.local/state/pr-reviewer/worker.log');
     });
 });
 

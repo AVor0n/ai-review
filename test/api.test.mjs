@@ -273,3 +273,24 @@ test('config.json из редактора: текст как есть, пров�
     assert.match(stale.json.error, /Перечитать/);
     assert.equal(readFileSync(file, 'utf8'), edited);
 });
+
+test('журнал: записи с временем, многострочные — одной записью, ошибки по метке и по тексту', async () => {
+    mkdirSync(LOG_DIR, { recursive: true });
+    writeFileSync(
+        join(LOG_DIR, 'worker.log'),
+        ['2026-11-26T10:00:00.000Z Проход начат', '2026-11-26T10:00:01.000Z ERROR git fetch упал', '    at fetch (git.mjs:10)', '2026-11-26T10:00:02.000Z backend: ошибка сети', '2026-11-26T10:00:03.000Z Проход закончен', ''].join('\n'),
+    );
+    const log = await call('GET', '/log');
+    assert.deepEqual(conforms('GET', '/log', log.json), []);
+    assert.deepEqual(
+        log.json.entries.map(({ message, isError }) => [message, isError]),
+        [
+            ['Проход начат', false],
+            ['git fetch упал\n    at fetch (git.mjs:10)', true],
+            ['backend: ошибка сети', true],
+            ['Проход закончен', false],
+        ],
+    );
+    assert.equal(log.json.entries[1].id, Buffer.byteLength('2026-11-26T10:00:00.000Z Проход начат\n'));
+    assert.equal(eventType('worker.log'), null);
+});
