@@ -1869,3 +1869,182 @@
   font-size: var(--text-subhead);
   font-weight: var(--weight-medium);
 }
+
+/* Широкий лист отчёта (архитектура, доработка, QA): 660 px и вся доступная высота поповера */
+.sheet--wide {
+  width: 660px;
+}
+
+.sheet--tall {
+  height: calc(100% - 2 * var(--space-16));
+}
+
+.sheet--tall .sheet__body {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.sheet__head .sheet__subtitle--line {
+  overflow: hidden;
+  font-size: var(--text-callout);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Отчёт архитектурного ревью ---------- */
+
+.report-status {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+}
+
+.report-status .icon {
+  flex: none;
+  align-self: center;
+  color: var(--c, var(--label-2));
+}
+
+.report-status__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--c, var(--label));
+}
+
+.report-status__activity {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-regular);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.report-paragraph {
+  padding: var(--space-10) var(--space-12);
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+  user-select: text;
+}
+
+.alternative {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-10) var(--space-12);
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+}
+
+.alternative__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+
+.alternative__title {
+  flex: 1;
+  font-weight: var(--weight-semibold);
+}
+
+.bullet {
+  display: grid;
+  grid-template-columns: 11px 1fr;
+  gap: var(--space-6);
+  align-items: baseline;
+}
+
+.bullet .icon {
+  font-size: 11px;
+  color: var(--c);
+  transform: translateY(1px);
+}
+
+/* Строка «место в коде»: значок, заголовок, путь моноширинным, пояснение */
+.place {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+}
+
+.place__marker {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  min-width: 14px;
+  font-size: 13px;
+  color: var(--c, var(--label-2));
+  transform: translateY(1px);
+}
+
+.place__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.place__title {
+  font-weight: var(--weight-medium);
+}
+
+.place__location {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
+.row-divider--marker {
+  --divider-inset: 34px;
+}
+
+.row-divider--tag {
+  --divider-inset: 46px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--space-8) var(--space-12);
+  font-size: var(--text-body);
+}
+
+.detail-row__title {
+  flex: none;
+  width: 130px;
+  color: var(--label-2);
+}
+
+.detail-row__value {
+  user-select: text;
+}
+
+.output {
+  padding: var(--space-12);
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.sheet .banner {
+  margin: 0;
+}
+
+.button--destructive {
+  color: var(--red);
+}
