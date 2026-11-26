@@ -503,14 +503,7 @@ pub fn run() {
             if debug_show() {
                 toggle_popover(app.handle());
             }
-            // Автозапуск при входе — только у собранного приложения: dev-сборка не должна прописываться в систему
-            if !cfg!(debug_assertions) {
-                use tauri_plugin_autostart::ManagerExt;
-                let autostart = app.autolaunch();
-                if !autostart.is_enabled().unwrap_or(false) {
-                    let _ = autostart.enable();
-                }
-            }
+            // Автозапуск при входе приложение само не включает: пока рядом живёт окно SwiftUI, его включит install.sh (#54)
             Ok(())
         })
         .on_window_event(|window, event| match (window.label(), event) {
