@@ -1,0 +1,12 @@
+#!/bin/sh
+# qa: заглушка Docker — список образов из docker-images.txt песочницы, удаление только в журнал, файл docker-down — демон не отвечает
+. "$(dirname "$0")/_log"
+qa_log "$@"
+if [ "$1" = image ] && [ "$2" = ls ]; then
+    [ -f "$QA_SANDBOX/docker-down" ] && { echo "Cannot connect to the Docker daemon" >&2; exit 1; }
+    cat "$QA_SANDBOX/docker-images.txt" 2>/dev/null
+    exit 0
+fi
+[ "$1" = image ] && [ "$2" = rm ] && exit 0
+echo "qa: docker $* заглушкой не поддержан" >&2
+exit 1

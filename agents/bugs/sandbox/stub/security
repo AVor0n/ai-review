@@ -1,0 +1,28 @@
+#!/bin/sh
+# qa: Keychain песочницы — папка keychain/, файл на запись: первая строка аккаунт, вторая значение. Настоящий Keychain не читается
+. "$(dirname "$0")/_log"
+cmd=$1; shift
+service= account= value= reveal=
+while [ $# -gt 0 ]; do
+    case $1 in
+        -s) service=$2; shift ;;
+        -a) account=$2; shift ;;
+        -w) if [ "$cmd" = add-generic-password ]; then value=$2; shift; else reveal=1; fi ;;
+        -T) shift ;;
+    esac
+    shift
+done
+qa_log "$cmd -s $service"
+dir="$QA_SANDBOX/keychain"; file="$dir/$service"
+case $cmd in
+    add-generic-password) mkdir -p "$dir"; printf '%s\n%s\n' "$account" "$value" > "$file"; exit 0 ;;
+    find-generic-password)
+        [ -f "$file" ] || exit 44
+        [ -n "$account" ] && [ "$(sed -n 1p "$file")" != "$account" ] && exit 44
+        if [ -n "$reveal" ]; then sed -n 2p "$file"; exit 0; fi
+        echo "    \"acct\"<blob>=\"$(sed -n 1p "$file")\""
+        echo "    \"mdat\"<timedate>=0x00  \"$(date -u -r "$file" +%Y%m%d%H%M%S)Z\""
+        exit 0 ;;
+esac
+echo "qa: security $cmd заглушкой не поддержан" >&2
+exit 1

@@ -1,0 +1,5 @@
+#!/bin/sh
+# qa: заглушка Claude — ответ из claude-reply.json песочницы, ошибка при файле claude-fail, задержка из claude-delay
+. "$(dirname "$0")/_log"
+qa_log "$@"
+exec python3 -I "$(dirname "$0")/claude.py" "$@"

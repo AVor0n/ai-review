@@ -1,0 +1,5 @@
+#!/bin/sh
+# qa: настоящий git, но push запрещён
+. "$(dirname "$0")/_log"
+for a in "$@"; do [ "$a" = push ] && { qa_log "BLOCKED $*"; echo "qa: push запрещён" >&2; exit 1; }; done
+exec /usr/bin/git "$@"
