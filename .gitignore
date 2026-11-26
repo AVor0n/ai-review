@@ -1,5 +1,8 @@
 .DS_Store
-.claude/
+# Из .claude/ в git только сервер макетов. !.claude/ — на случай, если .claude скрыта глобальным .gitignore
+!.claude/
+.claude/*
+!.claude/launch.json
 
 # Личный конфиг: email, репозитории, пути. В репозитории — config.example.json
 config.json
