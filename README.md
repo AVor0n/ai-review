@@ -211,7 +211,7 @@ The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon
 **Windows.** The service runs in WSL ("Linux and WSL2"), the app in Windows itself:
 
 1. Check that the service API is running: in Ubuntu `systemctl --user status pr-reviewer-api` shows `active`.
-2. Download the Windows installer `PR Reviewer_…_x64-setup.exe` from the [latest release](https://github.com/AVor0n/ai-review/releases/latest) and run it. It is not signed: on the first run choose "More info → Run anyway".
+2. Download the Windows installer `PR.Reviewer_…_x64-setup.exe` from the [latest release](https://github.com/AVor0n/ai-review/releases/latest) and run it. It is not signed: on the first run choose "More info → Run anyway".
 3. The icon appears in the notification area (it may be hidden under the ^ arrow — drag it onto the taskbar). Left click — popover, right click — menu. The app adds itself to autostart.
 4. If the API is stopped, the popover shows "Service is not running" with a PowerShell command: `wsl systemctl --user restart pr-reviewer-api`.
 
