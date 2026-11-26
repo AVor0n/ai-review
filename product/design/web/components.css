@@ -790,6 +790,7 @@
 
 .popover {
   display: flex;
+  position: relative;
   flex-direction: column;
   width: var(--popover-width);
   height: var(--popover-height);
@@ -1385,4 +1386,486 @@
   font-size: var(--text-subhead);
   line-height: var(--line-text);
   color: var(--label-2);
+}
+
+/* ---------- Лист поверх поповера (sheet SwiftUI) ---------- */
+/* Лист открывается внутри поповера, а не отдельным окном: фон приглушается, лист встаёт сверху по центру */
+
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: var(--space-16);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+[data-theme="dark"] .sheet-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sheet-backdrop {
+    background: rgba(0, 0, 0, 0.45);
+  }
+}
+
+.sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 600px;
+  max-height: calc(100% - 2 * var(--space-16));
+  padding: 20px;
+  background: var(--bg);
+  border-radius: var(--radius-popover-mac);
+  box-shadow: 0 0 0 0.5px var(--separator), 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.sheet__head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.sheet__titles {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+.sheet__title {
+  font-size: var(--text-title3);
+  font-weight: var(--weight-semibold);
+}
+
+.sheet__subtitle {
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.sheet__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.sheet__caption {
+  margin-left: auto;
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+  text-align: right;
+}
+
+/* Содержимое вкладки листа: своя прокрутка, высота постоянная, чтобы лист не прыгал при смене вкладок */
+.sheet__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  height: var(--sheet-body, 300px);
+  overflow-y: auto;
+}
+
+.sheet__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+/* Круглая кнопка в шапке листа: «открыть в редакторе», «закрыть» */
+.round-button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+  color: var(--label-2);
+  background: var(--track);
+  border-radius: 50%;
+}
+
+.round-button--close {
+  font-size: 11px;
+}
+
+.button--small {
+  height: 20px;
+  padding: 0 var(--space-8);
+  font-size: var(--text-subhead);
+}
+
+.button:disabled {
+  opacity: var(--disabled-opacity);
+}
+
+/* Поле ввода: карточный фон на фоне листа, без системной рамки */
+.text-field {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 var(--space-10);
+  font: inherit;
+  font-size: var(--text-body);
+  color: var(--label);
+  background: var(--card);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius-control);
+  outline: none;
+}
+
+.text-field::placeholder {
+  color: var(--label-3);
+}
+
+.text-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.text-field--multiline {
+  height: auto;
+  min-height: 52px;
+  padding: 6px var(--space-10);
+  line-height: var(--line-text);
+  resize: none;
+}
+
+/* Карточка с крупной иконкой: пустая память, разбор, ход разбора, ошибка */
+.info-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  padding: 14px;
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.info-card__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+}
+
+.info-card__icon {
+  flex: none;
+  font-size: 22px;
+  color: var(--label-2);
+}
+
+.info-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.info-card__title {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.info-card__body {
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.info-card__hint {
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-3);
+}
+
+.info-card__mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+  user-select: text;
+}
+
+.info-card__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: var(--text-body);
+}
+
+/* Строка-итог с иконкой: «План применён», «Не получилось», «Идёт разбор» */
+.status-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-body);
+  font-weight: var(--weight-medium);
+  color: var(--c, var(--label));
+}
+
+.status-label--strong {
+  font-weight: var(--weight-semibold);
+}
+
+/* Песочные часы переворачиваются раз в 2 с (FlippingHourglass) */
+.hourglass {
+  animation: hourglass-flip 2s infinite;
+}
+
+@keyframes hourglass-flip {
+  0% { transform: rotate(0deg); animation-timing-function: ease-in-out; }
+  30%, 100% { transform: rotate(180deg); }
+}
+
+/* ---------- Память ревьюеров ---------- */
+
+/* Код в тексте правил: `formatDate` */
+.md code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.lesson {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: 9px var(--space-12);
+}
+
+.lesson__new {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+}
+
+.lesson__new--on {
+  background: var(--accent);
+}
+
+.lesson__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.lesson__text {
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+  user-select: text;
+}
+
+.lesson__meta,
+.lesson__usage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.lesson__meta .link-button {
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+}
+
+.lesson__usage--idle {
+  color: var(--label-3);
+}
+
+.lesson__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-4);
+}
+
+.lesson__actions .icon-button {
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+}
+
+.lesson-editor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-8);
+  padding: 9px var(--space-12);
+}
+
+.lesson-editor .text-field {
+  align-self: stretch;
+}
+
+.lesson-editor__buttons {
+  display: flex;
+  gap: var(--space-8);
+}
+
+/* План разбора: строка действия и «было / станет» */
+.plan-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 14px;
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.plan-summary__meta {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.plan-summary__text {
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+}
+
+.plan-summary .status-label {
+  align-items: flex-start;
+  font-size: var(--text-callout);
+}
+
+.plan-action {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 9px var(--space-12);
+  font-size: var(--text-callout);
+  line-height: var(--line-text);
+}
+
+.plan-action__reason {
+  font-weight: var(--weight-semibold);
+}
+
+.plan-action__dropped {
+  color: var(--label-2);
+  text-decoration: line-through;
+}
+
+.diff {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: var(--space-6) var(--space-8);
+  align-items: baseline;
+}
+
+.diff__label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  color: var(--label-3);
+  text-transform: uppercase;
+}
+
+.diff__lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  user-select: text;
+}
+
+.diff__before {
+  color: var(--label-2);
+}
+
+/* Подсветка слов: в «было» — чего не осталось, в «станет» — что появилось */
+.diff del,
+.diff ins {
+  text-decoration: none;
+  border-radius: 2px;
+}
+
+.diff del {
+  background: color-mix(in srgb, var(--red) 20%, transparent);
+}
+
+.diff ins {
+  background: color-mix(in srgb, var(--green) 20%, transparent);
+}
+
+.plan-kept {
+  padding: 0 var(--space-12);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+/* Журнал «Что менялось» */
+.history-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.history-entry__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.history-entry__head .link-button {
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+}
+
+.history-entry__head .button,
+.history-entry__head .spinner {
+  margin-left: auto;
+}
+
+.history-entry__reason {
+  font-size: var(--text-callout);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.history-line {
+  display: grid;
+  grid-template-columns: 12px 1fr;
+  gap: var(--space-8);
+  align-items: baseline;
+  font-size: var(--text-callout);
+  line-height: var(--line-text);
+}
+
+.history-line__icon {
+  font-size: 10px;
+  color: var(--c);
+  transform: translateY(1px);
+}
+
+.history-line__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  user-select: text;
+}
+
+.history-line__removed {
+  color: var(--label-2);
+  text-decoration: line-through;
+}
+
+.history-line__note {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.history-line__why {
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
 }

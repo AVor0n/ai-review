@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Память Tauri</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 48px 0 6px; }
+  h3 { font-size: 14px; margin: 28px 0 10px; color: #3a3a3c; }
+  p, li { font-size: 14px; line-height: 1.5; }
+  .lead { color: #48484a; max-width: 760px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; }
+  .note { background: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; max-width: 760px; }
+  .note b { font-weight: 600; }
+  .page > p code, .caption code, .note code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+  .caption { font-size: 13px; color: #48484a; margin: 6px 0 0; max-width: 760px; }
+
+  .scene { position: relative; border-radius: 12px; margin: 10px 0 6px; padding: 24px 0; display: flex; justify-content: center; }
+  .scene--mac { background: linear-gradient(160deg, #a7c4e8, #d9c6e8 60%, #f0d9c4); }
+  .scene--mac.dark { background: linear-gradient(160deg, #1d2b45, #3a2d4d 60%, #4a3428); }
+  .scene--win { background: linear-gradient(160deg, #9fc3e9, #c9dcf0); }
+  .popover--sheet { height: var(--popover-height) !important; }
+
+  /* Лист отдельно от поповера — для состояний вкладок */
+  .solo { display: flex; justify-content: center; margin: 10px 0 6px; padding: 20px 0; border-radius: 12px; background: #d1d1d6; }
+  .solo > .app { background: none; }
+  .solo .sheet { box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.12); }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pair .solo .sheet { width: 440px; }
+
+  .alert { width: 260px; padding: 20px 16px 16px; border-radius: 12px; background: rgba(236,236,236,.98); text-align: center; font-size: 13px; color: #000;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 16px 40px rgba(0,0,0,.25); }
+  .alert b { display: block; margin-bottom: 6px; }
+  .alert p { font-size: 11px; line-height: 1.35; margin: 0 0 14px; }
+  .alert__buttons { display: flex; gap: 8px; }
+  .alert__buttons span { flex: 1; height: 24px; display: grid; place-items: center; border-radius: 6px; background: rgba(0,0,0,.08); }
+  .alert__buttons .danger { background: #ff3b30; color: #fff; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Память ревьюеров в приложении Tauri</h1>
+<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задача B-30, экран 2 из 8</p>
+<p class="lead">Лист памяти переносится из SwiftUI без изменений. Остаются три вкладки — «Правила», «Разбор», «Что менялось», — правка и удаление правил, своё правило снизу, разбор с планом «было / станет», журнал с откатом и пустое состояние «Изучить историю». Вёрстка — HTML/CSS на <code>product/design/web</code>.</p>
+<div class="note"><b>Что меняется по сравнению с SwiftUI.</b> (1) Лист открывается прямо поверх поповера, на той вкладке, где была кнопка. В SwiftUI окно сначала переключалось на «Настройки», потому что лист жил там. Здесь «Настройки» ещё не перенесены. (2) Подтверждение отката — системный диалог, как подтверждения в поповере. (3) Справа от вкладок больше нет подписи «Срабатывания считаются с … · ревью с учётом: N» — по решению пользователя; счётчик срабатываний у каждого правила остаётся. (4) Иконки — Phosphor. (5) На Windows файл памяти лежит в WSL. Кнопка «Открыть в VS Code» открывает его через путь <code>\\wsl.localhost\…</code>; если VS Code не установлен, кнопки нет. Больше ничего не меняется, тексты слово в слово.</div>
+
+<h2>1. Открытие из баннера</h2>
+<p class="lead">«Проверить правила» в баннере переполненной памяти или «Посмотреть» в баннере новых правил. Поповер приглушается, лист 600 px встаёт сверху по центру. Закрывается крестиком или кликом по приглушённому фону. Изменения сохраняются сразу, поэтому кнопки «Готово» нет.</p>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="paused" data-sheet="rules"></div>
+</div>
+<p class="caption">Синяя точка — новое правило. Точки гаснут, когда лист закрыли: пока он открыт, они помогают найти новое. На «Разборе» — число изменений в готовом плане; оно видно, пока открыта другая вкладка. Ссылка «из ревью PR #…» открывает PR в браузере.</p>
+
+<h3>Тёмная тема</h3>
+<div class="scene scene--mac dark">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="paused" data-sheet="rules"></div>
+</div>
+
+<h3>Windows</h3>
+<div class="scene scene--win">
+  <div class="popover-frame popover-frame--win" data-theme="light" data-template="paused" data-sheet="rules"></div>
+</div>
+
+<h2>2. Вкладка «Разбор»</h2>
+<p class="lead">Модель предлагает план, человек смотрит его и применяет. Пока план не применён, память не меняется.</p>
+
+<h3>План готов</h3>
+<div class="solo" data-theme="light"><div class="app" data-sheet="plan"></div></div>
+<p class="caption">В «было» красным подсвечено то, чего не осталось, в «станет» зелёным — что появилось. Пробел между двумя изменёнными словами тоже подсвечен, чтобы правка читалась одним куском. «Отказаться» удаляет план, память остаётся как есть. Подсказка у «Применить» — «Склеить, переписать и удалить правила по плану. Применённый разбор можно откатить: pr-reviewer memory restore frontend».</p>
+
+<div class="pair">
+  <div>
+    <h3>До разбора</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="intro"></div></div>
+  </div>
+  <div>
+    <h3>Идёт разбор</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="progress"></div></div>
+    <p class="caption">Время идёт каждую секунду, часы переворачиваются. Лист можно закрыть — разбор продолжится.</p>
+  </div>
+  <div>
+    <h3>План устарел</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="outdated"></div></div>
+  </div>
+  <div>
+    <h3>План применён</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="applied"></div></div>
+    <p class="caption">Последняя строка вывода сервиса. Если разбор не удался — карточка «Не получилось» с текстом ошибки моноширинным.</p>
+  </div>
+</div>
+
+<h2>3. Вкладка «Что менялось»</h2>
+<p class="lead">Журнал памяти от новых записей к старым, последние 100. Дата точная: журнал читают по датам. Откатить можно только последний применённый разбор.</p>
+<div class="pair">
+  <div>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="history"></div></div>
+  </div>
+  <div>
+    <div class="solo" style="padding:40px 0"><div class="alert"><b>Откатить разбор памяти?</b><p>Память вернётся к копии, сохранённой перед разбором: удалённые правила вернутся, переписанные и склеенные — станут прежними. Если после разбора память менялась, сервис откажет, чтобы не потерять эти изменения.</p><div class="alert__buttons"><span>Отмена</span><span class="danger">Откатить</span></div></div></div>
+    <p class="caption">Подтверждение отката — системный диалог Tauri. После отката над журналом строка «Разбор откачен: правил было 59, стало 67».</p>
+  </div>
+</div>
+
+<h2>4. Правка правила, пустая и повреждённая память</h2>
+<div class="pair">
+  <div>
+    <h3>Правка правила</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="edit"></div></div>
+    <p class="caption">Карандаш превращает строку в поле на несколько строк с «Отмена» и «Сохранить». Удаление — корзина, без подтверждения, как в SwiftUI.</p>
+  </div>
+  <div>
+    <h3>Памяти ещё нет</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="empty"></div></div>
+  </div>
+  <div>
+    <h3>Файл повреждён</h3>
+    <div class="solo" data-theme="light"><div class="app" data-sheet="broken"></div></div>
+    <p class="caption">Поле своего правила неактивно: в повреждённый файл сервис не пишет.</p>
+  </div>
+</div>
+
+</div>
+
+<!-- ======================= Шаблоны листа ======================= -->
+
+<template id="tpl-sheet-head">
+  <div class="sheet__head">
+    <div class="sheet__titles">
+      <div class="sheet__title">Память ревьюеров · frontend</div>
+      <div class="sheet__subtitle">Правила выводятся из комментариев людей в ревью и их ответов на замечания моделей и учитываются в каждом ревью этого репозитория всеми моделями. Лишнее можно удалить, недостающее — дописать.</div>
+    </div>
+    <button class="round-button" title="Открыть файл памяти в VS Code — для массовой правки. Сохранённые изменения окно подхватит само"><svg class="icon"><use href="../web/icons.svg#i-open-external"/></svg></button>
+    <button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button>
+  </div>
+</template>
+
+<template id="tpl-add">
+  <div class="sheet__footer">
+    <input class="text-field" placeholder="Своё правило, например: «`formatDate` всегда получает UTC»">
+    <button class="button" disabled>Добавить</button>
+  </div>
+</template>
+
+<template id="tpl-lessons">
+  <div class="section__card">
+    <div class="lesson">
+      <span class="lesson__new lesson__new--on" title="Новое правило"></span>
+      <div class="lesson__body">
+        <div class="lesson__text md">Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code>, иначе в заказе дата доставки сдвигается на сутки</div>
+        <div class="lesson__meta"><button class="link-button">из ревью PR #2817 · a.petrov</button><span>· 2 часа назад</span></div>
+        <div class="lesson__usage" title="Сколько ревью учли это правило и чем кончились замечания, основанные на нём"><svg class="icon"><use href="../web/icons.svg#i-bolt"/></svg>сработало: 3 · замечаний: 1 — исправлено 1, отклонено 0</div>
+      </div>
+      <div class="lesson__actions">
+        <button class="icon-button" title="Изменить правило"><svg class="icon"><use href="../web/icons.svg#i-edit"/></svg></button>
+        <button class="icon-button" title="Удалить правило"><svg class="icon"><use href="../web/icons.svg#i-trash"/></svg></button>
+      </div>
+    </div>
+    <div class="row-divider"></div>
+    <div class="lesson">
+      <span class="lesson__new lesson__new--on" title="Новое правило"></span>
+      <div class="lesson__body">
+        <div class="lesson__text md">Списки магазинов грузятся постранично через <code>useInfiniteQuery</code>; <code>limit</code> больше 50 бэкенд обрезает молча</div>
+        <div class="lesson__meta"><button class="link-button">из ответа в PR #2809 · m.sidorova</button><span>· 1 день назад</span></div>
+        <div class="lesson__usage lesson__usage--idle"><svg class="icon"><use href="../web/icons.svg#i-bolt"/></svg>не срабатывало</div>
+      </div>
+      <div class="lesson__actions">
+        <button class="icon-button" title="Изменить правило"><svg class="icon"><use href="../web/icons.svg#i-edit"/></svg></button>
+        <button class="icon-button" title="Удалить правило"><svg class="icon"><use href="../web/icons.svg#i-trash"/></svg></button>
+      </div>
+    </div>
+    <div class="row-divider"></div>
+    <slot data-tpl="tpl-lesson-3"></slot>
+    <div class="row-divider"></div>
+    <div class="lesson">
+      <span class="lesson__new"></span>
+      <div class="lesson__body">
+        <div class="lesson__text md">Модалки закрываются через <code>useModal().close()</code>; прямой <code>setOpen(false)</code> обрывает анимацию закрытия</div>
+        <div class="lesson__meta"><button class="link-button">склеено разбором · из ревью PR #2754 · k.ivanov, d.orlova</button><span>· 3 недели назад</span></div>
+        <div class="lesson__usage"><svg class="icon"><use href="../web/icons.svg#i-bolt"/></svg>сработало: 6</div>
+      </div>
+      <div class="lesson__actions">
+        <button class="icon-button" title="Изменить правило"><svg class="icon"><use href="../web/icons.svg#i-edit"/></svg></button>
+        <button class="icon-button" title="Удалить правило"><svg class="icon"><use href="../web/icons.svg#i-trash"/></svg></button>
+      </div>
+    </div>
+    <div class="row-divider"></div>
+    <div class="lesson">
+      <span class="lesson__new"></span>
+      <div class="lesson__body">
+        <div class="lesson__text md">Тексты ошибок формы берутся из <code>FormErrors</code>; строк с ошибками прямо в JSX нет</div>
+        <div class="lesson__meta"><button class="link-button">из PR #2701, исправлено вручную</button><span>· 1 месяц назад</span></div>
+        <div class="lesson__usage"><svg class="icon"><use href="../web/icons.svg#i-bolt"/></svg>сработало: 14 · замечаний: 2 — исправлено 2, отклонено 0</div>
+      </div>
+      <div class="lesson__actions">
+        <button class="icon-button" title="Изменить правило"><svg class="icon"><use href="../web/icons.svg#i-edit"/></svg></button>
+        <button class="icon-button" title="Удалить правило"><svg class="icon"><use href="../web/icons.svg#i-trash"/></svg></button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-lesson-3">
+  <div class="lesson">
+    <span class="lesson__new"></span>
+    <div class="lesson__body">
+      <div class="lesson__text md">Право на правку карточки магазина проверяется через <code>canEdit(store)</code>, а не по роли пользователя</div>
+      <div class="lesson__meta"><span>добавлено вручную</span><span>· 12 дней назад</span></div>
+      <div class="lesson__usage"><svg class="icon"><use href="../web/icons.svg#i-bolt"/></svg>сработало: 11 · замечаний: 4 — исправлено 3, отклонено 1</div>
+    </div>
+    <div class="lesson__actions">
+      <button class="icon-button" title="Изменить правило"><svg class="icon"><use href="../web/icons.svg#i-edit"/></svg></button>
+      <button class="icon-button" title="Удалить правило"><svg class="icon"><use href="../web/icons.svg#i-trash"/></svg></button>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-lesson-3-edit">
+  <div class="lesson-editor">
+    <textarea class="text-field text-field--multiline" rows="2">Право на правку карточки магазина проверяется через `canEdit(store)`, а не по роли пользователя</textarea>
+    <div class="lesson-editor__buttons"><button class="button button--small">Отмена</button><button class="button button--small button--prominent">Сохранить</button></div>
+  </div>
+</template>
+
+<template id="tpl-sheet-rules">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__bar">
+    <div class="segmented"><button class="segmented__item" aria-selected="true">Правила · 67</button><button class="segmented__item">Разбор<span class="segmented__count">6</span></button><button class="segmented__item">Что менялось</button></div>
+  </div>
+  <div class="sheet__body" style="--sheet-body: 300px"><slot data-tpl="tpl-lessons"></slot></div>
+  <slot data-tpl="tpl-add"></slot>
+</template>
+
+<template id="tpl-sheet-edit">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__bar">
+    <div class="segmented"><button class="segmented__item" aria-selected="true">Правила · 67</button><button class="segmented__item">Разбор</button><button class="segmented__item">Что менялось</button></div>
+  </div>
+  <div class="sheet__body" style="--sheet-body: 240px"><div class="section__card"><slot data-tpl="tpl-lesson-3-edit"></slot></div></div>
+  <slot data-tpl="tpl-add"></slot>
+</template>
+
+<template id="tpl-review-tabs">
+  <div class="sheet__bar">
+    <div class="segmented"><button class="segmented__item">Правила · 67</button><button class="segmented__item" aria-selected="true">Разбор</button><button class="segmented__item">Что менялось</button></div>
+  </div>
+</template>
+
+<template id="tpl-sheet-plan">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <slot data-tpl="tpl-review-tabs"></slot>
+  <div class="sheet__body" style="--sheet-body: 340px">
+    <div class="plan-summary">
+      <div class="plan-summary__meta">Разбор 5 минут назад · $0.14 · правил 67 → 59</div>
+      <div class="plan-summary__text md">Восемь правил дублируют друг друга или описывают код, которого больше нет: <code>LegacyOrderTable</code> удалён в PR #2701. Правила про часовой пояс дат сведены в одно.</div>
+    </div>
+    <div class="section">
+      <div class="section__header">Склеить · 2</div>
+      <div class="section__card">
+        <div class="plan-action">
+          <div class="plan-action__reason">Оба правила про часовой пояс дат с сервера</div>
+          <div class="diff md">
+            <span class="diff__label">было</span>
+            <div class="diff__lines diff__before"><span>Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code><del>, иначе в заказе дата доставки сдвигается на сутки</del></span><span><del>В карточке заказа</del> дата доставки <del>форматируется без сдвига пояса</del></span></div>
+            <span class="diff__label">станет</span>
+            <div class="diff__lines"><span>Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code><ins> везде, где показывается</ins> дата доставки</span></div>
+          </div>
+        </div>
+        <div class="row-divider"></div>
+        <div class="plan-action">
+          <div class="plan-action__reason">Три правила об одном: загрузка списков постранично</div>
+          <div class="diff md">
+            <span class="diff__label">было</span>
+            <div class="diff__lines diff__before"><span>Списки магазинов грузятся постранично через <code>useInfiniteQuery</code><del>;</del> <code>limit</code> больше 50 бэкенд обрезает молча</span><span><del>Акции тоже грузить через</del> <code>useInfiniteQuery</code></span><span><del>Не запрашивать больше 50 записей за раз</del></span></div>
+            <span class="diff__label">станет</span>
+            <div class="diff__lines"><span>Списки <ins>магазинов и акций</ins> грузятся постранично через <code>useInfiniteQuery</code><ins>:</ins> <code>limit</code> больше 50 бэкенд обрезает молча</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">Переписать · 1</div>
+      <div class="section__card">
+        <div class="plan-action">
+          <div class="plan-action__reason">Размыто: не сказано, чем закрывать</div>
+          <div class="diff md">
+            <span class="diff__label">было</span>
+            <div class="diff__lines diff__before"><span>Модалки <del>закрывать правильно, без рывков</del></span></div>
+            <span class="diff__label">станет</span>
+            <div class="diff__lines"><span>Модалки <ins>закрываются через <code>useModal().close()</code>; прямой <code>setOpen(false)</code> обрывает анимацию закрытия</ins></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">Удалить · 3</div>
+      <div class="section__card">
+        <div class="plan-action">
+          <div class="plan-action__reason md">Кода больше нет в основной ветке: <code>LegacyOrderTable</code> удалён</div>
+          <div class="plan-action__dropped md">Колонки в <code>LegacyOrderTable</code> задаются через <code>columnsConfig</code></div>
+          <div class="plan-action__dropped md">Сортировка <code>LegacyOrderTable</code> — только на клиенте</div>
+        </div>
+        <div class="row-divider"></div>
+        <div class="plan-action">
+          <div class="plan-action__reason">Деталь одного PR</div>
+          <div class="plan-action__dropped">В PR #2688 кнопку «Сохранить» переименовать в «Готово»</div>
+        </div>
+        <div class="row-divider"></div>
+        <div class="plan-action">
+          <div class="plan-action__reason">Общая истина, ревью и так это знает</div>
+          <div class="plan-action__dropped">Не оставлять console.log в коде</div>
+          <div class="plan-action__dropped">Имена переменных должны быть понятными</div>
+        </div>
+      </div>
+    </div>
+    <div class="plan-kept">Без изменений: 56</div>
+  </div>
+  <div class="sheet__footer">
+    <button class="button" title="Удалить план — память останется как есть">Отказаться</button>
+    <span class="spacer"></span>
+    <button class="button button--prominent" title="Склеить, переписать и удалить правила по плану. Применённый разбор можно откатить: pr-reviewer memory restore frontend">Применить</button>
+  </div>
+</template>
+
+<template id="tpl-sheet-intro">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <slot data-tpl="tpl-review-tabs"></slot>
+  <div class="sheet__body" style="--sheet-body: 230px">
+    <div class="info-card">
+      <div class="info-card__row">
+        <svg class="icon info-card__icon"><use href="../web/icons.svg#i-fix"/></svg>
+        <div class="info-card__text">
+          <span class="info-card__title">Разобрать память</span>
+          <span class="info-card__body">Модель просмотрит правила вместе с их срабатываниями и предложит склеить дубли, переписать размытые и удалить бесполезные: детали одного PR, общие истины и правила про код, которого больше нет в основной ветке. Пока вы не примените план, память не меняется.</span>
+        </div>
+      </div>
+      <span class="info-card__hint">Займёт 1–3 минуты и стоит около $0.1–0.2. Правила, добавленные или исправленные вручную, разбор не трогает.</span>
+    </div>
+  </div>
+  <div class="sheet__footer"><span class="spacer"></span><button class="button button--prominent">Разобрать память</button></div>
+</template>
+
+<template id="tpl-sheet-progress">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__bar">
+    <div class="segmented"><button class="segmented__item">Правила · 67</button><button class="segmented__item" aria-selected="true">Разбор…</button><button class="segmented__item">Что менялось</button></div>
+  </div>
+  <div class="sheet__body" style="--sheet-body: 230px">
+    <div class="info-card">
+      <div class="info-card__row">
+        <svg class="icon hourglass" style="color: var(--blue); font-size: 15px; margin-top: 1px"><use href="../web/icons.svg#i-hourglass"/></svg>
+        <div class="info-card__text">
+          <span class="status-label" style="--c: var(--blue)">Идёт разбор · 1 мин 12 с</span>
+          <span class="info-card__body">Обычно 1–3 минуты. Лист можно закрыть: разбор продолжится, а план появится здесь.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet__footer" style="height:24px"></div>
+</template>
+
+<template id="tpl-sheet-outdated">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <slot data-tpl="tpl-review-tabs"></slot>
+  <div class="sheet__body" style="--sheet-body: 230px">
+    <div class="plan-summary">
+      <div class="plan-summary__meta">Разбор 2 дня назад · $0.12 · правил 64 → 58</div>
+      <div class="plan-summary__text">Шесть правил описывают удалённые компоненты или повторяют друг друга.</div>
+      <span class="status-label" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg>Память изменилась после разбора — этот план уже не применить. Запустите разбор заново.</span>
+    </div>
+    <div class="section"><div class="section__header">Удалить · 4</div><div class="section__card"><div class="plan-action"><div class="plan-action__reason">Деталь одного PR</div><div class="plan-action__dropped">В PR #2688 кнопку «Сохранить» переименовать в «Готово»</div></div></div></div>
+  </div>
+  <div class="sheet__footer"><button class="button">Отказаться</button><span class="spacer"></span><button class="button button--prominent">Разобрать заново</button></div>
+</template>
+
+<template id="tpl-sheet-applied">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <slot data-tpl="tpl-review-tabs"></slot>
+  <div class="sheet__body" style="--sheet-body: 230px">
+    <span class="status-label" style="--c: var(--fate-addressed)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg>План применён: правил было 67, стало 59</span>
+    <div class="info-card">
+      <div class="info-card__row">
+        <svg class="icon info-card__icon"><use href="../web/icons.svg#i-fix"/></svg>
+        <div class="info-card__text">
+          <span class="info-card__title">Разобрать память</span>
+          <span class="info-card__body">Модель просмотрит правила вместе с их срабатываниями и предложит склеить дубли, переписать размытые и удалить бесполезные…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet__footer"><span class="spacer"></span><button class="button button--prominent">Разобрать память</button></div>
+</template>
+
+<template id="tpl-sheet-history">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__bar">
+    <div class="segmented"><button class="segmented__item">Правила · 59</button><button class="segmented__item">Разбор</button><button class="segmented__item" aria-selected="true">Что менялось</button></div>
+  </div>
+  <div class="sheet__body" style="--sheet-body: 340px">
+    <div class="history-entry">
+      <div class="history-entry__head"><span class="tag" style="--tag-color: var(--purple)">Разбор памяти</span><span>26 нояб., 11:42</span><button class="button button--small" title="Вернуть память к копии, сохранённой перед этим разбором">Откатить</button></div>
+      <div class="history-entry__reason md">Восемь правил дублируют друг друга или описывают код, которого больше нет: <code>LegacyOrderTable</code> удалён в PR #2701.</div>
+      <div class="history-line md"><svg class="icon history-line__icon" style="--c: var(--purple)"><use href="../web/icons.svg#i-merge"/></svg><div class="history-line__body"><span class="history-line__why">Оба правила про часовой пояс дат с сервера</span>
+        <div class="diff"><span class="diff__label">было</span><div class="diff__lines diff__before"><span>Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code><del>, иначе в заказе дата доставки сдвигается на сутки</del></span><span><del>В карточке заказа</del> дата доставки <del>форматируется без сдвига пояса</del></span></div><span class="diff__label">станет</span><div class="diff__lines"><span>Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code><ins> везде, где показывается</ins> дата доставки</span></div></div></div></div>
+      <div class="history-line md"><svg class="icon history-line__icon" style="--c: var(--red)"><use href="../web/icons.svg#i-minus"/></svg><div class="history-line__body"><span class="history-line__removed">Колонки в <code>LegacyOrderTable</code> задаются через <code>columnsConfig</code></span><span class="history-line__note">Кода больше нет в основной ветке</span></div></div>
+    </div>
+    <div class="history-entry">
+      <div class="history-entry__head"><span class="tag" style="--tag-color: var(--fate-waiting)">Выучено</span><span>25 нояб., 18:05</span><button class="link-button" title="Открыть PR в Bitbucket">PR #2817</button></div>
+      <div class="history-line md"><svg class="icon history-line__icon" style="--c: var(--green)"><use href="../web/icons.svg#i-plus"/></svg><div class="history-line__body"><span>Даты с сервера приходят в UTC: <code>formatDate</code> вызывается с <code>{ timeZone: 'UTC' }</code>, иначе в заказе дата доставки сдвигается на сутки</span></div></div>
+    </div>
+    <div class="history-entry">
+      <div class="history-entry__head"><span class="tag" style="--tag-color: var(--fate-dismissed)">Вытеснено</span><span>24 нояб., 09:30</span></div>
+      <div class="history-line md"><svg class="icon history-line__icon" style="--c: var(--red)"><use href="../web/icons.svg#i-minus"/></svg><div class="history-line__body"><span class="history-line__removed">Иконки кнопок берутся из <code>@workspace/icons</code></span><span class="history-line__note">не срабатывало 40 ревью подряд</span></div></div>
+    </div>
+    <div class="history-entry">
+      <div class="history-entry__head"><span class="tag">Исправлено вручную</span><span>20 нояб., 16:12</span></div>
+      <div class="history-line md"><svg class="icon history-line__icon" style="--c: var(--orange)"><use href="../web/icons.svg#i-edit"/></svg><div class="history-line__body">
+        <div class="diff"><span class="diff__label">было</span><div class="diff__lines diff__before"><span>Тексты ошибок формы <del>хранятся в</del> <code>FormErrors</code></span></div><span class="diff__label">станет</span><div class="diff__lines"><span>Тексты ошибок формы <ins>берутся из</ins> <code>FormErrors</code><ins>; строк с ошибками прямо в JSX нет</ins></span></div></div></div></div>
+    </div>
+  </div>
+  <slot data-tpl="tpl-add"></slot>
+</template>
+
+<template id="tpl-sheet-empty">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__body" style="--sheet-body: 300px">
+    <div class="info-card" style="gap: 12px">
+      <div class="info-card__row" style="align-items:center">
+        <svg class="icon info-card__icon"><use href="../web/icons.svg#i-history"/></svg>
+        <div class="info-card__text">
+          <span class="info-card__title">Изучить историю репозитория</span>
+          <span class="info-card__body">Модель прочитает комментарии людей в последних PR — открытых, влитых и отклонённых — и выделит правила, по которым команда ревьюит код. Разовые предпочтения по именам и стилю не попадут.</span>
+        </div>
+      </div>
+      <div class="info-card__controls">
+        Последние
+        <div class="segmented" style="--segment-width: 70px"><button class="segmented__item">50 PR</button><button class="segmented__item" aria-selected="true">100 PR</button><button class="segmented__item">300 PR</button></div>
+        <span class="spacer"></span>
+        <button class="button">Изучить</button>
+      </div>
+      <span class="info-card__hint">Займёт несколько минут; модель вызывается пачками по 30 обсуждений. Дальше память пополняется сама по новым комментариям.</span>
+    </div>
+  </div>
+  <slot data-tpl="tpl-add"></slot>
+</template>
+
+<template id="tpl-sheet-broken">
+  <slot data-tpl="tpl-sheet-head"></slot>
+  <div class="sheet__body" style="--sheet-body: 230px">
+    <div class="info-card" style="gap: 8px">
+      <span class="status-label status-label--strong" style="--c: var(--red)"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg>Файл памяти повреждён</span>
+      <span class="info-card__mono">Unexpected token } in JSON at position 18342 (line 412 column 3)</span>
+      <span class="info-card__body">Пока файл не исправлен, ревью идёт без правил этого репозитория, а новые правила не сохраняются — так прежние не затрутся.</span>
+      <div><button class="button">Открыть в VS Code</button></div>
+    </div>
+  </div>
+  <div class="sheet__footer" style="opacity: var(--disabled-opacity)">
+    <input class="text-field" placeholder="Своё правило, например: «`formatDate` всегда получает UTC»" disabled>
+    <button class="button" disabled>Добавить</button>
+  </div>
+</template>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="arrow" viewBox="0 0 24 11"><path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor"/></symbol>
+</svg>
+
+<script>
+  // Фон под листом — обзор из макета поповера: шаблоны берутся оттуда, чтобы разметка была в одном месте
+  function stamp(root) {
+    root.querySelectorAll('slot[data-tpl]').forEach(slot => {
+      const content = document.getElementById(slot.dataset.tpl).content.cloneNode(true);
+      stamp(content);
+      slot.replaceWith(content);
+    });
+    return root;
+  }
+  const sheet = name => {
+    const box = document.createElement('div');
+    box.className = 'sheet';
+    box.appendChild(stamp(document.getElementById('tpl-sheet-' + name).content.cloneNode(true)));
+    return box;
+  };
+  fetch('2026-11-25-tauri-popover.html').then(r => r.text()).then(html => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('template').forEach(t => { if (!document.getElementById(t.id)) document.body.appendChild(document.importNode(t, true)); });
+    document.querySelectorAll('[data-template]').forEach(frame => {
+      const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
+      if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
+      const pop = content.querySelector('.popover');
+      pop.classList.add('popover--sheet');
+      pop.removeAttribute('style');
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sheet-backdrop';
+      backdrop.appendChild(sheet(frame.dataset.sheet));
+      pop.appendChild(backdrop);
+      frame.appendChild(content);
+    });
+  });
+  document.querySelectorAll('.solo [data-sheet]').forEach(box => box.appendChild(sheet(box.dataset.sheet)));
+</script>
+</body>
+</html>
