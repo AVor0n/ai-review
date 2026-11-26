@@ -1,0 +1,889 @@
+/*
+ * PR Reviewer — компоненты веб-интерфейса на токенах tokens.css.
+ * Каталог со всеми состояниями: product/design/mockups/2026-11-25-web-components.html.
+ *
+ * Иконки — спрайт icons.svg: <svg class="icon"><use href="icons.svg#i-bubble"/></svg>.
+ * Размер иконки задаётся font-size родителя или классом icon--N.
+ * Подсказки — атрибут title: WKWebView и WebView2 показывают их системными, как .help в SwiftUI.
+ */
+
+/* ---------- Основа ---------- */
+
+.app {
+  font-family: var(--font);
+  font-size: var(--text-body);
+  line-height: var(--line-tight);
+  color: var(--label);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  /* Поповер — не документ: текст выделяется только там, где это задумано (.selectable) */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+
+:where(.app) *,
+:where(.app) *::before,
+:where(.app) *::after {
+  box-sizing: border-box;
+}
+
+/* :where — сброс без веса, чтобы классы компонентов на <button> его перебивали */
+:where(.app) button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: default;
+}
+
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.icon {
+  display: block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+}
+
+.icon--10 { font-size: 10px; }
+.icon--12 { font-size: 12px; }
+.icon--14 { font-size: 14px; }
+.icon--15 { font-size: 15px; }
+
+.text-2 { color: var(--label-2); }
+.text-3 { color: var(--label-3); }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ProgressView mini */
+.spinner {
+  display: block;
+  width: 12px;
+  height: 12px;
+  color: var(--label-2);
+  animation: spin 0.8s steps(8) infinite;
+}
+
+/* ---------- Сегментный контрол (SegmentedPicker) ---------- */
+
+.segmented {
+  display: inline-flex;
+  padding: var(--space-2);
+  background: var(--track);
+  border-radius: var(--radius-control);
+}
+
+.segmented__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: var(--segment-width);
+  height: var(--segment-height);
+  font-size: var(--text-callout);
+  border-radius: var(--radius-thumb);
+  transition: background-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
+}
+
+.segmented__item[aria-selected="true"] {
+  font-weight: var(--weight-semibold);
+  background: var(--thumb);
+  box-shadow: var(--shadow-thumb);
+}
+
+/* Узкие сегменты периода в статистике: «7 дн.» */
+.segmented--compact .segmented__item {
+  width: 52px;
+}
+
+.segmented__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 15px;
+  padding: 0 5px;
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--on-tint);
+  background: var(--accent);
+  border-radius: var(--radius-capsule);
+}
+
+/* Шапка поповера: сегменты по центру */
+.tabs {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-14) 0 var(--space-10);
+}
+
+/* ---------- Кнопки ---------- */
+
+/* Текст акцентного цвета без рамки — кнопки в баннерах и строке статуса */
+.link-button {
+  font-size: var(--text-callout);
+  font-weight: var(--weight-medium);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.link-button--destructive {
+  color: var(--red);
+}
+
+/* Иконка-кнопка без рамки: ▶ ■ ↻ в строке статуса. Зона клика 20×20, глиф 14 */
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: var(--hit-icon);
+  height: var(--hit-icon);
+  font-size: 14px;
+  color: var(--label-2);
+}
+
+/* Крестик баннера */
+.close-button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  color: var(--label-2);
+}
+
+/* Кнопка на дорожке: камера «Сохранить картинкой» */
+.square-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  color: var(--label);
+  background: var(--track);
+  border-radius: var(--radius-control);
+}
+
+/* Кнопка пустого состояния и листов */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: 24px;
+  padding: 0 var(--space-12);
+  font-size: var(--text-callout);
+  font-weight: var(--weight-medium);
+  color: var(--label);
+  background: var(--track);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+.button--prominent {
+  color: var(--on-tint);
+  background: var(--accent);
+}
+
+/* ---------- Строка статуса обзора ---------- */
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: 36px;
+  padding: var(--space-8) var(--status-inset);
+}
+
+.status-dot {
+  flex: none;
+  width: var(--status-dot);
+  height: var(--status-dot);
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.status-dot--running { background: var(--blue); }
+.status-dot--paused { background: var(--orange); }
+.status-dot--offline { background: var(--gray); }
+
+.status-text {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-callout);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Несколько ревью: «Идут ревью: ◆ frontend #2828 · ◆ backend #2058» */
+.status-text__mark {
+  width: 11px;
+  height: 11px;
+  margin-right: var(--space-3);
+}
+
+.status-text__sep {
+  color: var(--label-3);
+  white-space: pre;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* ---------- Значки моделей ---------- */
+
+/* Знак модели — маска по логотипу из logos/, цвет — фон. Пути к логотипам от этого файла */
+.model-mark {
+  display: block;
+  flex: none;
+  width: var(--model-mark);
+  height: var(--model-mark);
+  background: var(--mark-color, var(--model-color));
+  -webkit-mask: var(--mark) center / contain no-repeat;
+  mask: var(--mark) center / contain no-repeat;
+}
+
+.model--claude { --model-color: var(--model-claude); --mark: url("logos/claude-spark.svg"); }
+.model--codex { --model-color: var(--model-codex); --mark: url("logos/openai-blossom.svg"); }
+.model--cursor { --model-color: var(--model-cursor); --mark: url("logos/cursor-cube.svg"); }
+
+/* Кнопка ревью моделью в строке PR (AgentReviewButton). Состояние — data-state */
+.model-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--hit-icon);
+  height: var(--hit-icon);
+}
+
+.model-button[data-state="none"],
+.model-button[data-state="queued"] {
+  --mark-color: color-mix(in srgb, var(--label-2) 40%, transparent);
+}
+
+.model-button[data-state="stale"] {
+  --mark-color: color-mix(in srgb, var(--model-color) 45%, transparent);
+}
+
+/* В очереди и во время ревью знак крутится: оборот за 2 с. Бейдж в это время не показывается */
+.model-button[data-state="queued"] .model-mark,
+.model-button[data-state="running"] .model-mark {
+  animation: spin var(--spin-period) linear infinite;
+}
+
+.model-button[data-state="queued"] .model-badge,
+.model-button[data-state="running"] .model-badge {
+  display: none;
+}
+
+/* Бейдж особого состояния: песочные часы — лимит исчерпан, пауза — только вручную */
+.model-badge {
+  position: absolute;
+  right: -0.5px;
+  bottom: -0.5px;
+  display: grid;
+  place-items: center;
+  width: var(--model-badge);
+  height: var(--model-badge);
+  color: var(--on-tint);
+  background: var(--badge-color, var(--gray));
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--card);
+}
+
+.model-badge .icon {
+  font-size: var(--model-badge);
+}
+
+.model-badge--limit { --badge-color: var(--red); }
+.model-badge--manual { --badge-color: var(--gray); }
+
+/* ---------- Капсулы и теги ---------- */
+
+/* Капсула в строке статуса: модель с исчерпанным лимитом или только для ручного запуска */
+.capsule {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) 7px;
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-semibold);
+  color: var(--label-2);
+  background: color-mix(in srgb, var(--label-2) var(--tint-tag), transparent);
+  border-radius: var(--radius-capsule);
+  white-space: nowrap;
+}
+
+.capsule--limit {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) var(--tint-banner-strong), transparent);
+}
+
+/* Знак в капсуле меньше, чем в строке: 15 × 0.8 */
+.capsule .model-button {
+  width: 16px;
+  height: 16px;
+}
+
+.capsule .model-mark {
+  --model-mark: 12px;
+}
+
+.capsule .model-badge {
+  --model-badge: 8px;
+  right: 0;
+  bottom: 0;
+}
+
+/* Тонированная капсула (Tag): Draft, Untracked, P0, P1 +2 */
+.tag {
+  display: inline-block;
+  flex: none;
+  padding: var(--space-2) var(--space-6);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  color: var(--tag-color, var(--label-2));
+  background: color-mix(in srgb, var(--tag-color, var(--label-2)) var(--tint-tag), transparent);
+  border-radius: var(--radius-capsule);
+  white-space: nowrap;
+}
+
+.tag--red { --tag-color: var(--red); }
+.tag--orange { --tag-color: var(--orange); }
+.tag--green { --tag-color: var(--green); }
+.tag--accent { --tag-color: var(--accent); }
+
+/* ---------- Баннеры ---------- */
+
+.banners {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding-bottom: var(--space-12);
+}
+
+/* Цвет баннера — модификатор; фон — тот же цвет на 10–12 % */
+.banner {
+  --banner-color: var(--orange);
+  --banner-icon: var(--banner-color);
+  --banner-tint: var(--tint-banner);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  margin: 0 var(--screen-inset);
+  padding: var(--space-12);
+  background: color-mix(in srgb, var(--banner-color) var(--banner-tint), transparent);
+  border-radius: var(--radius-card);
+}
+
+/* Проблема в работе: проход завис, ошибка запуска, не прочитаны данные */
+.banner--alert { --banner-color: var(--orange); }
+/* Срочно: токен истёк, память повреждена или заполнена, сервис не отвечает */
+.banner--critical { --banner-color: var(--red); }
+/* Скоро понадобится внимание: токен истекает, память почти заполнена */
+.banner--warning { --banner-color: var(--yellow); --banner-icon: var(--orange); --banner-tint: var(--tint-banner-strong); }
+/* Информация: новые правила в памяти */
+.banner--info { --banner-color: var(--accent); }
+
+.banner__icon {
+  margin-top: 1px;
+  font-size: 15px;
+  color: var(--banner-icon);
+}
+
+.banner__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.banner__title {
+  font-size: var(--text-callout);
+  font-weight: var(--weight-semibold);
+}
+
+.banner__text {
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.banner__text--clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.banner__text code {
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+}
+
+.banner__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-10);
+}
+
+/* «Ещё 2 сообщения ⌄» под первым баннером */
+.banner-more {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: calc(100% - var(--status-inset) - var(--screen-inset));
+  height: 20px;
+  margin: calc(var(--space-12) * -1 + var(--space-4)) 0 0 var(--status-inset);
+  font-size: var(--text-callout);
+  color: var(--label-2);
+}
+
+.banner-more .icon {
+  font-size: 10px;
+}
+
+/* ---------- Сгруппированный список ---------- */
+
+.screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--screen-inset) var(--screen-inset);
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Заголовок над карточкой: капслоком, кроме частей с .section__plain (подписи и время) */
+.section__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--space-12);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  color: var(--label-2);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.section__plain {
+  text-transform: none;
+}
+
+.section__chevron {
+  font-size: 9px;
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.section--expanded .section__chevron {
+  transform: rotate(90deg);
+}
+
+.section__card {
+  overflow: hidden;
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.section__footer {
+  padding: 0 var(--space-12);
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.section__empty {
+  padding: var(--space-12);
+  font-size: var(--text-body);
+  color: var(--label-2);
+}
+
+/* Волосяная линия, отступ слева — до начала текста строки */
+.row-divider {
+  margin-left: var(--divider-inset, var(--space-12));
+  border-top: 0.5px solid var(--separator);
+}
+
+.row-divider--pr {
+  --divider-inset: var(--row-divider-inset);
+}
+
+/* ---------- Строка PR (PullRequestRow) ---------- */
+
+.pr-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: var(--row-pad-y) var(--row-pad-x);
+}
+
+.pr-row:hover {
+  background: var(--hover);
+}
+
+/* Черновик приглушён и проявляется под курсором */
+.pr-row--dimmed {
+  opacity: var(--dim-opacity);
+}
+
+.pr-row--dimmed:hover {
+  opacity: 1;
+}
+
+.pr-row__models {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+.pr-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.pr-row__title {
+  display: flex;
+  gap: var(--space-6);
+  font-size: var(--text-body);
+  white-space: nowrap;
+}
+
+.pr-row__id {
+  color: var(--label-2);
+}
+
+.pr-row__name,
+.pr-row__meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-row__meta {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.pr-row__updated {
+  flex: none;
+  width: 92px;
+  font-size: var(--text-callout);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Счётчик тредов: «1/3». Нет тредов — серый «0»; все закрыты — зелёный; чистое ревью — зелёный пузырь с галочкой */
+.threads {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-callout);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+}
+
+.threads .icon {
+  font-size: 13px;
+}
+
+.threads--none { color: var(--label-3); }
+.threads--resolved { color: var(--green); }
+.threads--clean { color: var(--green); }
+
+/* Доработка, архитектурное ревью, тестирование: иконка 15 в зоне 22×22 */
+.row-action {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--hit-row-action);
+  height: var(--hit-row-action);
+  font-size: 15px;
+  color: var(--action-color, var(--label-2));
+}
+
+.row-action:disabled {
+  opacity: var(--disabled-opacity);
+}
+
+.row-action--green { --action-color: var(--green); }
+.row-action--yellow { --action-color: var(--yellow); }
+.row-action--orange { --action-color: var(--orange); }
+.row-action--red { --action-color: var(--red); }
+.row-action--accent { --action-color: var(--accent); }
+
+/* Отчёт снят на старом коммите */
+.row-action--stale .icon {
+  opacity: var(--dim-opacity);
+}
+
+/* ---------- Плитка и фильтры (статистика) ---------- */
+
+.kpi-row {
+  display: flex;
+  gap: var(--space-10);
+}
+
+.kpi {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-12);
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.kpi__title {
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  color: var(--label-2);
+}
+
+.kpi__value {
+  overflow: hidden;
+  font-size: var(--text-large-title);
+  font-weight: var(--weight-semibold);
+  line-height: 1.15;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.kpi__detail {
+  overflow: hidden;
+  min-height: 1.25em;
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0 var(--screen-inset) var(--space-10);
+}
+
+/* Фильтр-меню: по клику — системное меню (menu.popup() в Tauri), а не своё выпадающее */
+.filter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  font-size: var(--text-callout);
+  color: var(--label-2);
+  background: var(--track);
+  border-radius: var(--radius-control);
+  white-space: nowrap;
+}
+
+.filter .icon {
+  font-size: 13px;
+}
+
+.filter__chevron.icon {
+  font-size: 8px;
+}
+
+.filter--active {
+  font-weight: var(--weight-semibold);
+  color: var(--label);
+}
+
+/* ---------- Пустое состояние (ContentUnavailableView) ---------- */
+
+.empty-state {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-28);
+  text-align: center;
+}
+
+.empty-state__icon {
+  font-size: 40px;
+  color: var(--label-2);
+}
+
+.empty-state__title {
+  margin-top: var(--space-4);
+  font-size: var(--text-title2);
+  font-weight: var(--weight-bold);
+}
+
+.empty-state__text {
+  max-width: 520px;
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
+
+.empty-state .button {
+  margin-top: var(--space-6);
+}
+
+/* ---------- Окно-поповер ---------- */
+
+/*
+ * Окно приложения прозрачное и без рамки, поповер рисуется внутри с полями под тень.
+ * Mac: стрелка сверху указывает на значок, --arrow-x — её центр от левого края поповера.
+ * Windows: без стрелки, над значком у панели задач, как всплывающие панели Windows 11.
+ */
+.popover-frame {
+  position: relative;
+  width: var(--popover-width);
+  filter: drop-shadow(0 0 0.5px rgba(0, 0, 0, 0.35)) drop-shadow(0 10px 24px rgba(0, 0, 0, 0.2));
+}
+
+[data-theme="dark"] .popover-frame,
+.popover-frame[data-theme="dark"] {
+  filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.35)) drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+}
+
+.popover {
+  display: flex;
+  flex-direction: column;
+  width: var(--popover-width);
+  height: var(--popover-height);
+  overflow: hidden;
+  background: var(--bg);
+  border-radius: var(--popover-radius, var(--radius-popover-mac));
+}
+
+.popover-frame--mac {
+  padding-top: var(--popover-arrow);
+}
+
+.popover-frame--mac .popover__arrow {
+  position: absolute;
+  top: 0;
+  left: calc(var(--arrow-x, 50%) - 12px);
+  width: 24px;
+  height: calc(var(--popover-arrow) + 1px);
+  color: var(--bg);
+}
+
+.popover-frame--win {
+  --popover-radius: var(--radius-popover-win);
+}
+
+.popover-frame--win .popover {
+  border: 1px solid color-mix(in srgb, var(--label) 12%, transparent);
+}
+
+/* Команда в баннере: моноширинно, отдельной строкой, выделяется и копируется кнопкой */
+.banner__command {
+  margin-top: var(--space-4);
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  color: var(--label);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .popover-frame:not([data-theme="light"]) {
+    filter: drop-shadow(0 0 0.5px rgba(255, 255, 255, 0.35)) drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+  }
+}
+
+/* ---------- Заглушка неперенесённого экрана ---------- */
+
+/* Пустое состояние с текстом по системе; на Windows под ним команды для WSL */
+.stub .empty-state__icon {
+  font-size: 36px;
+}
+
+.command-list {
+  width: 520px;
+  margin-top: var(--space-10);
+  overflow: hidden;
+  text-align: left;
+  background: var(--card);
+  border-radius: var(--radius-card);
+}
+
+.command {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-12);
+}
+
+.command + .command {
+  border-top: 0.5px solid var(--separator);
+}
+
+.command__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.command__text {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-callout);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.command__note {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.command .icon-button {
+  font-size: 13px;
+}
