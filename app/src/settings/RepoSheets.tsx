@@ -91,7 +91,7 @@ export const IgnoreSheet = ({ patterns, onAdd, onRemove, onClose }: { patterns: 
                         {index > 0 && <div className="row-divider" />}
                         <div className="settings-row" style={{ minHeight: 0, paddingBlock: 7 }}>
                             <span className="settings-row__title settings-row__value--mono selectable">{item}</span>
-                            <button className="icon-button" style={{ color: 'var(--red)', fontSize: 15 }} title="Снова отдавать моделям" onClick={() => run(onRemove(item))}>
+                            <button className="icon-button icon-button--remove" title="Снова отдавать моделям" onClick={() => run(onRemove(item))}>
                                 <Icon id="i-minus-circle-fill" />
                             </button>
                         </div>
