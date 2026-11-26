@@ -61,7 +61,7 @@ export const trayModel = (data: Data | null, prefs: Prefs, now = new Date()): Tr
     const muteLine = muted ? `\nУведомления: ${muteSummary(prefs, now).toLowerCase()}` : '';
     if (!data?.status)
         return {
-            icon: { glyph: { kind: 'icon', id: 'i-bubble-slash' }, color: 'template', spin: false, blink: false, count: 0 },
+            icon: { glyph: { kind: 'icon', id: 'i-tray-offline' }, color: 'template', spin: false, blink: false, count: 0 },
             tooltip: `PR Reviewer: сервис не отвечает${muteLine}`,
             // Пункты ревью скрыты: без сервиса они ничего не сделают
             menu: [{ kind: 'item', text: 'Сервис не отвечает', enabled: false }, { kind: 'separator' }, ...notificationItems(prefs, now), { kind: 'separator' }, quit],
@@ -75,7 +75,7 @@ export const trayModel = (data: Data | null, prefs: Prefs, now = new Date()): Tr
     let tooltip: string;
     if (stall) {
         // Зависший проход важнее крутящегося значка модели: иначе выглядит, будто ревью идёт
-        icon = { glyph: { kind: 'icon', id: 'i-warning-fill' }, color: 'orange', spin: false, blink: true, count };
+        icon = { glyph: { kind: 'icon', id: 'i-tray-stall' }, color: 'orange', spin: false, blink: true, count };
         tooltip = `PR Reviewer: проход ревью не продвигается ${stall.minutes} мин — прервать можно в обзоре`;
     } else if (reviews.length) {
         // Крутится значок ревью, начавшегося раньше всех: running упорядочен по времени начала
@@ -85,16 +85,16 @@ export const trayModel = (data: Data | null, prefs: Prefs, now = new Date()): Tr
         icon = { glyph: { kind: 'mark', agent: 'claude' }, color: 'template', spin: true, blink: false, count };
         tooltip = 'PR Reviewer: доработка PR по замечаниям · Claude';
     } else if (isPaused(status)) {
-        icon = { glyph: { kind: 'icon', id: 'i-pause-fill' }, color: 'template', spin: false, blink: false, count };
+        icon = { glyph: { kind: 'icon', id: 'i-tray-paused' }, color: 'template', spin: false, blink: false, count };
         tooltip = 'PR Reviewer: пауза';
     } else if (isRunning(status)) {
-        icon = { glyph: { kind: 'icon', id: 'i-bubble' }, color: 'template', spin: false, blink: false, count };
+        icon = { glyph: { kind: 'icon', id: 'i-tray-checking' }, color: 'template', spin: false, blink: false, count };
         tooltip = 'PR Reviewer: идёт проверка PR';
     } else if (status.phase === 'error') {
-        icon = { glyph: { kind: 'icon', id: 'i-bubble-warning' }, color: 'red', spin: false, blink: false, count };
+        icon = { glyph: { kind: 'icon', id: 'i-tray-error' }, color: 'red', spin: false, blink: false, count };
         tooltip = 'PR Reviewer: ошибка';
     } else {
-        icon = { glyph: { kind: 'icon', id: 'i-bubble-check' }, color: 'template', spin: false, blink: false, count };
+        icon = { glyph: { kind: 'icon', id: 'i-tray-idle' }, color: 'template', spin: false, blink: false, count };
         tooltip = 'PR Reviewer: ожидание';
     }
     if (count > 0) tooltip += `\nPR без ревью на текущем коммите: ${count}`;

@@ -157,16 +157,16 @@ describe('баннеры', () => {
 });
 
 describe('трей', () => {
-    it('сервис не отвечает: значок i-bubble-slash, пунктов ревью нет', () => {
+    it('сервис не отвечает: значок i-tray-offline, пунктов ревью нет', () => {
         const model = trayModel(null, defaultPrefs(), NOW);
-        expect(model.icon.glyph).toEqual({ kind: 'icon', id: 'i-bubble-slash' });
+        expect(model.icon.glyph).toEqual({ kind: 'icon', id: 'i-tray-offline' });
         expect(model.tooltip).toBe('PR Reviewer: сервис не отвечает');
         expect(texts(model.menu)).toEqual(['Сервис не отвечает', 'Выключить уведомления', 'Выйти из PR Reviewer']);
     });
 
     it('ожидание: галочка и число PR без ревью', () => {
         const model = trayModel(data(), defaultPrefs(), NOW);
-        expect(model.icon).toMatchObject({ glyph: { kind: 'icon', id: 'i-bubble-check' }, count: 1, spin: false });
+        expect(model.icon).toMatchObject({ glyph: { kind: 'icon', id: 'i-tray-idle' }, count: 1, spin: false });
         expect(model.tooltip).toBe('PR Reviewer: ожидание\nPR без ревью на текущем коммите: 1');
         expect(model.menu[0]).toMatchObject({ text: 'Следующий проход через 12 мин' });
     });
@@ -179,9 +179,9 @@ describe('трей', () => {
     });
 
     it('завис — оранжевый треугольник мигает; пауза; ошибка — красный', () => {
-        expect(trayModel(data({ status: status({ workerRunning: true, heartbeat: minutesAgo(25) }) }), defaultPrefs(), NOW).icon).toMatchObject({ glyph: { id: 'i-warning-fill' }, color: 'orange', blink: true });
-        expect(trayModel(data({ status: status({ paused: true }) }), defaultPrefs(), NOW).icon.glyph).toEqual({ kind: 'icon', id: 'i-pause-fill' });
-        expect(trayModel(data({ status: status({ phase: 'error' }) }), defaultPrefs(), NOW).icon).toMatchObject({ glyph: { id: 'i-bubble-warning' }, color: 'red' });
+        expect(trayModel(data({ status: status({ workerRunning: true, heartbeat: minutesAgo(25) }) }), defaultPrefs(), NOW).icon).toMatchObject({ glyph: { id: 'i-tray-stall' }, color: 'orange', blink: true });
+        expect(trayModel(data({ status: status({ paused: true }) }), defaultPrefs(), NOW).icon.glyph).toEqual({ kind: 'icon', id: 'i-tray-paused' });
+        expect(trayModel(data({ status: status({ phase: 'error' }) }), defaultPrefs(), NOW).icon).toMatchObject({ glyph: { id: 'i-tray-error' }, color: 'red' });
     });
 
     it('уведомления выключены: строка срока и «Включить уведомления»', () => {

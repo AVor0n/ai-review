@@ -16,10 +16,15 @@ const BLINK_TICKS = 12;
 
 const isWindows = navigator.userAgent.includes('Windows');
 
+// Значки трея i-tray-* (спецификация 2026-11-27-tauri-tray-icons.md): линия — --tray-line. На Mac 1, как у SF Symbols старого окна;
+// на Windows по умолчанию 1,15 — при 16 px более тонкая линия бледнеет
+const isTraySymbol = (id: string) => id.startsWith('i-tray-');
+
 const symbolSvg = (id: string, color: string) => {
     const symbol = new DOMParser().parseFromString(icons, 'image/svg+xml').getElementById(id);
     if (!symbol) throw new Error(`Нет иконки ${id}`);
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${symbol.getAttribute('viewBox')}" fill="${color}" color="${color}">${symbol.innerHTML}</svg>`;
+    const line = isTraySymbol(id) && !isWindows ? ' style="--tray-line: 1"' : '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${symbol.getAttribute('viewBox')}" fill="${color}" color="${color}"${line}>${symbol.innerHTML}</svg>`;
 };
 
 const loadImage = (svg: string) =>
@@ -40,8 +45,8 @@ const renderFrames = async (icon: TrayIcon, frames: Frame[], dark: boolean) => {
     const color = icon.color === 'red' ? token('--red') : icon.color === 'orange' ? token('--orange') : isWindows && dark ? '#fff' : '#000';
     const isMark = icon.glyph.kind === 'mark';
     const image = await loadImage(icon.glyph.kind === 'mark' ? MARKS[icon.glyph.agent] ?? claude : symbolSvg(icon.glyph.id, '#000'));
-    // Знак модели в макете — 13 px в поле 16, иконки — во всё поле
-    const glyph = size * (isMark ? 13 / 16 : isWindows ? 1 : 16 / 18);
+    // Знак модели в макете — 13 px в поле 16; значки трея i-tray-* — во всё поле, поля уже внутри viewBox
+    const glyph = size * (isMark ? 13 / 16 : isWindows || (icon.glyph.kind === 'icon' && isTraySymbol(icon.glyph.id)) ? 1 : 16 / 18);
     return Promise.all(
         frames.map(async ({ rotation, alpha }) => {
             const canvas = document.createElement('canvas');
