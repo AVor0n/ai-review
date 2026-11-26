@@ -76,6 +76,7 @@ _нет_
 | B-31 | Экран «Статистика» в приложении Tauri | готово к работе | M | dev | Макет одобрен пользователем 26.11: `product/design/mockups/2026-11-26-tauri-stats.html`, спецификация `product/design/specs/2026-11-26-tauri-stats.md`, стили в `product/design/web`. Переносится без изменений по `menubar/StatsView.swift`, графики в SVG. Делать после поповера B-30. Порядок экранов — `product/specs/2026-11-25-tauri-app.md` |
 | B-32 | Экран «Память ревьюеров» в приложении Tauri | готово к работе | M | dev | Макет одобрен пользователем 26.11 (с его правкой: убрана подпись про начало учёта срабатываний): `product/design/mockups/2026-11-26-tauri-memory.html`, спецификация `product/design/specs/2026-11-26-tauri-memory.md`, стили в `product/design/web` (новый токен `--purple`). Делать после статистики B-31 |
 | B-33 | Экран «Архитектурное ревью» в приложении Tauri | готово к работе | M | dev | Макет одобрен пользователем 26.11: `product/design/mockups/2026-11-26-tauri-arch.html`, спецификация `product/design/specs/2026-11-26-tauri-arch.md`, стили в `product/design/web`. Делать после памяти B-32 |
+| B-34 | Экран «Доработка / Rebase» в приложении Tauri | готово к работе | M | dev | Макет одобрен пользователем 26.11: `product/design/mockups/2026-11-26-tauri-fix.html`, спецификация `product/design/specs/2026-11-26-tauri-fix.md`, стили в `product/design/web`. Делать после архитектуры B-33 |
 
 ## Отклонено
 

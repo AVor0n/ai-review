@@ -2048,3 +2048,62 @@
 .button--destructive {
   color: var(--red);
 }
+
+/* ---------- Отчёт доработки ---------- */
+
+.sheet--medium {
+  width: 620px;
+}
+
+/* Шаг хода работы (FixTimeline): значок, название, активность у текущего, длительность справа */
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+  padding: 7px var(--space-12);
+  font-size: var(--text-body);
+}
+
+.step__mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 16px;
+  font-size: 13px;
+  color: var(--c, var(--green));
+}
+
+.step__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.step--current .step__title {
+  font-weight: var(--weight-medium);
+}
+
+.step__activity {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.step__time {
+  flex: none;
+  padding-left: var(--space-8);
+  font-size: var(--text-callout);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+}
+
+.place__trail {
+  flex: none;
+  margin-left: auto;
+}
