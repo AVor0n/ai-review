@@ -34,6 +34,7 @@
   --blue: #007aff;
   --gray: #8e8e93;
   --purple: #af52de;                   /* разбор памяти */
+  --indigo: #5856d6;                   /* уровень кейса QA */
 
   /* Модели (AgentMark.color) */
   --model-claude: #d97857;
@@ -154,6 +155,7 @@
     --blue: #0a84ff;
     --gray: #98989d;
     --purple: #bf5af2;
+    --indigo: #5e5ce6;
     --model-codex: #cccccc;
     --chart-1: #3987e5;
     --chart-2: #d95926;
@@ -191,6 +193,7 @@
   --blue: #0a84ff;
   --gray: #98989d;
   --purple: #bf5af2;
+  --indigo: #5e5ce6;
   --model-codex: #cccccc;
   --chart-1: #3987e5;
   --chart-2: #d95926;
@@ -226,6 +229,7 @@
   --blue: #007aff;
   --gray: #8e8e93;
   --purple: #af52de;
+  --indigo: #5856d6;
   --model-codex: #5c5c5c;
   --chart-1: #2a78d6;
   --chart-2: #eb6834;

@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Тестирование Tauri</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 48px 0 6px; }
+  h3 { font-size: 14px; margin: 28px 0 10px; color: #3a3a3c; }
+  p, li { font-size: 14px; line-height: 1.5; }
+  .lead { color: #48484a; max-width: 760px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; }
+  .note { background: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; max-width: 760px; }
+  .note b { font-weight: 600; }
+  .page > p code, .caption code, .note code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+  .caption { font-size: 13px; color: #48484a; margin: 6px 0 0; max-width: 760px; }
+
+  .scene { position: relative; border-radius: 12px; margin: 10px 0 6px; padding: 24px 0; display: flex; justify-content: center; }
+  .scene--mac { background: linear-gradient(160deg, #a7c4e8, #d9c6e8 60%, #f0d9c4); }
+  .scene--mac.dark { background: linear-gradient(160deg, #1d2b45, #3a2d4d 60%, #4a3428); }
+  .scene--win { background: linear-gradient(160deg, #9fc3e9, #c9dcf0); }
+  .popover--sheet { height: var(--popover-height) !important; }
+
+  .solo { display: flex; justify-content: center; margin: 10px 0 6px; padding: 20px 0; border-radius: 12px; background: #d1d1d6; }
+  .solo > .app { background: none; }
+  .solo .sheet { box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.12); }
+  .solo .sheet--tall { height: 568px; }
+  .solo--short .sheet--tall { height: 360px; }
+
+  .alerts { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .alert { width: 280px; padding: 20px 16px 16px; border-radius: 12px; background: rgba(236,236,236,.98); text-align: center; font-size: 13px; color: #000;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 16px 40px rgba(0,0,0,.25); }
+  .alert b { display: block; margin-bottom: 6px; }
+  .alert p { font-size: 11px; line-height: 1.35; margin: 0 0 14px; }
+  .alert__buttons { display: flex; gap: 8px; }
+  .alert__buttons span { flex: 1; height: 24px; display: grid; place-items: center; border-radius: 6px; background: rgba(0,0,0,.08); }
+  .alert__buttons .default { background: #007aff; color: #fff; }
+
+  /* Окно просмотра: заголовок окна системы рисуется здесь только для макета */
+  .win-frame { width: 900px; margin: 0 auto; border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 20px 50px rgba(0,0,0,.3); }
+  .win-frame__title { height: 28px; display: flex; align-items: center; justify-content: center; position: relative; font-size: 13px; font-weight: 600; color: #3a3a3c; background: #ececec; }
+  .win-frame__dots { position: absolute; left: 10px; display: flex; gap: 8px; }
+  .win-frame__dots span { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; }
+  .win-frame__dots span:nth-child(2) { background: #febc2e; } .win-frame__dots span:nth-child(3) { background: #28c840; }
+  .win-frame .viewer { height: 506px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Тестирование PR в приложении Tauri</h1>
+<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задача B-30, экран 5 из 8</p>
+<p class="lead">Лист тестирования переносится из SwiftUI без изменений. Вкладка «План»: суть, как должно работать, опасные места, кейсы с отметками и раскрытием, свои кейсы, «Не проверить», «На что обратить внимание». Вкладка «Отчёт»: ход прогона, итог, кейсы с багами, ошибками Playwright, скриншотами и видео, тесты с сохранением в репозиторий. Скриншоты и видео открываются в отдельном большом окне. Вёрстка — HTML/CSS на <code>product/design/web</code>, лист и ход работы — общие компоненты.</p>
+<div class="note"><b>Что меняется по сравнению с SwiftUI.</b> (1) Лист открывается поверх поповера на «Обзоре», как остальные листы. Ширина прежняя, 700, а высота — вся высота поповера, как у остальных листов: в SwiftUI было 560. (2) Чекбоксы кейсов — свои, в стиле листа: скруглённый квадрат, отмеченный — акцентный. Системный чекбокс Mac на Windows выглядел бы чужим. (3) Подтверждение прогона — системный диалог. (4) На Windows папка прогона и тесты лежат в WSL. «Открыть папку прогона», «Показать» и «Показать в Finder» открывают Проводник по пути <code>\\wsl.localhost\…</code>, кнопка называется «Показать в Проводнике». «Открыть в Просмотре» становится «Открыть в приложении по умолчанию». (5) Иконки — Phosphor. Больше ничего не меняется, тексты слово в слово.</div>
+
+<h2>1. План готов</h2>
+<p class="lead">Клик по синей пробирке в строке PR. Отмеченные кейсы пойдут в прогон. Клик по кейсу раскрывает данные и шаги.</p>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="overview" data-sheet="plan"></div>
+</div>
+<p class="caption">Снятый кейс приглушён до 50 %. «Запустить прогон…» — основная кнопка, неактивна, если не выбрано ни одного кейса и нет своих. Подсказка у неё зависит от уровней: с e2e — «30–60 минут и несколько долларов…», без — «Юнит и компонентные тесты на Vitest, без Docker и браузера». Пока идёт план или прогон, чекбоксы неактивны.</p>
+
+<h2>2. Отчёт прогона</h2>
+<p class="lead">После прогона лист открывается на «Отчёте». Переключатель «План / Отчёт» в шапке появляется, когда есть и план, и отчёт.</p>
+<div class="scene scene--mac dark">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="overview" data-sheet="report"></div>
+</div>
+<p class="caption">Цвет итога: красный, если есть ошибка приложения; оранжевый, если есть неподтверждённые или непроверенные кейсы; иначе зелёный. Превью скриншотов уменьшены, клик открывает окно просмотра. «Сохранить в frontend» кладёт тесты в локальную копию без коммита. После этого строка «Сохранены … » и кнопки «Сохранить снова» и «Показать».</p>
+
+<h3>Тесты сохранены</h3>
+<div class="solo solo--short" data-theme="light"><div class="app" data-sheet="saved"></div></div>
+<p class="caption">Если копия на другой ветке, чем PR, — предупреждение оранжевым, как в SwiftUI.</p>
+
+<h2>3. Ход, очередь, пустой план</h2>
+<h3>Идёт прогон</h3>
+<div class="solo" data-theme="light"><div class="app" data-sheet="running"></div></div>
+<p class="caption">Ход прогона — тот же компонент, что «Ход доработки». Под ним, если есть прошлый отчёт, строка «Ниже — отчёт прошлого прогона» и сам отчёт.</p>
+
+<h3>Составляется план</h3>
+<div class="solo solo--short" data-theme="light"><div class="app" data-sheet="planning"></div></div>
+
+<h3>Плана ещё нет</h3>
+<div class="solo solo--short" data-theme="light"><div class="app" data-sheet="empty"></div></div>
+
+<h3>Подтверждение прогона</h3>
+<div class="solo" style="padding:40px 0"><div class="alerts">
+  <div class="alert"><b>Запустить прогон #2828?</b><p>Займёт 30–60 минут и несколько долларов. Сервис соберёт образ бэкенда в Docker (первая сборка на коммит — ещё несколько минут), поднимет отдельное e2e-окружение и фронтенд из ветки PR, а Claude напишет и прогонит тесты: 7 кейсов. Mac будет заметно нагружен. В PR ничего не публикуется.</p><div class="alert__buttons"><span>Отмена</span><span class="default">Запустить</span></div></div>
+  <div class="alert"><b>Запустить прогон #2828?</b><p>e2e-кейсов нет, поэтому Docker и браузер не понадобятся: Claude напишет и прогонит юнит и компонентные тесты на Vitest — 4 кейса. Это быстрее и дешевле прогона с e2e. В PR ничего не публикуется.</p><div class="alert__buttons"><span>Отмена</span><span class="default">Запустить</span></div></div>
+</div></div>
+<p class="caption">Системный диалог Tauri. На Windows в тексте «Mac будет заметно нагружен» — «Компьютер будет заметно нагружен».</p>
+
+<h2>4. Окно просмотра скриншотов и видео</h2>
+<p class="lead">Отдельное окно Tauri почти на весь экран, 16:9 плюс панель снизу. Оно встаёт поверх поповера, а поповер не закрывает. Стрелки листают файлы кейса, заголовок окна — «имя файла — 2 из 4».</p>
+<div class="win-frame app" data-theme="light">
+  <div class="win-frame__title"><span class="win-frame__dots"><span></span><span></span><span></span></span>c3-export-big-order.png — 2 из 4</div>
+  <div class="viewer">
+    <div class="viewer__stage"><svg width="760" height="428" viewBox="0 0 160 90"><use href="#shot"/></svg></div>
+    <div class="viewer__bar">
+      <button class="square-button" title="Предыдущий"><svg class="icon"><use href="../web/icons.svg#i-chevron-left"/></svg></button>
+      <button class="square-button" title="Следующий"><svg class="icon"><use href="../web/icons.svg#i-chevron-right"/></svg></button>
+      <span class="viewer__hint">Щипок или двойной клик — увеличить</span>
+      <span class="spacer"></span>
+      <button class="button">Показать в Finder</button>
+      <button class="button">Открыть в Просмотре</button>
+      <button class="button">Закрыть</button>
+    </div>
+  </div>
+</div>
+<p class="caption">У видео вместо подсказки — скорость «0,5× / 1× / 1,5× / 2×» сегментами по 48 px. Скорость общая для всех видео кейса. Закрытие окна останавливает видео. Когда поповер закрыт, окно перестаёт висеть поверх чужих окон.</p>
+
+<h2>5. Windows</h2>
+<div class="scene scene--win">
+  <div class="popover-frame popover-frame--win" data-theme="light" data-template="overview" data-sheet="plan"></div>
+</div>
+
+</div>
+
+<!-- Условный скриншот приложения для превью: серые плашки, без реальных данных -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="shot" viewBox="0 0 160 90">
+    <rect width="160" height="90" fill="#f4f5f7"/><rect width="160" height="9" fill="#2a3f5f"/><rect x="6" y="3" width="22" height="3" rx="1" fill="#9fb3d1"/>
+    <rect x="8" y="16" width="44" height="66" rx="2" fill="#fff"/><rect x="12" y="21" width="30" height="3" rx="1" fill="#cfd6e0"/><rect x="12" y="28" width="36" height="2" rx="1" fill="#e3e7ed"/><rect x="12" y="33" width="28" height="2" rx="1" fill="#e3e7ed"/>
+    <rect x="58" y="16" width="94" height="66" rx="2" fill="#fff"/>
+    <rect x="66" y="24" width="18" height="8" rx="1.5" fill="#dbe7f7"/><rect x="66" y="44" width="18" height="8" rx="1.5" fill="#dbe7f7"/><rect x="66" y="64" width="18" height="8" rx="1.5" fill="#dbe7f7"/>
+    <rect x="96" y="20" width="18" height="6" rx="1.5" fill="#e8eefa"/><rect x="96" y="32" width="18" height="6" rx="1.5" fill="#e8eefa"/><rect x="96" y="42" width="18" height="6" rx="1.5" fill="#e8eefa"/><rect x="96" y="54" width="18" height="6" rx="1.5" fill="#e8eefa"/><rect x="96" y="64" width="18" height="6" rx="1.5" fill="#e8eefa"/><rect x="96" y="74" width="18" height="6" rx="1.5" fill="#e8eefa"/>
+    <path d="M84 28h12M84 48h12M84 68h12" stroke="#b7c3d6" stroke-width=".6"/>
+    <rect x="124" y="20" width="22" height="7" rx="2" fill="#2a78d6"/>
+  </symbol>
+</svg>
+
+<!-- ======================= Шаблоны листа ======================= -->
+
+<template id="tpl-qa-head">
+  <div class="sheet__head">
+    <div class="sheet__titles">
+      <div class="sheet__title">Тестирование #2828</div>
+      <div class="sheet__subtitle sheet__subtitle--line">Экспорт заказа в PDF</div>
+    </div>
+    <button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button>
+  </div>
+</template>
+
+<template id="tpl-qa-head-tabs">
+  <div class="sheet__head">
+    <div class="sheet__titles">
+      <div class="sheet__title">Тестирование #2828</div>
+      <div class="sheet__subtitle sheet__subtitle--line">Экспорт заказа в PDF</div>
+    </div>
+    <div class="segmented"><button class="segmented__item">План</button><button class="segmented__item" aria-selected="true">Отчёт</button></div>
+    <button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button>
+  </div>
+</template>
+
+<template id="tpl-note">
+  <div class="section">
+    <div class="section__header">На что обратить внимание</div>
+    <div class="section__card"><div class="card-pad card-pad--end"><textarea class="text-field text-field--multiline" placeholder="Например: проверь, что черновик не теряется при перезагрузке страницы"></textarea><button class="button">Составить план заново</button></div></div>
+    <div class="section__footer">Ваши кейсы и пожелания — модель поставит их в плане первыми. План — несколько минут и около доллара. Ничего не публикуется.</div>
+  </div>
+</template>
+
+<template id="tpl-sheet-plan">
+  <slot data-tpl="tpl-qa-head"></slot>
+  <span class="report-status" style="--c: var(--accent)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg><span class="report-status__text" style="color: var(--label)">План готов: 7 кейсов. Снимите лишние и запустите прогон</span></span>
+  <div class="sheet__body">
+    <div class="section"><div class="section__header">Суть · Новая функциональность</div><div class="section__card"><div class="report-paragraph">В карточке заказа появилась кнопка «Скачать PDF»: заказ рисуется в canvas и собирается в документ со шрифтами с кириллицей.</div></div></div>
+    <div class="section"><div class="section__header">Как должно работать</div><div class="section__card"><div class="report-paragraph">Кнопка активна после загрузки заказа. PDF скачивается с номером заказа, все страницы на месте, кириллица читается, фото с чужих доменов заменены заглушкой.</div></div></div>
+    <div class="section">
+      <div class="section__header">Опасные места · 2</div>
+      <div class="section__card">
+        <div class="place md"><span class="place__marker" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-warning"/></svg></span><div class="place__body"><span class="place__title">Большие заказы</span><span class="place__location">src/orders/export/OrderPdf.tsx</span><span>С шести страниц canvas может превысить лимит Safari.</span></div></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="place md"><span class="place__marker" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-warning"/></svg></span><div class="place__body"><span class="place__title">Фото с чужих доменов</span><span class="place__location">src/orders/export/OrderPdf.tsx</span><span>Без CORS экспорт падает с ошибкой безопасности.</span></div></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">Кейсы · 6 из 7</div>
+      <div class="section__card">
+        <div class="qa-case"><input type="checkbox" class="checkbox" checked><div class="qa-case__body"><div class="qa-case__head"><span class="qa-case__id">C1</span><span class="qa-case__title">PDF скачивается из карточки заказа</span><span class="tags"><span class="tag tag--indigo">e2e</span><span class="tag tag--accent">ваш</span><span class="tag tag--orange">важный</span></span><svg class="icon qa-case__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></div><div class="qa-case__expect">Файл «Заказ-10482.pdf» скачивается, в нём три страницы и фото</div></div></div>
+        <div class="row-divider" style="--divider-inset: 36px"></div>
+        <div class="qa-case qa-case--expanded"><input type="checkbox" class="checkbox" checked><div class="qa-case__body"><div class="qa-case__head"><span class="qa-case__id">C2</span><span class="qa-case__title">Кириллица в PDF читается</span><span class="tags"><span class="tag tag--indigo">компонентный</span><span class="tag">изменение</span><span class="tag tag--orange">важный</span></span><svg class="icon qa-case__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></div>
+          <div class="labeled"><span class="labeled__title">Проверяемый файл</span><span class="labeled__path">src/orders/export/OrderPdf.tsx</span></div>
+          <div class="labeled"><span class="labeled__title">Данные</span><span>Заказ с кириллицей в названиях и длинным списком товаров</span></div>
+          <div class="labeled"><span class="labeled__title">Шаги</span><ol class="labeled__steps md"><li>Отрендерить <code>OrderPdf</code> с тестовым заказом</li><li>Достать текстовый слой документа</li></ol></div>
+          <div class="labeled"><span class="labeled__title">Ожидается</span><span>Названия в PDF совпадают с исходными, без «квадратиков»</span></div>
+        </div></div>
+        <div class="row-divider" style="--divider-inset: 36px"></div>
+        <div class="qa-case"><input type="checkbox" class="checkbox" checked><div class="qa-case__body"><div class="qa-case__head"><span class="qa-case__id">C3</span><span class="qa-case__title">Заказ на шесть страниц</span><span class="tags"><span class="tag tag--indigo">e2e</span><span class="tag">изменение</span><span class="tag tag--orange">важный</span></span><svg class="icon qa-case__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></div><div class="qa-case__expect">PDF не пустой, все шесть страниц видны</div></div></div>
+        <div class="row-divider" style="--divider-inset: 36px"></div>
+        <div class="qa-case qa-case--off"><input type="checkbox" class="checkbox"><div class="qa-case__body"><div class="qa-case__head"><span class="qa-case__id">C4</span><span class="qa-case__title">Каталог магазинов открывается как раньше</span><span class="tags"><span class="tag tag--indigo">e2e</span><span class="tag">регрессия</span><span class="tag">низкий</span></span><svg class="icon qa-case__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></div><div class="qa-case__expect">Список и фильтры работают, ошибок в консоли нет</div></div></div>
+      </div>
+      <div class="section__footer">Снятые кейсы не проверяются. Нажмите на кейс, чтобы увидеть данные и шаги.</div>
+    </div>
+    <div class="section">
+      <div class="section__header">Свои кейсы</div>
+      <div class="section__card"><div class="card-pad"><textarea class="text-field text-field--multiline" placeholder="Например: черновик открывается из меню «Анализы» после повторного входа"></textarea></div></div>
+      <div class="section__footer">Каждая строка — отдельный кейс. Шаги и проверку модель распишет сама, такие кейсы идут первыми.</div>
+    </div>
+    <div class="section">
+      <div class="section__header">Не проверить · 1</div>
+      <div class="section__card"><div class="place md"><span class="place__marker"><svg class="icon"><use href="../web/icons.svg#i-eye-slash"/></svg></span><div class="place__body"><span class="place__title">Печать на бумаге</span><span style="color: var(--label-2)">Как PDF выглядит на принтере, тестом не проверить.</span></div></div></div>
+    </div>
+    <div class="section">
+      <div class="section__header">Подробности</div>
+      <div class="section__card">
+        <div class="detail-row"><span class="detail-row__title">Коммит плана</span><span class="detail-row__value">a3f9c2104b7e</span></div><div class="row-divider"></div>
+        <div class="detail-row"><span class="detail-row__title">Составлен</span><span class="detail-row__value">26 нояб. 2026 г., 11:05</span></div><div class="row-divider"></div>
+        <div class="detail-row"><span class="detail-row__title">Цена плана</span><span class="detail-row__value">$0.84</span></div>
+      </div>
+    </div>
+    <slot data-tpl="tpl-note"></slot>
+  </div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><button class="button">Скопировать план</button><span class="spacer"></span><button class="button button--prominent" title="30–60 минут и несколько долларов: сборка бэкенда в Docker, отдельное e2e-окружение, тесты по выбранным кейсам">Запустить прогон…</button></div>
+</template>
+
+<template id="tpl-report-body">
+  <div class="section">
+    <div class="section__header">Итог</div>
+    <div class="section__card"><div class="card-pad">
+      <span>Экспорт работает на обычных заказах и кириллица читается. На шести страницах PDF выходит пустым — это ошибка приложения. Один e2e-кейс модель отметила как прошедший, а Playwright — нет.</span>
+      <div class="status-grid">
+        <span class="status-grid__item" style="--c: var(--red)"><svg class="icon"><use href="../web/icons.svg#i-qa-failed"/></svg><span class="status-grid__count">1</span><span class="status-grid__title">Ошибка приложения</span></span>
+        <span class="status-grid__item" style="--c: var(--yellow)"><svg class="icon"><use href="../web/icons.svg#i-qa-unconfirmed"/></svg><span class="status-grid__count">1</span><span class="status-grid__title">Не подтверждено</span></span>
+        <span class="status-grid__item" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg><span class="status-grid__count">4</span><span class="status-grid__title">Прошёл</span></span>
+      </div>
+    </div></div>
+  </div>
+  <div class="section">
+    <div class="section__header">Кейсы · 6</div>
+    <div class="section__card">
+      <div class="qa-case qa-case--result"><span class="qa-case__status" style="--c: var(--red)"><svg class="icon"><use href="../web/icons.svg#i-qa-failed"/></svg></span><div class="qa-case__body">
+        <div><div class="qa-case__head"><span class="qa-case__id">C3</span><span class="qa-case__title">Заказ на шесть страниц</span><span class="tags"><span class="tag tag--indigo">e2e</span><span class="tag">изменение</span><span class="tag tag--orange">важный</span></span></div><span class="qa-case__verdict" style="--c: var(--red)">Ошибка приложения</span></div>
+        <div class="labeled"><span class="labeled__title">Тест</span><span class="labeled__path">e2e/order-export.test.ts</span></div>
+        <div class="labeled"><span class="labeled__title">Проверено</span><span>Размер PDF и наличие текста шестой страницы</span></div>
+        <div class="bug-box"><span class="bug-box__title"><svg class="icon"><use href="../web/icons.svg#i-bug-fill"/></svg>PDF пустой на заказе в шесть страниц</span><span>Открыть заказ на шесть страниц, нажать «Скачать PDF». Ожидается документ с заказом, фактически — пустая страница 2 КБ.</span></div>
+        <div class="labeled"><span class="labeled__title">Ошибки Playwright</span><div class="code-box">Error: expect(received).toBeGreaterThan(expected)
+Expected: > 20000
+Received:   2148</div></div>
+        <div class="gallery">
+          <div class="thumb"><svg viewBox="0 0 160 90"><use href="#shot"/></svg></div>
+          <div class="thumb"><svg viewBox="0 0 160 90"><use href="#shot"/></svg></div>
+          <div class="thumb"><svg viewBox="0 0 160 90"><use href="#shot"/></svg></div>
+          <div class="thumb"><span class="thumb__video"><svg class="icon"><use href="../web/icons.svg#i-play-circle-fill"/></svg>Видео</span></div>
+        </div>
+      </div></div>
+      <div class="row-divider" style="--divider-inset: 36px"></div>
+      <div class="qa-case qa-case--result"><span class="qa-case__status" style="--c: var(--yellow)"><svg class="icon"><use href="../web/icons.svg#i-qa-unconfirmed"/></svg></span><div class="qa-case__body">
+        <div><div class="qa-case__head"><span class="qa-case__id">C1</span><span class="qa-case__title">PDF скачивается из карточки заказа</span><span class="tags"><span class="tag tag--indigo">e2e</span><span class="tag tag--accent">ваш</span><span class="tag tag--orange">важный</span></span></div><span class="qa-case__verdict" style="--c: var(--label)">Не подтверждено</span></div>
+        <span style="font-size: var(--text-callout); color: var(--label-2)">Модель сообщила «прошёл», а итоговый прогон Playwright — «вышел по таймауту».</span>
+      </div></div>
+      <div class="row-divider" style="--divider-inset: 36px"></div>
+      <div class="qa-case qa-case--result"><span class="qa-case__status" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="qa-case__body">
+        <div><div class="qa-case__head"><span class="qa-case__id">C2</span><span class="qa-case__title">Кириллица в PDF читается</span><span class="tags"><span class="tag tag--indigo">компонентный</span><span class="tag">изменение</span><span class="tag tag--orange">важный</span></span></div><span class="qa-case__verdict" style="--c: var(--green)">Прошёл</span></div>
+        <div class="labeled"><span class="labeled__title">Тест</span><span class="labeled__path">src/orders/export/OrderPdf.test.tsx</span></div>
+      </div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section__header">Тесты · 3</div>
+    <div class="section__card">
+      <div class="place"><span class="place__marker"><svg class="icon"><use href="../web/icons.svg#i-file-text"/></svg></span><div class="place__body"><span class="labeled__path">e2e/order-export.test.ts</span><span style="font-size: var(--text-subhead); color: var(--label-2)">e2e · C1, C3</span></div></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="place"><span class="place__marker"><svg class="icon"><use href="../web/icons.svg#i-file-text"/></svg></span><div class="place__body"><span class="labeled__path">src/orders/export/OrderPdf.test.tsx</span><span style="font-size: var(--text-subhead); color: var(--label-2)">компонентный · C2</span></div></div>
+      <div class="row-divider"></div>
+      <slot data-tpl="tpl-save-row"></slot>
+    </div>
+    <div class="section__footer">Тесты сохраняются в локальную копию frontend по местам из стратегии тестирования, без коммита. Занятый файл не перезаписывается: тест ляжет рядом с суффиксом .pr2828. e2e-тесты написаны на authenticatedTest — для сценариев, меняющих данные, стратегия требует фикстуру test со сбросом БД.</div>
+  </div>
+  <div class="section">
+    <div class="section__header">Подробности</div>
+    <div class="section__card">
+      <div class="detail-row"><span class="detail-row__title">Фронтенд</span><span class="detail-row__value">a3f9c2104b7e</span></div><div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Бэкенд</span><span class="detail-row__value">develop · 5e81d0c3a912</span></div><div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Снят</span><span class="detail-row__value">26 нояб. 2026 г., 12:31</span></div><div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Цена и время</span><span class="detail-row__value">$4.12 · 41 мин 7 с</span></div><div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Папка прогона</span><span class="detail-row__value">~/.local/state/pr-reviewer/qa/frontend-2828/run-1</span></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-save-row">
+  <div class="save-row"><span class="save-row__text"><span style="color: var(--label-2)">Ещё не сохранены</span></span><button class="button">Сохранить в frontend</button></div>
+</template>
+
+<template id="tpl-sheet-report">
+  <slot data-tpl="tpl-qa-head-tabs"></slot>
+  <span class="report-status" style="--c: var(--red)"><svg class="icon"><use href="../web/icons.svg#i-seal-check-fill"/></svg><span class="report-status__text" style="color: var(--label)">Прогон готов, найдены ошибки</span></span>
+  <div class="sheet__body"><slot data-tpl="tpl-report-body"></slot></div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><button class="button">Скопировать отчёт</button><button class="button">Открыть папку прогона</button><span class="spacer"></span><button class="button">Новый прогон…</button></div>
+</template>
+
+<template id="tpl-sheet-saved">
+  <slot data-tpl="tpl-qa-head-tabs"></slot>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Тесты · 3</div>
+      <div class="section__card">
+        <div class="place"><span class="place__marker"><svg class="icon"><use href="../web/icons.svg#i-file-text"/></svg></span><div class="place__body"><span class="labeled__path">e2e/order-export.test.ts</span><span style="font-size: var(--text-subhead); color: var(--label-2)">e2e · C1, C3</span></div></div>
+        <div class="row-divider"></div>
+        <div class="save-row">
+          <svg class="icon" style="color: var(--green); font-size: 13px; margin-top: 1px"><use href="../web/icons.svg#i-check-circle-fill"/></svg>
+          <span class="save-row__text"><span class="save-row__title">Сохранены 2 минуты назад в frontend · ветка develop</span><span class="save-row__note">e2e/order-export.test.ts уже был — сохранён как e2e/order-export.pr2828.test.ts</span><span class="save-row__warning">Копия на другой ветке, а PR — PROJ-1234-order-pdf: тесты написаны под код PR и до переключения могут не пройти.</span></span>
+          <button class="button">Сохранить снова</button><button class="button">Показать</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-sheet-running">
+  <slot data-tpl="tpl-qa-head-tabs"></slot>
+  <span class="report-status" style="--c: var(--blue)"><svg class="icon hourglass"><use href="../web/icons.svg#i-hourglass"/></svg><span class="report-status__text">Claude пишет и проверяет тесты (6) · 18 мин 40 с</span></span>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Ход прогона</div>
+      <div class="section__card">
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Сборка бэкенда из develop</span></div><span class="step__time">6 мин 12 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Запуск бэкенда и тестовой базы</span></div><span class="step__time">48 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Рабочая копия и зависимости</span></div><span class="step__time">1 мин 3 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Запуск фронтенда</span></div><span class="step__time">22 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step step--current"><span class="step__mark"><svg class="spinner"><use href="../web/icons.svg#i-spinner"/></svg></span><div class="step__body"><span class="step__title">Claude пишет и проверяет тесты (6)</span><span class="step__activity">npx playwright test e2e/order-export.test.ts</span></div><span class="step__time">10 мин 15 с</span></div>
+      </div>
+    </div>
+    <span class="sheet__note">Ниже — отчёт прошлого прогона</span>
+    <slot data-tpl="tpl-report-body"></slot>
+  </div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><button class="button">Скопировать отчёт</button><button class="button">Открыть папку прогона</button><span class="spacer"></span><button class="button button--destructive">Прервать</button></div>
+</template>
+
+<template id="tpl-sheet-planning">
+  <slot data-tpl="tpl-qa-head"></slot>
+  <span class="report-status" style="--c: var(--blue)"><svg class="icon hourglass"><use href="../web/icons.svg#i-hourglass"/></svg><span class="report-status__text">Составляется план · 2 мин 10 с<span class="report-status__activity">Read src/orders/export/OrderPdf.tsx</span></span></span>
+  <div class="sheet__body"><span style="font-size: var(--text-body); color: var(--label-2)">Claude читает дифф, описание, комментарии ревью и e2e-тесты репозитория. Обычно несколько минут.</span></div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><button class="button" disabled>Скопировать план</button><span class="spacer"></span><button class="button button--destructive">Прервать</button></div>
+</template>
+
+<template id="tpl-sheet-empty">
+  <slot data-tpl="tpl-qa-head"></slot>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">На что обратить внимание</div>
+      <div class="section__card"><div class="card-pad card-pad--end"><textarea class="text-field text-field--multiline" placeholder="Например: проверь, что черновик не теряется при перезагрузке страницы"></textarea><button class="button">Составить план</button></div></div>
+      <div class="section__footer">Ваши кейсы и пожелания — модель поставит их в плане первыми. План — несколько минут и около доллара. Ничего не публикуется.</div>
+    </div>
+  </div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><button class="button" disabled>Скопировать план</button><span class="spacer"></span></div>
+</template>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="arrow" viewBox="0 0 24 11"><path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor"/></symbol>
+</svg>
+
+<script>
+  // Фон под листом — обзор из макета поповера: шаблоны берутся оттуда, чтобы разметка была в одном месте
+  function stamp(root) {
+    root.querySelectorAll('slot[data-tpl]').forEach(slot => {
+      const content = document.getElementById(slot.dataset.tpl).content.cloneNode(true);
+      stamp(content);
+      slot.replaceWith(content);
+    });
+    return root;
+  }
+  const sheet = name => {
+    const box = document.createElement('div');
+    box.className = 'sheet sheet--large sheet--tall';
+    box.appendChild(stamp(document.getElementById('tpl-sheet-' + name).content.cloneNode(true)));
+    return box;
+  };
+  fetch('2026-11-25-tauri-popover.html').then(r => r.text()).then(html => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('template').forEach(t => { if (!document.getElementById(t.id)) document.body.appendChild(document.importNode(t, true)); });
+    document.querySelectorAll('[data-template]').forEach(frame => {
+      const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
+      if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
+      const pop = content.querySelector('.popover');
+      pop.classList.add('popover--sheet');
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sheet-backdrop';
+      backdrop.appendChild(sheet(frame.dataset.sheet));
+      pop.appendChild(backdrop);
+      frame.appendChild(content);
+    });
+  });
+  document.querySelectorAll('.solo [data-sheet]').forEach(box => box.appendChild(sheet(box.dataset.sheet)));
+</script>
+</body>
+</html>
