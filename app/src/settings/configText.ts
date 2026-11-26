@@ -24,12 +24,107 @@ export const highlight = (text: string): Token[] => {
     return tokens;
 };
 
+// Первая синтаксическая ошибка JSON по-русски, со строкой и столбцом: текст движка JS — по-английски и без места
+export const jsonSyntaxError = (text: string): string | null => {
+    let index = 0;
+    const fail = (what: string): never => {
+        const before = text.slice(0, index).split('\n');
+        throw new Error(`Ошибка JSON в строке ${before.length}, столбце ${before[before.length - 1].length + 1}: ${what}`);
+    };
+    const space = () => {
+        while (index < text.length && ' \t\n\r'.includes(text[index])) index++;
+    };
+    const string = () => {
+        index++;
+        while (index < text.length && text[index] !== '"') {
+            if (text[index] === '\n') fail('строка не закрыта кавычкой');
+            if (text[index] === '\\') {
+                index++;
+                if (!'"\\/bfnrtu'.includes(text[index] ?? '')) fail('неверная escape-последовательность');
+            }
+            index++;
+        }
+        if (index >= text.length) fail('строка не закрыта кавычкой');
+        index++;
+    };
+    const value = (): void => {
+        space();
+        const char = text[index];
+        if (char === undefined) return fail('файл обрывается, ожидается значение');
+        if (char === '{') return object();
+        if (char === '[') return array();
+        if (char === '"') return string();
+        const number = /^-?(0|[1-9]\d*)(\.\d+)?([eE][+-]?\d+)?/.exec(text.slice(index));
+        if (number && number[0] !== '-') {
+            index += number[0].length;
+            return;
+        }
+        const word = /^(true|false|null)\b/.exec(text.slice(index));
+        if (word) {
+            index += word[0].length;
+            return;
+        }
+        if (char === "'") return fail('строки и ключи — в двойных кавычках');
+        if (char === '}' || char === ']') return fail('лишняя запятая или пропущено значение');
+        fail('ожидается значение: строка в двойных кавычках, число, true, false, null, объект или массив');
+    };
+    const object = () => {
+        index++;
+        space();
+        if (text[index] === '}') return void index++;
+        for (;;) {
+            space();
+            if (text[index] === '}') fail('лишняя запятая перед }');
+            if (text[index] !== '"') fail('ключ должен быть строкой в двойных кавычках');
+            string();
+            space();
+            if (text[index] !== ':') fail('после ключа ожидается двоеточие');
+            index++;
+            value();
+            space();
+            if (text[index] === ',') {
+                index++;
+                continue;
+            }
+            if (text[index] === '}') return void index++;
+            fail(index >= text.length ? 'файл обрывается, не хватает }' : 'ожидается запятая или }');
+        }
+    };
+    const array = () => {
+        index++;
+        space();
+        if (text[index] === ']') return void index++;
+        for (;;) {
+            value();
+            space();
+            if (text[index] === ',') {
+                index++;
+                space();
+                if (text[index] === ']') fail('лишняя запятая перед ]');
+                continue;
+            }
+            if (text[index] === ']') return void index++;
+            fail(index >= text.length ? 'файл обрывается, не хватает ]' : 'ожидается запятая или ]');
+        }
+    };
+    try {
+        value();
+        space();
+        if (index < text.length) fail('лишний текст после конца JSON');
+        return null;
+    } catch (error) {
+        return (error as Error).message;
+    }
+};
+
 export const configProblem = (text: string) => {
+    const syntax = jsonSyntaxError(text);
+    if (syntax) return syntax;
     let value: unknown;
     try {
         value = JSON.parse(text);
-    } catch (error) {
-        return error instanceof Error ? error.message : String(error);
+    } catch {
+        return 'Ошибка JSON: файл не читается';
     }
     const problems = validate(schema, value);
     if (!problems.length) return null;

@@ -1,4 +1,4 @@
-import { readSecret, secretSavedAt, writeSecret } from './platform.mjs';
+import { readSecret, secretAccount, secretSavedAt, writeSecret } from './platform.mjs';
 
 // Секреты для фоновых запусков: id → service и account из config.json. Наружу — только «есть / нет» и дата сохранения
 export const secretTargets = (config) => ({
@@ -12,6 +12,8 @@ export const secretStatus = (config) =>
         service,
         present: Boolean(readSecret(service, account) || (id !== 'bitbucket' && readSecret(service))),
         savedAt: secretSavedAt(service),
+        // Под этим аккаунтом приложение пишет команду сохранения: токены моделей перезаписываются в уже заведённую запись (как reuseAccount)
+        account: (id !== 'bitbucket' && secretAccount(service)) || account,
     }));
 
 // Токены моделей читаются без аккаунта: на Mac пишем в уже заведённую запись, а не рядом с ней

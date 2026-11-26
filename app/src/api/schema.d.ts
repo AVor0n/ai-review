@@ -4325,6 +4325,8 @@ export interface components {
             service: string;
             present: boolean;
             savedAt: string | null;
+            /** @description Аккаунт записи хранилища: у токенов моделей на macOS — аккаунт уже заведённой записи Keychain */
+            account?: string | null;
         };
         Event: {
             /** @enum {unknown} */

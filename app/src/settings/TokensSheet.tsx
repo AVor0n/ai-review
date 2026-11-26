@@ -44,7 +44,8 @@ export const TokensSheet = ({
                     const secret = secrets.find((item) => item.id === token.id);
                     const status = tokenStatus(token, parse(secret?.savedAt));
                     const service = secret?.service ?? (token.id === 'bitbucket' ? config.bitbucket?.keychainService : config.agents[token.id]?.keychainService);
-                    const account = token.id === 'bitbucket' ? (config.bitbucket?.email ?? 'bitbucket') : token.id;
+                    // Аккаунт заведённой записи Keychain (как saved?.account в Tokens.swift): иначе команда добавит вторую запись рядом со старой
+                    const account = secret?.account ?? (token.id === 'bitbucket' ? (config.bitbucket?.email ?? 'bitbucket') : token.id);
                     const command = saveCommand(token, service, account, platform, cli);
                     const url = ISSUE_URLS[token.id];
                     return (

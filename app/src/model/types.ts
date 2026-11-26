@@ -92,7 +92,7 @@ export type QaState = {
 
 export type Lesson = { id: string; text: string; at: string; manual?: boolean };
 
-export type Secret = { id: string; service?: string; present: boolean; savedAt: string | null };
+export type Secret = { id: string; service?: string; account?: string | null; present: boolean; savedAt: string | null };
 
 export type Data = {
     status: Status | null;

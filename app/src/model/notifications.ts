@@ -72,3 +72,11 @@ export const muteSummary = (mutedUntil: string | null, now = new Date()) => {
     if (!mutedUntil || mutedUntil === 'forever') return 'Выключены';
     return `Выключены до ${moment(new Date(mutedUntil), now)}`;
 };
+
+const FINDING_LEVELS = ['P0', 'P1', 'P2', 'P3'];
+
+// «P1 P2×2» — уровни по порядку, число только у повторов
+export const levelsText = (counts: Record<string, number>) =>
+    FINDING_LEVELS.filter((level) => (counts[level] ?? 0) > 0)
+        .map((level) => (counts[level] > 1 ? `${level}×${counts[level]}` : level))
+        .join(' ');

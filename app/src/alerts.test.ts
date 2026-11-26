@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkAlerts, type AlertMemory } from './alerts';
-import { DEFAULT_RULES, allows, muteSummary, repoSummary, type NotificationSettings } from './model/notifications';
+import { DEFAULT_RULES, allows, levelsText, muteSummary, repoSummary, type NotificationSettings } from './model/notifications';
 import { emptyData, type Data, type PullRequest } from './model/types';
 
 const pr = (id: number, head: string, patch: Partial<PullRequest> & Record<string, unknown> = {}): PullRequest => ({ id, title: `PR ${id}`, draft: false, commentCount: 0, url: `u${id}`, head, source: 'PROJ-1', destination: 'develop', ...patch });
@@ -20,7 +20,7 @@ describe('уведомления', () => {
         const value = data({ snapshots: { front: { fetchedAt: '', prs: [pr(7, 'a')] } }, state: { repos: { front: { prs: { '7': { reviewed: {}, findings } } } } } as Data['state'] });
         const { notices, memory: next } = checkAlerts(value, settings, memory({ heads: { front: { 7: 'a' } } }), name);
         expect(notices.map((notice) => notice.title)).toEqual(['P1×2 в front #7 · Claude']);
-        expect(notices[0].body).toBe('PR 7\nP1: Гонка\nP1: Утечка');
+        expect(notices[0]).toMatchObject({ subtitle: 'PR 7', body: 'P1: Гонка\nP1: Утечка', url: 'u7' });
         expect(next.since.findings).toBe('2026-11-26T11:00:00Z');
         expect(checkAlerts(value, settings, next, name).notices).toEqual([]);
     });
@@ -64,5 +64,10 @@ describe('уведомления', () => {
         const now = new Date('2026-11-26T12:00:00');
         expect(muteSummary('forever', now)).toBe('Выключены');
         expect(muteSummary(new Date('2026-11-26T16:00:00').toISOString(), now)).toBe('Выключены до 16:00');
+    });
+
+    it('уровни замечаний как в SwiftUI: по порядку, число только у повторов', () => {
+        expect(levelsText({ P2: 2, P1: 1, P3: 0 })).toBe('P1 P2×2');
+        expect(levelsText({})).toBe('');
     });
 });

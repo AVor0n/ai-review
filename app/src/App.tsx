@@ -102,8 +102,8 @@ export const App = () => {
             if (fresh.length) seenStatsAt.current = fresh[fresh.length - 1].at;
             const settings = loadNotifications();
             for (const entry of fresh.filter((item) => item.pass !== 'replies' && allows(settings, 'reviews', item.repo))) {
-                const notice = reviewNotice(entry, (id) => dataRef.current.config.agents[id]?.shortName ?? id);
-                notify(notice.title, notice.body);
+                const pr = dataRef.current.snapshots[entry.repo]?.prs.find((item) => item.id === entry.pr);
+                notify(reviewNotice(entry, (id) => dataRef.current.config.agents[id]?.shortName ?? id, pr));
             }
         },
         [onEvent],
@@ -118,7 +118,7 @@ export const App = () => {
         const { notices, memory } = checkAlerts(data, loadNotifications(), alertMemory.current, (id) => agentName(data.config, id));
         alertMemory.current = memory;
         saveMemory(memory);
-        for (const notice of notices) notify(notice.title, notice.body);
+        for (const notice of notices) notify(notice);
         // Конфиг и память на уведомления не влияют
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.status, data.snapshots, data.state, data.fixes]);
@@ -140,7 +140,7 @@ export const App = () => {
     const command = useCallback(
         async (path: Command) => {
             const api = apiRef.current;
-            if (!api) return notify('PR Reviewer: сервис не запущен', serviceDown().text);
+            if (!api) return notify({ title: 'PR Reviewer: сервис не запущен', body: serviceDown().text });
             if (path === '/sync') setSyncing(true);
             const { error } = await api.POST(path);
             if (path === '/sync') setSyncing(false);
@@ -196,7 +196,7 @@ export const App = () => {
     useEffect(() => {
         if (downSince === null) return;
         const { text, command } = serviceDown();
-        const timer = setTimeout(() => notify('PR Reviewer: сервис не отвечает', `${text}\n${command}`), Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
+        const timer = setTimeout(() => notify({ title: 'PR Reviewer: сервис не отвечает', body: `${text}\n${command}` }), Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
         return () => clearTimeout(timer);
     }, [downSince]);
 

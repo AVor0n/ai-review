@@ -1,7 +1,10 @@
-import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
+import { invoke } from '@tauri-apps/api/core';
+import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification';
+import { levelsText } from './model/notifications';
 import { isMuted, loadPrefs } from './model/prefs';
 
-// Системные уведомления. Пауза — из меню по правому клику и «Настроек», что показывать — решают alerts.ts и настройки уведомлений
+// Системные уведомления. Пауза — из меню по правому клику и «Настроек», что показывать — решают alerts.ts и настройки уведомлений.
+// Шлёт Rust (show_notification): нажатие открывает url — PR, комментарий или тред, как в Alerts.swift
 let allowed: boolean | null = null;
 
 const ensurePermission = async () => {
@@ -10,17 +13,22 @@ const ensurePermission = async () => {
     return allowed;
 };
 
-export const notify = async (title: string, body: string) => {
+export type Notice = { title: string; subtitle?: string; body: string; url?: string | null };
+
+export const notify = async ({ title, subtitle, body, url }: Notice) => {
     if (isMuted(loadPrefs())) return;
-    if (await ensurePermission()) sendNotification({ title, body });
+    if (await ensurePermission()) invoke('show_notification', { title, subtitle: subtitle ?? null, body, url: url ?? null }).catch(() => {});
 };
 
-type StatsEntry = { at: string; repo: string; pr: number; agent: string; pass?: string; findings?: Record<string, number> };
+type StatsEntry = { at: string; repo: string; pr: number; agent: string; pass?: string; title?: string; url?: string; findings?: Record<string, number> };
 
-// Итог ревью модели — как в Alerts.swift: «Claude закончил ревью repo #pr» и замечания по уровням
-export const reviewNotice = (entry: StatsEntry, agentName: (id: string) => string) => {
-    const levels = Object.entries(entry.findings ?? {})
-        .filter(([, count]) => count)
-        .map(([level, count]) => `${level}: ${count}`);
-    return { title: `${agentName(entry.agent)} закончил ревью ${entry.repo} #${entry.pr}`, body: levels.length ? `Замечания ${levels.join(', ')}` : 'Замечаний нет' };
+// Итог ревью модели — как в Alerts.swift: «Claude закончил ревью repo #pr», название PR и «Замечания: P1 P2×2» или «Замечаний нет»
+export const reviewNotice = (entry: StatsEntry, agentName: (id: string) => string, pr?: { title: string; url: string }): Notice => {
+    const levels = levelsText(entry.findings ?? {});
+    return {
+        title: `${agentName(entry.agent)} закончил ревью ${entry.repo} #${entry.pr}`,
+        subtitle: pr?.title ?? entry.title ?? '',
+        body: levels ? `Замечания: ${levels}` : 'Замечаний нет',
+        url: pr?.url ?? entry.url ?? null,
+    };
 };

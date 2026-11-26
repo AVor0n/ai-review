@@ -22,6 +22,10 @@ dirs = "6"
 tauri-plugin-dialog = "2"
 tauri-plugin-opener = "2"
 
+# Уведомление с откликом на нажатие: плагин уведомлений на десктопе нажатие не сообщает
+[target.'cfg(target_os = "macos")'.dependencies]
+mac-notification-sys = "0.6"
+
 # Proc-macro библиотеки после strip на новых macOS не грузятся (dyld: mis-aligned LINKEDIT string pool) — их не обрезаем
 [profile.release.build-override]
 strip = false

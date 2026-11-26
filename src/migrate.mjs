@@ -1,5 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { removeLegacyBackendImages } from './qa.mjs';
 import { DATA_DIR, loadConfig, readJson, saveConfig, writeJson } from './store.mjs';
 
 // Однократный перенос в config.json значений, которые до #40 были зашиты в код: шаблон веток, репозитории QA,
@@ -68,7 +69,12 @@ const testedRepos = () => {
 };
 
 export const runMigrations = ({ log = () => {} } = {}) => {
-    const done = readJson(MARKER, {});
+    let done = readJson(MARKER, {});
+    // Образ бэкенда QA со старым именем (590 МБ): удаляется, когда Docker ответит; до тех пор попытка при каждом запуске CLI
+    if (!done.qaImages && removeLegacyBackendImages()) {
+        done = { ...done, qaImages: new Date().toISOString() };
+        writeJson(MARKER, done);
+    }
     if (done.projectNames) return;
     // Новая установка — общие умолчания, переносить нечего
     if (existsSync(join(DATA_DIR, 'state.json'))) {

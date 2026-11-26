@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import schema from '../../../schema/config.schema.json';
 import type { TokenInfo } from '../model/derive';
-import { configProblem, highlight } from './configText';
+import { configProblem, highlight, jsonSyntaxError } from './configText';
 import { buildInfo, configPath, effortOptions, fieldDescription, limitView, modelChange, modelOptions, pathTitle, saveCommand, stepInterval, tokensSummary, tokenStatus, type Models } from './model';
 
 const NOW = new Date('2026-11-26T12:00:00Z');
@@ -85,5 +85,23 @@ describe('настройки', () => {
         expect(buildInfo('3694b44abc', '2026-11-25T11:05:00Z', true, NOW)).toMatchObject({ dirty: true });
         expect(buildInfo('3694b44abc', '2026-11-25T11:05:00Z', false, NOW)?.text).toMatch(/^Сборка 3694b44 · 25\.11 \d\d:05$/);
         expect(buildInfo('', '2025-11-25T11:05:00Z', true, NOW)).toMatchObject({ dirty: false, text: expect.stringMatching(/^Сборка от 25\.11\.2025 /) });
+    });
+});
+
+describe('синтаксис config.json по-русски', () => {
+    it('место и суть первой ошибки', () => {
+        expect(jsonSyntaxError('{\n  "a": 1,\n}')).toBe('Ошибка JSON в строке 3, столбце 1: лишняя запятая перед }');
+        expect(jsonSyntaxError('{ "a" 1 }')).toBe('Ошибка JSON в строке 1, столбце 7: после ключа ожидается двоеточие');
+        expect(jsonSyntaxError('{ "a": 1 "b": 2 }')).toBe('Ошибка JSON в строке 1, столбце 10: ожидается запятая или }');
+        expect(jsonSyntaxError("{ 'a': 1 }")).toBe('Ошибка JSON в строке 1, столбце 3: ключ должен быть строкой в двойных кавычках');
+        expect(jsonSyntaxError('{ "a": [1, 2,] }')).toBe('Ошибка JSON в строке 1, столбце 14: лишняя запятая перед ]');
+        expect(jsonSyntaxError('{ "a": "x')).toBe('Ошибка JSON в строке 1, столбце 10: строка не закрыта кавычкой');
+        expect(jsonSyntaxError('{ "a": 1 }')).toBeNull();
+        expect(jsonSyntaxError('{ "a": tru }')).toMatch(/ожидается значение/);
+    });
+
+    it('проверка совпадает с JSON.parse на настоящем конфиге и схеме', () => {
+        const text = JSON.stringify({ $schema: './schema/config.schema.json', a: [1, -2.5e3, true, null, 'x\\"y'], b: { c: {} } }, null, 4);
+        expect(jsonSyntaxError(text)).toBeNull();
     });
 });

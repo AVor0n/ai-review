@@ -24,3 +24,8 @@ test('перенос не трогает заданные значения и н
     assert.equal(projectNamesPatch({ repos: repos('web'), agents: {} }, { branches: ['hotfix'], testedRepos: [] }), null);
     assert.deepEqual(projectNamesPatch({ repos: repos('web', 'api'), agents: {} }, { branches: [], testedRepos: ['web'] }), { qa: { frontend: 'web' } });
 });
+
+test('старые образы бэкенда QA находятся по форме имени, новые и чужие не трогаются', async () => {
+    const { legacyBackendImages } = await import('../src/qa.mjs');
+    assert.deepEqual(legacyBackendImages(['acme-backend-qa:6b688e561599', 'acme-backend-qa:<none>', 'pr-reviewer-qa-backend:abc', 'postgres:16', 'acme-backend:1']), ['acme-backend-qa:6b688e561599']);
+});

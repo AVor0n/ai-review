@@ -97,6 +97,9 @@ const keychainAccount = (service) => {
     }
 };
 
+// Аккаунт, под которым секрет лежит на этой машине: на macOS — у заведённой записи Keychain, иначе неизвестен
+export const secretAccount = (service) => (IS_MAC ? keychainAccount(service) : null);
+
 // Возвращает, куда сохранено: keychain, libsecret или file.
 // reuseAccount — для секретов, которые читаются без аккаунта: запись с другим аккаунтом осталась бы рядом, и чтение могло бы вернуть старое значение
 export const writeSecret = (service, account, value, { reuseAccount = false } = {}) => {

@@ -261,13 +261,35 @@ const ensureDocker = () => {
 
 // Образ бэкенда весит ~600 МБ, а нужен только тот, что под текущий прогон. Тестирование идёт по одному,
 // поэтому остальные образы ничьи; занятый контейнером docker без -f удалить не даст
+// До #40 образ назывался <проект>-backend-qa: по этой форме имени он и находится, имён проектов в коде нет
+const LEGACY_BACKEND_IMAGE = /^[a-z0-9][a-z0-9._-]*-backend-qa$/;
+export const legacyBackendImages = (images) => images.filter((image) => LEGACY_BACKEND_IMAGE.test(image.split(':')[0]) && !image.endsWith(':<none>'));
+
+// null — Docker не ответил (не установлен или не запущен)
+const dockerImages = () => {
+    const list = spawnSync('docker', ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}'], { encoding: 'utf8', timeout: 10_000 });
+    return list.status === 0 ? list.stdout.split('\n').filter(Boolean) : null;
+};
+
+const removeImages = (images, what) => {
+    if (!images.length) return;
+    const result = spawnSync('docker', ['image', 'rm', ...images], { encoding: 'utf8' });
+    if (result.status === 0) log(`тестирование: удалены ${what} — ${images.join(', ')}`);
+    else logError(`тестирование: не удалось удалить ${what} — ${result.stderr.trim()}`);
+};
+
+// Старые образы со старым именем после переименования (#40) иначе не удалились бы никогда. false — Docker не ответил, попробовать позже
+export const removeLegacyBackendImages = () => {
+    const images = dockerImages();
+    if (!images) return false;
+    removeImages(legacyBackendImages(images), 'образы бэкенда со старым именем');
+    return true;
+};
+
 const pruneBackendImages = (keep) => {
-    const list = spawnSync('docker', ['image', 'ls', '--format', '{{.Repository}}:{{.Tag}}', BACKEND_IMAGE], { encoding: 'utf8' });
-    const old = list.status === 0 ? list.stdout.split('\n').filter((image) => image && image !== keep && !image.endsWith(':<none>')) : [];
-    if (!old.length) return;
-    const result = spawnSync('docker', ['image', 'rm', ...old], { encoding: 'utf8' });
-    if (result.status === 0) log(`тестирование: удалены старые образы бэкенда — ${old.join(', ')}`);
-    else logError(`тестирование: не удалось удалить старые образы бэкенда — ${result.stderr.trim()}`);
+    const images = dockerImages() ?? [];
+    const old = images.filter((image) => image.startsWith(`${BACKEND_IMAGE}:`) && image !== keep && !image.endsWith(':<none>'));
+    removeImages([...old, ...legacyBackendImages(images)], 'старые образы бэкенда');
 };
 
 const startBackend = ({ config, frontendDir, frontendBranch, onActivity, step, onCompose }) => {

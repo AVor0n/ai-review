@@ -1,12 +1,12 @@
 import { minutesText } from './model/format';
-import { workerStall } from './model/derive';
-import { allows, allowsLevel, rulesFor, type NotificationKind, type NotificationSettings } from './model/notifications';
+import { findingUrl, workerStall } from './model/derive';
+import { allows, allowsLevel, levelsText, rulesFor, type NotificationKind, type NotificationSettings } from './model/notifications';
 import type { Data, FixState, PullRequest } from './model/types';
 
 // Какие системные уведомления показать — перенос Notifier.check из menubar/Alerts.swift. Чистая функция: на входе данные
 // и то, о чём уже сообщили, на выходе уведомления и новые отметки. Проверка идёт и при выключенных уведомлениях —
 // чтобы двигать отметки: после включения не придёт пачка пропущенного
-export type Notice = { id: string; kind: NotificationKind; title: string; body: string };
+export type Notice = { id: string; kind: NotificationKind; title: string; subtitle?: string; body: string; url?: string | null };
 
 // since-отметки по видам — время последнего события, о котором уже сообщили; heads и lastRunAt — с прошлой проверки
 export type AlertMemory = {
@@ -55,12 +55,6 @@ const fresh = <T>(items: T[], since: string, at: (item: T) => string | null | un
     return { items: result, since: latest };
 };
 
-const levels = (counts: Record<string, number>) =>
-    Object.entries(counts)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([level, count]) => (count > 1 ? `${level}×${count}` : level))
-        .join(' ');
-
 export const checkAlerts = (data: Data, settings: NotificationSettings, memory: AlertMemory, agentName: (id: string) => string, now = new Date()) => {
     const notices: Notice[] = [];
     const next: AlertMemory = { ...memory, since: { ...memory.since }, heads: { ...memory.heads } };
@@ -77,8 +71,10 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
         notices.push({
             id: `${first.repo}#${first.pr.id}#${first.finding.agent}#${first.finding.at}`,
             kind: 'findings',
-            title: `${levels(counts)} в ${first.repo} #${first.pr.id} · ${agentName(first.finding.agent)}`,
-            body: [first.pr.title, ...group.map((item) => `${item.finding.level}: ${item.finding.title}`)].join('\n'),
+            title: `${levelsText(counts)} в ${first.repo} #${first.pr.id} · ${agentName(first.finding.agent)}`,
+            subtitle: first.pr.title,
+            body: group.map((item) => `${item.finding.level}: ${item.finding.title}`).join('\n'),
+            url: findingUrl(first.pr, first.finding),
         });
     }
 
@@ -94,7 +90,9 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
             id: `comments#${first.repo}#${first.pr.id}#${last.comment.id}`,
             kind: 'comments',
             title: group.length > 1 ? `${group.length} комментария в ${first.repo} #${first.pr.id}` : `${first.comment.reply ? 'Ответ' : 'Комментарий'} в ${first.repo} #${first.pr.id}`,
-            body: [authors || first.pr.title, ...group.map((item) => `${item.comment.author ? `${item.comment.author}: ` : ''}${item.comment.text}`)].join('\n'),
+            subtitle: authors || first.pr.title,
+            body: group.map((item) => `${item.comment.author ? `${item.comment.author}: ` : ''}${item.comment.text}`).join('\n'),
+            url: last.comment.url ?? first.pr.url,
         });
     }
 
@@ -108,12 +106,12 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
         if (!known || !allows(settings, 'updates', repo)) continue;
         for (const pr of snapshot.prs) {
             if (!(pr.id in known)) {
-                notices.push({ id: `new#${repo}#${pr.id}`, kind: 'updates', title: `Новый PR ${repo} #${pr.id}`, body: [pr.author, pr.title].filter(Boolean).join('\n') });
+                notices.push({ id: `new#${repo}#${pr.id}`, kind: 'updates', title: `Новый PR ${repo} #${pr.id}`, subtitle: pr.author ?? '', body: pr.title, url: pr.url });
                 continue;
             }
             // Свой пуш доработки — уже сообщила доработка
             const pushedByFix = fixes.some((fix) => fix.repo === repo && fix.pr === pr.id && fix.report?.head === pr.head);
-            if (known[pr.id] !== pr.head && !pushedByFix) notices.push({ id: `push#${repo}#${pr.id}#${pr.head}`, kind: 'updates', title: `Новые коммиты в ${repo} #${pr.id}`, body: [pr.author, pr.title].filter(Boolean).join('\n') });
+            if (known[pr.id] !== pr.head && !pushedByFix) notices.push({ id: `push#${repo}#${pr.id}#${pr.head}`, kind: 'updates', title: `Новые коммиты в ${repo} #${pr.id}`, subtitle: pr.author ?? '', body: pr.title, url: pr.url });
         }
         for (const [id, head] of Object.entries(known)) {
             if (!current[Number(id)]) notices.push({ id: `closed#${repo}#${id}#${head}`, kind: 'updates', title: `PR ${repo} #${id} закрыт`, body: 'Влит или отклонён' });
@@ -135,7 +133,9 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
             id: `fix#${fix.repo}#${fix.pr}#${fix.finishedAt ?? ''}`,
             kind: 'fixes',
             title: `${rebase ? 'Rebase' : 'Доработка'} ${fix.repo} #${fix.pr}${fix.state === 'done' ? '' : ' не удалась'}`,
-            body: [pr?.title, `${fix.report?.message ?? fix.error ?? ''}${counts}`].filter(Boolean).join('\n'),
+            subtitle: pr?.title ?? '',
+            body: `${fix.report?.message ?? fix.error ?? ''}${counts}`,
+            url: pr?.url ?? null,
         });
     }
 

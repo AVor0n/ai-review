@@ -499,9 +499,13 @@ export const SettingsScreen = ({
                 <AddRepoSheet
                     onAdd={async (ref) => {
                         if (!api) return 'Сервис не отвечает';
-                        const { error: failure } = await api.POST('/repos', { body: { ref } });
-                        if (!failure) loadClones();
-                        return failure ? errorText(failure) : null;
+                        const { data: added, error: failure } = await api.POST('/repos', { body: { ref } });
+                        if (failure) return errorText(failure);
+                        // Как addRepo в SwiftUI: служебная копия скачивается сразу, без «Скачать»
+                        const slug = (added as { slug?: string } | undefined)?.slug;
+                        if (slug) clone(slug);
+                        else loadClones();
+                        return null;
                     }}
                     onClose={() => setSheet(null)}
                 />
@@ -515,7 +519,7 @@ export const SettingsScreen = ({
                 />
             )}
             {sheet === 'log' && <LogSheet entries={log} file={logDir ? `${logDir}/worker.log` : null} onError={setError} onClose={() => setSheet(null)} />}
-            {sheet === 'config' && api && <ConfigSheet api={api} canOpenInCode={canOpenInCode} onOpenInCode={(path) => invoke('open_in_code', { path }).catch((reason) => setError(String(reason)))} onClose={() => setSheet(null)} />}
+            {sheet === 'config' && api && <ConfigSheet api={api} config={config} canOpenInCode={canOpenInCode} onOpenInCode={(path) => invoke('open_in_code', { path }).catch((reason) => setError(String(reason)))} onClose={() => setSheet(null)} />}
         </>
     );
 };

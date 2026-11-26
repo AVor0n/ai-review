@@ -285,6 +285,37 @@ fn open_notification_settings() -> Result<(), String> {
     }
 }
 
+// Системное уведомление, как post в Alerts.swift: нажатие открывает PR, комментарий или тред.
+// На Mac — через mac-notification-sys: поток ждёт нажатия, ожидания разных уведомлений друг другу не мешают.
+// На Windows пока без отклика на нажатие (Q53: собираем только Mac) — уведомление плагина
+#[tauri::command]
+fn show_notification(app: AppHandle, title: String, subtitle: Option<String>, body: String, url: Option<String>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let identifier = app.config().identifier.clone();
+        std::thread::spawn(move || {
+            // Приложение задаётся один раз на процесс; повторный вызов возвращает ошибку — её не ждём
+            let _ = mac_notification_sys::set_application(&identifier);
+            let mut notification = mac_notification_sys::Notification::new();
+            notification.title(&title).maybe_subtitle(subtitle.as_deref().filter(|text| !text.is_empty())).message(&body).default_sound().wait_for_click(url.is_some());
+            if let (Ok(mac_notification_sys::NotificationResponse::Click), Some(url)) = (notification.send(), url) {
+                let _ = std::process::Command::new("open").arg(&url).spawn();
+            }
+        });
+        Ok(())
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        use tauri_plugin_notification::NotificationExt;
+        let _ = url;
+        let text = match subtitle.filter(|text| !text.is_empty()) {
+            Some(subtitle) => format!("{subtitle}\n{body}"),
+            None => body,
+        };
+        app.notification().builder().title(title).body(text).show().map_err(|error| error.to_string())
+    }
+}
+
 // Файл или папка в приложении по умолчанию: Просмотр, плеер, Finder или Проводник
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
@@ -492,7 +523,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]

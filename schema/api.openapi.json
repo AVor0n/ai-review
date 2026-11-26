@@ -4160,6 +4160,11 @@
                     "savedAt": {
                         "type": "string",
                         "nullable": true
+                    },
+                    "account": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Аккаунт записи хранилища: у токенов моделей на macOS — аккаунт уже заведённой записи Keychain"
                     }
                 },
                 "required": [

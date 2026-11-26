@@ -8,8 +8,10 @@ import { configPath, fieldDescription, pathTitle } from './model';
 
 // Редактор config.json — перенос ConfigSheet: подсветка, описание поля под курсором, проверка до записи и защита от перезаписи
 const isWindows = navigator.userAgent.includes('Windows');
+const CHANGED = 'Файл изменился, пока он был открыт (например, переключили модель в настройках). Нажмите «Перечитать» и внесите правку заново.';
 
-export const ConfigSheet = ({ api, canOpenInCode, onOpenInCode, onClose }: { api: ApiClient; canOpenInCode: boolean; onOpenInCode: (path: string) => void; onClose: () => void }) => {
+// config — конфиг из данных приложения: меняется по событию сервиса, когда config.json записали
+export const ConfigSheet = ({ api, config, canOpenInCode, onOpenInCode, onClose }: { api: ApiClient; config: unknown; canOpenInCode: boolean; onOpenInCode: (path: string) => void; onClose: () => void }) => {
     const [file, setFile] = useState<{ path: string; text: string; modifiedAt: string } | null>(null);
     const [text, setText] = useState('');
     const [caret, setCaret] = useState(0);
@@ -29,6 +31,16 @@ export const ConfigSheet = ({ api, canOpenInCode, onOpenInCode, onClose }: { api
     useEffect(() => {
         load();
     }, [load]);
+
+    // Файл изменили, пока лист открыт (переключатель в настройках, сервис, другой редактор) — говорим сразу, а не после «Сохранить»
+    const opened = useRef(file);
+    opened.current = file;
+    useEffect(() => {
+        if (!opened.current) return;
+        api.GET('/config/file').then(({ data }) => {
+            if (data && opened.current && data.modifiedAt !== opened.current.modifiedAt) setSaveError({ text: CHANGED, changed: true });
+        });
+    }, [api, config]);
 
     const problem = useMemo(() => (file ? configProblem(text) : null), [file, text]);
     const path = focused ? configPath(text, caret) : [];
@@ -125,7 +137,7 @@ export const ConfigSheet = ({ api, canOpenInCode, onOpenInCode, onClose }: { api
                         </button>
                     )}
                     <span className="spacer" />
-                    <button className="button button--prominent" title={isWindows ? 'Ctrl+S' : '⌘S'} disabled={!changed || !!problem} onClick={save}>
+                    <button className="button button--prominent" title={isWindows ? 'Ctrl+S' : '⌘S'} disabled={!changed || !!problem || !!saveError?.changed} onClick={save}>
                         Сохранить
                     </button>
                 </div>
