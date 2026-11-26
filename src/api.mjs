@@ -1,6 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, closeSync, createReadStream, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, statSync, watch, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, createReadStream, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, realpathSync, renameSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { extname, isAbsolute, join, resolve, sep } from 'node:path';
@@ -179,11 +179,16 @@ const qaFile = (repo, pr, path) => {
     const runDir = loadQaState(repo, Number(pr))?.run?.runDir;
     if (!runDir) throw new ApiError(404, 'У PR нет прогона тестирования');
     if (!path) throw new ApiError(400, 'Нужен параметр path — путь файла в папке прогона');
+    const denied = () => new ApiError(403, 'Отдаются только скриншоты и видео из папки прогона');
     const full = resolve(runDir, path);
-    const type = MEDIA_TYPES[extname(full).toLowerCase()];
-    if (!full.startsWith(resolve(runDir) + sep) || !type) throw new ApiError(403, 'Отдаются только скриншоты и видео из папки прогона');
-    if (!existsSync(full) || !statSync(full).isFile()) throw new ApiError(404, `Нет файла ${path}`);
-    return { full, type };
+    if (!full.startsWith(resolve(runDir) + sep) || !MEDIA_TYPES[extname(full).toLowerCase()]) throw denied();
+    if (!existsSync(full)) throw new ApiError(404, `Нет файла ${path}`);
+    // resolve не раскрывает символические ссылки: ссылка внутри папки прогона могла бы вести на api-token
+    const real = realpathSync(full);
+    const type = MEDIA_TYPES[extname(real).toLowerCase()];
+    if (!real.startsWith(realpathSync(runDir) + sep) || !type) throw denied();
+    if (!statSync(real).isFile()) throw new ApiError(404, `Нет файла ${path}`);
+    return { full: real, type };
 };
 
 // Действие = команда CLI: те же проверки, те же тексты ошибок, та же логика прерывания
@@ -518,7 +523,9 @@ export const createApi = (overrides = {}) => {
         }
 
         const candidates = table.map((route) => ({ route, match: route.pattern.exec(url.pathname) })).filter(({ match }) => match);
-        const found = candidates.find(({ route }) => route.method === req.method);
+        // Буквальный путь важнее шаблона: /backlog/jobs/stop не должен уйти в /backlog/{id}/{action} с id=jobs
+        const paramCount = (route) => (route.path.match(/\{/g) ?? []).length;
+        const found = candidates.filter(({ route }) => route.method === req.method).sort((a, b) => paramCount(a.route) - paramCount(b.route))[0];
         if (!found) return send(res, candidates.length ? 405 : 404, { error: candidates.length ? 'Метод не поддерживается' : 'Нет такого ресурса' }, cors);
         const params = Object.fromEntries(Object.entries(found.match.groups ?? {}).map(([key, value]) => [key, decodeURIComponent(value)]));
         try {

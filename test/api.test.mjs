@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -293,4 +293,30 @@ test('журнал: записи с временем, многострочные
     );
     assert.equal(log.json.entries[1].id, Buffer.byteLength('2026-11-26T10:00:00.000Z Проход начат\n'));
     assert.equal(eventType('worker.log'), null);
+});
+
+test('буквальный путь важнее шаблона: остановка разбора бэклога и закрытие неактуальных не уходят в /backlog/{id}/{action}', async () => {
+    saved.cli.length = 0;
+    assert.equal((await call('POST', '/backlog/jobs/stop')).status, 200);
+    assert.equal((await call('POST', '/backlog/close-stale')).status, 200);
+    assert.equal((await call('POST', '/backlog/jobs', { body: { kind: 'triage' } })).status, 200);
+    assert.equal((await call('POST', '/backlog/abc123/filed', { body: { text: 'PROJ-1' } })).status, 200);
+    assert.deepEqual(saved.cli, [['backlog', 'stop'], ['backlog', 'close-stale'], ['backlog', 'triage', '--background'], ['backlog', 'filed', 'abc123', 'PROJ-1']]);
+});
+
+test('файлы прогона: символическая ссылка из папки прогона наружу — 403, внутрь — отдаётся', async () => {
+    const runDir = join(DATA_DIR, 'qa/runs/backend__9/1');
+    mkdirSync(join(runDir, 'C4'), { recursive: true });
+    writeFileSync(join(DATA_DIR, 'secret-token'), SECRET);
+    writeFileSync(join(runDir, 'C4/real.png'), 'png-bytes');
+    symlinkSync(join(DATA_DIR, 'secret-token'), join(runDir, 'C4/token.png'));
+    symlinkSync(join(runDir, 'C4/real.png'), join(runDir, 'C4/alias.png'));
+    mkdirSync(join(DATA_DIR, 'qa/state'), { recursive: true });
+    writeFileSync(join(DATA_DIR, 'qa/state/backend__9.json'), JSON.stringify({ repo: 'backend', pr: 9, state: 'done', run: { runDir } }));
+    const escaped = await call('GET', '/qa/backend/9/file?path=C4/token.png');
+    assert.equal(escaped.status, 403);
+    assert.ok(!escaped.text.includes(SECRET));
+    const inside = await call('GET', '/qa/backend/9/file?path=C4/alias.png');
+    assert.equal(inside.status, 200);
+    assert.equal(inside.text, 'png-bytes');
 });
