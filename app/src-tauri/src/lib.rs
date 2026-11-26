@@ -216,12 +216,8 @@ fn open_in_code(path: String) -> Result<(), String> {
     {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        let converted = std::process::Command::new("wsl.exe").args(["-e", "wslpath", "-w", &path]).creation_flags(CREATE_NO_WINDOW).output().map_err(|error| error.to_string())?;
-        let windows_path = String::from_utf8_lossy(&converted.stdout).trim().to_string();
-        if windows_path.is_empty() {
-            return Err("WSL не перевёл путь к файлу".into());
-        }
-        std::process::Command::new("cmd").args(["/c", "code", &windows_path]).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
+        let target = windows_path(&path)?;
+        std::process::Command::new("cmd").args(["/c", "code", &target]).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
         Ok(())
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
@@ -229,6 +225,120 @@ fn open_in_code(path: String) -> Result<(), String> {
         let _ = path;
         Err("VS Code открывается только на macOS и Windows".into())
     }
+}
+
+// Файлы сервиса на Windows лежат в WSL: Проводник и приложения Windows видят их по пути \\wsl.localhost\…
+#[cfg(target_os = "windows")]
+fn windows_path(path: &str) -> Result<String, String> {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let converted = std::process::Command::new("wsl.exe").args(["-e", "wslpath", "-w", path]).creation_flags(CREATE_NO_WINDOW).output().map_err(|error| error.to_string())?;
+    let result = String::from_utf8_lossy(&converted.stdout).trim().to_string();
+    if result.is_empty() {
+        return Err("WSL не перевёл путь к файлу".into());
+    }
+    Ok(result)
+}
+
+// «Показать в Finder» / «Показать в Проводнике»: папка с выделенным файлом
+#[tauri::command]
+fn reveal_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").args(["-R", &path]).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let target = windows_path(&path)?;
+        std::process::Command::new("explorer").arg(format!("/select,{target}")).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = path;
+        Err("показать файл можно только на macOS и Windows".into())
+    }
+}
+
+// Файл или папка в приложении по умолчанию: Просмотр, плеер, Finder или Проводник
+#[tauri::command]
+fn open_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg(&path).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let target = windows_path(&path)?;
+        std::process::Command::new("cmd").args(["/c", "start", "", &target]).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = path;
+        Err("открыть файл можно только на macOS и Windows".into())
+    }
+}
+
+const VIEWER: &str = "viewer";
+const VIEWER_BAR: f64 = 52.0;
+
+// Окно просмотра скриншотов и видео прогона, как Quick Look: 85 % экрана, кадр 16:9 плюс панель снизу.
+// Открывается поверх поповера и не закрывает его. Список файлов и выбранный — в адресе страницы
+#[tauri::command]
+fn open_viewer(app: AppHandle, query: String) -> Result<(), String> {
+    if let Some(viewer) = app.get_webview_window(VIEWER) {
+        let _ = viewer.set_always_on_top(true);
+        viewer.emit("viewer-files", query).map_err(|error| error.to_string())?;
+        let _ = viewer.show();
+        return viewer.set_focus().map_err(|error| error.to_string());
+    }
+    let monitor = app.get_webview_window(WINDOW).and_then(|window| window.current_monitor().ok().flatten());
+    let (left, top, width, height) = match monitor {
+        Some(monitor) => {
+            let scale = monitor.scale_factor();
+            let work = monitor.work_area();
+            let (x, y) = (work.position.x as f64 / scale, work.position.y as f64 / scale);
+            let (w, h) = (work.size.width as f64 / scale, work.size.height as f64 / scale);
+            let width = (w * 0.85).min((h * 0.85 - VIEWER_BAR) * 16.0 / 9.0);
+            let height = width * 9.0 / 16.0 + VIEWER_BAR;
+            (x + (w - width) / 2.0, y + (h - height) / 2.0, width, height)
+        }
+        None => (100.0, 100.0, 1200.0, 727.0),
+    };
+    tauri::WebviewWindowBuilder::new(&app, VIEWER, tauri::WebviewUrl::App(format!("index.html#viewer={query}").into()))
+        .title("PR Reviewer")
+        .inner_size(width, height)
+        .min_inner_size(480.0, 320.0)
+        .position(left, top)
+        .always_on_top(true)
+        .build()
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+// Поповер прячется, как только теряет фокус, — как поповер строки меню. Но не когда фокус ушёл в своё окно просмотра.
+// Когда поповер спрятан, окну просмотра незачем висеть поверх чужих окон
+fn hide_popover_unless_viewer(app: AppHandle) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(150));
+        let viewer = app.get_webview_window(VIEWER);
+        if viewer.as_ref().is_some_and(|viewer| viewer.is_focused().unwrap_or(false)) {
+            return;
+        }
+        if let Some(window) = app.get_webview_window(WINDOW) {
+            let _ = window.hide();
+        }
+        if let Some(viewer) = viewer {
+            let _ = viewer.set_always_on_top(false);
+        }
+    });
 }
 
 // Картинка вкладки (камера статистики): PNG приходит телом запроса, имя — заголовком. Файл — в «Загрузки», затем открывается
@@ -360,7 +470,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
@@ -381,11 +491,17 @@ pub fn run() {
             }
             Ok(())
         })
-        .on_window_event(|window, event| {
-            // Поповер прячется, как только теряет фокус, — как поповер строки меню
-            if let (WindowEvent::Focused(false), false) = (event, debug_show()) {
-                let _ = window.hide();
+        .on_window_event(|window, event| match (window.label(), event) {
+            (WINDOW, WindowEvent::Focused(false)) if !debug_show() => hide_popover_unless_viewer(window.app_handle().clone()),
+            // Окно просмотра закрыли — фокус обратно поповеру, иначе он не узнает о следующем клике мимо
+            (VIEWER, WindowEvent::Destroyed) => {
+                if let Some(main) = window.app_handle().get_webview_window(WINDOW) {
+                    if main.is_visible().unwrap_or(false) {
+                        let _ = main.set_focus();
+                    }
+                }
             }
+            _ => {}
         })
         .run(tauri::generate_context!())
         .expect("не удалось запустить PR Reviewer");

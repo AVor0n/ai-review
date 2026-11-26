@@ -892,6 +892,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/qa/{repo}/{pr}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Скриншот или видео последнего прогона тестирования */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Путь файла в папке прогона, как в evidence.files: <id кейса>/<имя>.png или .webm */
+                    path: string;
+                };
+                header?: never;
+                path: {
+                    repo: string;
+                    pr: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Файл */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "image/png": string;
+                        "video/webm": string;
+                    };
+                };
+                /** @description Нет параметра path */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Файл вне папки прогона или не картинка и не видео */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Нет прогона или файла */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/backlog": {
         parameters: {
             query?: never;

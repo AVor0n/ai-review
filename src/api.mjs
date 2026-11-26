@@ -1,10 +1,11 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, watch, writeFileSync } from 'node:fs';
+import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
-import { isAbsolute, join } from 'node:path';
+import { extname, isAbsolute, join, resolve, sep } from 'node:path';
 import { lessonUsage } from './memory-review.mjs';
+import { loadQaState } from './qa.mjs';
 import { loadMemoryHistory, readMemory } from './memory.mjs';
 import { validate } from './json-schema.mjs';
 import { DATA_DIR, GIT_ROOT, LOG_DIR } from './platform.mjs';
@@ -111,6 +112,19 @@ const field = (body, name, type = 'string') => {
     return type === 'string' ? value.trim() : value;
 };
 
+// Файл отдаётся, только если он внутри папки последнего прогона PR и это картинка или видео Playwright
+const MEDIA_TYPES = { '.png': 'image/png', '.webm': 'video/webm' };
+const qaFile = (repo, pr, path) => {
+    const runDir = loadQaState(repo, Number(pr))?.run?.runDir;
+    if (!runDir) throw new ApiError(404, 'У PR нет прогона тестирования');
+    if (!path) throw new ApiError(400, 'Нужен параметр path — путь файла в папке прогона');
+    const full = resolve(runDir, path);
+    const type = MEDIA_TYPES[extname(full).toLowerCase()];
+    if (!full.startsWith(resolve(runDir) + sep) || !type) throw new ApiError(403, 'Отдаются только скриншоты и видео из папки прогона');
+    if (!existsSync(full) || !statSync(full).isFile()) throw new ApiError(404, `Нет файла ${path}`);
+    return { full, type };
+};
+
 // Действие = команда CLI: те же проверки, те же тексты ошибок, та же логика прерывания
 const cliAction = (build, { json = false } = {}) => ({ action: build, json });
 
@@ -200,6 +214,8 @@ const routes = (deps) => {
             ]),
         },
         { method: 'POST', path: '/qa/{repo}/{pr}/stop', ...cliAction(({ params, config }) => ['qa', 'stop', '--repo', repoParam(params, config), '--pr', prParam(params)]) },
+        // Скриншоты и видео прогона для превью и окна просмотра: на Windows файлы лежат в WSL, вебвью их напрямую не видит
+        { method: 'GET', path: '/qa/{repo}/{pr}/file', file: ({ params, query, config }) => qaFile(repoParam(params, config), prParam(params), query.get('path')) },
         { method: 'POST', path: '/qa/{repo}/{pr}/save', ...cliAction(({ params, config }) => ['qa', 'save', '--repo', repoParam(params, config), '--pr', prParam(params)]) },
         { method: 'POST', path: '/memory/{repo}/lessons', ...cliAction(({ params, body, config }) => ['memory', 'add', repoParam(params, config), field(body, 'text')]) },
         { method: 'PUT', path: '/memory/{repo}/lessons/{id}', ...cliAction(({ params, body, config }) => ['memory', 'edit', repoParam(params, config), params.id, field(body, 'text')]) },
@@ -414,6 +430,11 @@ export const createApi = (overrides = {}) => {
             const context = { params, query: url.searchParams, body, config: deps.loadConfig() };
             const { route } = found;
             if (route.read) return send(res, 200, route.read(context) ?? null, cors);
+            if (route.file) {
+                const { full, type } = route.file(context);
+                res.writeHead(200, { 'Content-Type': type, 'Content-Length': statSync(full).size, 'Cache-Control': 'no-store', ...cors });
+                return createReadStream(full).pipe(res);
+            }
             if (route.write) return send(res, 200, route.write(context), cors);
             const { ok, output } = await deps.runCli(route.action(context));
             if (!ok) return send(res, 409, { error: output.split('\n').filter(Boolean).at(-1) ?? 'Команда не выполнена', output }, cors);

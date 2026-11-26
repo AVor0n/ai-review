@@ -2,6 +2,6 @@
     "$schema": "../gen/schemas/desktop-schema.json",
     "identifier": "default",
     "description": "Поповер: события, уведомления, диалоги подтверждения, ссылки на PR, автозапуск и свои команды",
-    "windows": ["main"],
-    "permissions": ["core:default", "core:window:allow-hide", "core:window:allow-show", "notification:default", "autostart:default", "dialog:default", "opener:default"]
+    "windows": ["main", "viewer"],
+    "permissions": ["core:default", "core:window:allow-hide", "core:window:allow-show", "core:window:allow-set-title", "core:window:allow-close", "notification:default", "autostart:default", "dialog:default", "opener:default"]
 }

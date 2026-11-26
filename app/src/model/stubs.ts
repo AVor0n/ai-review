@@ -14,8 +14,7 @@ export type StubTarget =
     // «Обзор» и «Статистика» уже перенесены
     | { kind: 'tab'; tab: Exclude<TabId, 'overview' | 'stats'> }
     | { kind: 'connect' }
-    | { kind: 'token'; id: string; title: string; lifetimeDays: number | null }
-    | { kind: 'qa'; repo: string; pr: number };
+    | { kind: 'token'; id: string; title: string; lifetimeDays: number | null };
 
 export type Command = { text: string; note: string };
 export type Stub = { tab: TabId; title: string; text: string; commands: Command[] };
@@ -64,8 +63,6 @@ const content = (target: StubTarget, cli: string, logDir: string): Omit<Stub, 't
                     { text: `${cli} token ${target.id} ${target.lifetimeDays || 365}`, note: 'срок жизни в днях — по нему обзор предупреждает заранее' },
                 ],
             };
-        case 'qa':
-            return { tab: 'overview', title: 'Тестирование PR', commands: [{ text: `${cli} qa show --repo ${target.repo} --pr ${target.pr}`, note: 'план и отчёт прогона' }] };
     }
 };
 

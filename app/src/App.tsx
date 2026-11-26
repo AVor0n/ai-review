@@ -10,6 +10,7 @@ import { StatsScreen } from './stats/StatsScreen';
 import { MemorySheet } from './memory/MemorySheet';
 import { ArchSheet } from './arch/ArchSheet';
 import { FixSheet } from './fix/FixSheet';
+import { QaSheet } from './qa/QaSheet';
 import { updateJobs } from './memory/jobs';
 import { newLessons } from './model/banners';
 import { invoke } from '@tauri-apps/api/core';
@@ -49,6 +50,7 @@ export const App = () => {
     const [memorySheet, setMemorySheet] = useState<string | null>(null);
     const [archSheet, setArchSheet] = useState<{ repo: string; pr: number } | null>(null);
     const [fixSheet, setFixSheet] = useState<{ repo: string; pr: number } | null>(null);
+    const [qaSheet, setQaSheet] = useState<{ repo: string; pr: number } | null>(null);
     const [canOpenInCode, setCanOpenInCode] = useState(false);
     useEffect(() => {
         invoke<boolean>('code_available').then(setCanOpenInCode, () => setCanOpenInCode(false));
@@ -145,6 +147,7 @@ export const App = () => {
             closeMemorySheet();
             setArchSheet(null);
             setFixSheet(null);
+            setQaSheet(null);
             setBannersExpanded(false);
             setNow(new Date());
             // Статус — заново: при открытии поповера шапка и баннеры не должны показывать устаревший проход
@@ -234,7 +237,7 @@ export const App = () => {
             );
             if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/arch/{repo}/{pr}', { params: { path: { repo, pr: pr.id } } }));
         },
-        report: (kind, repo, pr) => (kind === 'arch' ? setArchSheet({ repo, pr }) : kind === 'fix' ? setFixSheet({ repo, pr }) : setStub({ kind, repo, pr })),
+        report: (kind, repo, pr) => (kind === 'arch' ? setArchSheet({ repo, pr }) : kind === 'fix' ? setFixSheet({ repo, pr }) : setQaSheet({ repo, pr })),
         toggleRepo: (slug) =>
             updatePrefs((previous) => ({
                 ...previous,
@@ -299,6 +302,7 @@ export const App = () => {
                     ) : (
                         <Overview state={{ offline, data: hasData ? data : null, banners, bannersExpanded, collapsed: prefs.collapsedRepos, syncing, now }} on={handlers} />
                     )}
+                    {qaSheet && connection.phase === 'up' && <QaSheet api={connection.api} data={data} repo={qaSheet.repo} prId={qaSheet.pr} onClose={() => setQaSheet(null)} />}
                     {fixSheet && connection.phase === 'up' && (
                         <FixSheet api={connection.api} data={data} repo={fixSheet.repo} prId={fixSheet.pr} onRerun={(pr, rebase) => handlers.fix(fixSheet.repo, pr, rebase)} onClose={() => setFixSheet(null)} />
                     )}

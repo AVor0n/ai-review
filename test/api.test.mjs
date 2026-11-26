@@ -57,7 +57,7 @@ const call = (method, path, { body, token = TOKEN, headers = {} } = {}) =>
         const req = request({ host: '127.0.0.1', port, method, path, headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers } }, (res) => {
             let text = '';
             res.on('data', (chunk) => (text += chunk));
-            res.on('end', () => resolve({ status: res.statusCode, text, json: text ? JSON.parse(text) : null, headers: res.headers }));
+            res.on('end', () => resolve({ status: res.statusCode, text, json: text && res.headers['content-type']?.startsWith('application/json') ? JSON.parse(text) : null, headers: res.headers }));
         });
         req.on('error', reject);
         req.end(body ? JSON.stringify(body) : undefined);
@@ -225,4 +225,21 @@ test('повреждённая память — 200 с причиной в broke
     const fine = await call('GET', '/memory/backend');
     assert.equal(fine.json.broken, null);
     assert.equal(fine.json.lessons.length, 1);
+});
+
+test('файлы прогона тестирования: картинка отдаётся, выход за папку прогона и чужие типы — 403', async () => {
+    const runDir = join(DATA_DIR, 'qa/runs/backend__7/1');
+    mkdirSync(join(runDir, 'C1'), { recursive: true });
+    writeFileSync(join(runDir, 'C1/shot.png'), 'png-bytes');
+    writeFileSync(join(runDir, 'C1/notes.txt'), 'text');
+    mkdirSync(join(DATA_DIR, 'qa/state'), { recursive: true });
+    writeFileSync(join(DATA_DIR, 'qa/state/backend__7.json'), JSON.stringify({ repo: 'backend', pr: 7, state: 'done', run: { runDir } }));
+    const file = await call('GET', '/qa/backend/7/file?path=C1/shot.png');
+    assert.equal(file.status, 200);
+    assert.equal(file.headers['content-type'], 'image/png');
+    assert.equal(file.text, 'png-bytes');
+    assert.equal((await call('GET', `/qa/backend/7/file?path=${encodeURIComponent('../../../../state.json')}`)).status, 403);
+    assert.equal((await call('GET', '/qa/backend/7/file?path=C1/notes.txt')).status, 403);
+    assert.equal((await call('GET', '/qa/backend/7/file?path=C1/none.png')).status, 404);
+    assert.equal((await call('GET', '/qa/backend/8/file?path=C1/shot.png')).status, 404);
 });

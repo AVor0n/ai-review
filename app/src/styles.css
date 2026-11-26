@@ -11,3 +11,15 @@ body {
 .window-frame--mac {
     padding-top: 4px;
 }
+/* Окно просмотра медиа — обычное окно во всю высоту: кадр занимает всё место над панелью */
+.app.viewer {
+    height: 100vh;
+}
+.viewer__stage {
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    overflow: auto;
+}
+.viewer__stage video {
+    max-width: 100%;
+    max-height: 100%;
+}
