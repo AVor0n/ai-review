@@ -496,7 +496,7 @@ export const MemorySheet = ({
                                     {reviewing ? (
                                         <div className="info-card">
                                             <div className="info-card__row">
-                                                <Icon id="i-hourglass" className="icon hourglass" style={{ color: 'var(--blue)', fontSize: 15, marginTop: 1 }} />
+                                                <Icon id="i-hourglass" className="icon hourglass lead-icon" style={{ '--c': 'var(--blue)' } as React.CSSProperties} />
                                                 <div className="info-card__text">
                                                     <span className="status-label" style={{ '--c': 'var(--blue)' } as React.CSSProperties}>
                                                         Идёт разбор · {elapsed(Math.max(0, Math.floor((now - (jobs.reviewing ?? now)) / 1000)))}

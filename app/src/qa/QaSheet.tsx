@@ -607,7 +607,7 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                         <div className="save-row">
                             {current.saved ? (
                                 <>
-                                    <Icon id="i-check-circle-fill" style={{ color: 'var(--green)', fontSize: 13, marginTop: 1 }} />
+                                    <Icon id="i-check-circle-fill" className="icon lead-icon lead-icon--small" style={{ '--c': 'var(--green)' } as CSSProperties} />
                                     <span className="save-row__text">
                                         <span className="save-row__title">
                                             Сохранены {ago(current.saved.at)} в {repoName}

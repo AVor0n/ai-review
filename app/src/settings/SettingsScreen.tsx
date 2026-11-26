@@ -310,7 +310,7 @@ export const SettingsScreen = ({
                                 <span style={{ '--remaining': `${limit.bar}%`, '--c': limitColor(limit) } as CSSProperties} />
                             </span>
                         )}
-                        {limit.warning && <Icon id="i-warning-fill" style={{ color: 'var(--orange)', fontSize: 9 }} />}
+                        {limit.warning && <Icon id="i-warning-fill" className="icon limit__stale" />}
                         {limit.text}
                     </span>
                 </span>
