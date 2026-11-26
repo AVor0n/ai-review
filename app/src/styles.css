@@ -58,8 +58,3 @@ body {
 .code-editor--live textarea::selection {
     background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
-/* Карточка в прокручиваемом теле листа не сжимается: с overflow: hidden у .section__card она ужалась бы до высоты тела
-   и обрезала список вместо прокрутки (память, журнал, #58) */
-.sheet__body > .section__card {
-    flex: none;
-}
