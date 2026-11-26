@@ -23,7 +23,7 @@
   iframe { position: absolute; top: 0; left: 0; width: 1000px; height: calc(900px / var(--k, 1)); border: 0; transform: scale(var(--k, 1)) translateX(calc(-1px * var(--x, 0))); transform-origin: 0 0; }
   /* Таблица всех значков: каждый вписан в одинаковый квадрат, чтобы сравнивать толщину и форму, а не размер */
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
-  .cell { background: #fff; border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: repeat(3, 56px) 1fr; gap: 10px; align-items: center; }
+  .cell { background: #fff; border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: repeat(2, 56px) 1fr; gap: 10px; align-items: center; }
   .cell__box { width: 56px; height: 56px; display: grid; place-items: center; background: #f2f2f7; border-radius: 8px; }
   .cell__box svg, .cell__box img { width: 40px; height: 40px; object-fit: contain; }
   .cell__box .missing { font-size: 10px; color: #8e8e93; text-align: center; }
@@ -40,7 +40,7 @@
   .votebar button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; border-radius: 8px; background: #007aff; color: #fff; cursor: pointer; }
   .votebar button.secondary { background: #fff; color: #1d1d1f; }
   .votebar__count b { font-weight: 600; }
-  .legend { display: grid; grid-template-columns: repeat(3, 56px) 1fr; gap: 10px; font-size: 11px; color: #6e6e73; padding: 0 12px 6px; max-width: 300px; }
+  .legend { display: grid; grid-template-columns: repeat(2, 56px) 1fr; gap: 10px; font-size: 11px; color: #6e6e73; padding: 0 12px 6px; max-width: 300px; }
   .legend span { text-align: center; }
 </style>
 </head>
@@ -59,11 +59,11 @@
 </div>
 
 <h2>Все значки</h2>
-<p>Каждый значок вписан в одинаковый квадрат: так видна разница в толщине и форме, а не в размере. Первый столбец — SF Symbol того же места в старом окне. Его картинки лежат только на машине дизайнера и в репозиторий не попадают (лицензия Apple), поэтому у остальных вместо них пусто.</p>
+<p>Каждый значок вписан в одинаковый квадрат: так видна разница в толщине и форме, а не в размере. При согласовании рядом был и SF Symbol того же места в старом окне. Его картинки в репозиторий не кладём (лицензия Apple), поэтому здесь только «было» и «стало». Под каждым значком — SF Symbol, который он заменяет.</p>
 <p>Оцени третий столбец: <b>ок</b> — берём; <b>поправить</b> — в поле напиши, что не так. Под именем серым — твой комментарий из первого круга. Ответы сохраняются в этом браузере сами. Когда закончишь, нажми «Скопировать ответы» и вставь текст в чат или просто скажи мне, если отвечал во встроенном браузере.</p>
 <div class="votebar"><span class="votebar__count" id="count"></span><button id="copy">Скопировать ответы</button><button class="secondary" id="all-ok">Отметить «ок» всем без ответа</button><span id="copied" style="color:#1d7a34"></span></div>
 <label style="font-size:13px;display:flex;gap:6px;align-items:center;margin:0 0 8px"><input type="checkbox" id="only-fix" checked>Только на доработке</label>
-<div class="legend"><span>SF</span><span>сейчас</span><span>предложение</span><span></span></div>
+<div class="legend"><span>было</span><span>стало</span><span></span></div>
 <div class="grid" id="grid"></div>
 </div>
 <script>
@@ -141,12 +141,6 @@
       const sf = (symbol.innerHTML.match(/<!--\s*([^,—<]+?)(?:[,—]|\s*-->)/) || [])[1]?.trim() ?? '';
       const cell = document.createElement('div');
       cell.className = 'cell';
-      const sfBox = document.createElement('div'); sfBox.className = 'cell__box';
-      const img = new Image();
-      img.onerror = () => { sfBox.innerHTML = '<span class="missing">—</span>'; };
-      img.src = `2026-11-27-icon-weight/sf/${id}.png`;
-      sfBox.appendChild(img);
-      cell.appendChild(sfBox);
       for (const doc of [sprite, regular]) {
         const box = document.createElement('div'); box.className = 'cell__box';
         const svg = glyph(doc, id);
