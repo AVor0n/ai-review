@@ -57,9 +57,11 @@ remove_old_app() {
 # Пункт «Объекты входа» с путём приложения (остался от окна SwiftUI, bundle id …menubar): при входе он запускал бы
 # приложение второй раз, и single-instance переключал поповер. Автозапуск — дело агента launchd ниже
 remove_login_item() {
-    local script="tell application \"System Events\" to delete (every login item whose path is \"$APP_DIR\")"
-    osascript -e "$script" >/dev/null 2>&1 || true
-    if osascript -e "tell application \"System Events\" to get path of every login item" 2>/dev/null | grep -qF "$APP_DIR"; then
+    local script="tell application \"System Events\" to delete (every login item whose path is \"$APP_DIR\")" paths
+    # Без доступа к System Events падают и удаление, и чтение списка: подсказка нужна именно тогда
+    if ! osascript -e "$script" >/dev/null 2>&1 \
+        || ! paths=$(osascript -e "tell application \"System Events\" to get path of every login item" 2>/dev/null) \
+        || [[ $paths == *"$APP_DIR"* ]]; then
         echo "Не удалось убрать «PR Reviewer» из объектов входа (нет доступа к System Events). Уберите вручную: Системные настройки → Основные → Объекты входа"
     fi
 }
