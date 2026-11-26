@@ -4136,6 +4136,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/config/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * config.json как текст
+         * @description Для встроенного редактора: текст без переформатирования и время изменения файла.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Готово */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Путь к config.json */
+                            path: string;
+                            /** @description Содержимое файла */
+                            text: string;
+                            /** @description Время изменения файла, ISO */
+                            modifiedAt: string;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Сохранить config.json из редактора
+         * @description Текст проверяется как JSON и по schema/config.schema.json. Если файл изменился после modifiedAt — 409, ничего не пишется.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Новое содержимое */
+                        text: string;
+                        /** @description Время изменения файла, когда его открыли */
+                        modifiedAt?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Готово */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                            /** @description Новое время изменения файла */
+                            modifiedAt: string;
+                        };
+                    };
+                };
+                /** @description Неверный JSON или поле не по схеме */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Файл изменился, пока был открыт */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4171,6 +4271,8 @@ export interface components {
             paused: boolean;
             /** Format: date-time */
             now: string;
+            /** @description Папка служебных копий репозиториев: <reposDir>/<slug> */
+            reposDir: string;
         };
         Status: {
             phase?: string;

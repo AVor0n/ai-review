@@ -3,7 +3,7 @@ import type { Banner, BannerAction } from '../model/banners';
 import { agentName, headline, isPaused, isRunning, runningReviews } from '../model/derive';
 import { ago, roleName, shortRepoName } from '../model/format';
 import { capsules, sortedPrs } from '../model/row';
-import type { StubTarget } from '../model/stubs';
+import type { SettingsSheet } from '../settings/model';
 import type { Data } from '../model/types';
 import { Banners } from './Banners';
 import { Icon } from './Icon';
@@ -11,7 +11,7 @@ import { PrRow, type RowHandlers } from './PrRow';
 
 export type OverviewHandlers = RowHandlers & {
     command: (path: '/run-now' | '/stop' | '/resume' | '/sync') => void;
-    stub: (target: StubTarget) => void;
+    settings: (sheet: SettingsSheet | null) => void;
     toggleRepo: (slug: string) => void;
     banner: (action: BannerAction) => void;
     closeBanner: (close: NonNullable<Banner['close']>) => void;
@@ -74,7 +74,7 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
             )}
             <span className="spacer" />
             {capsules(data, now).map((capsule) => (
-                <button key={capsule.agent} className={`capsule${capsule.limited ? ' capsule--limit' : ''} model--${capsule.agent}`} title={capsule.hint} onClick={() => on.stub({ kind: 'tab', tab: 'settings' })}>
+                <button key={capsule.agent} className={`capsule${capsule.limited ? ' capsule--limit' : ''} model--${capsule.agent}`} title={capsule.hint} onClick={() => on.settings(null)}>
                     <span className="model-button">
                         <span className="model-mark" />
                         <span className={`model-badge model-badge--${capsule.limited ? 'limit' : 'manual'}`}>
@@ -178,7 +178,7 @@ export const Overview = ({ state, on }: { state: OverviewState; on: OverviewHand
                         <Icon id="i-tray" className="icon empty-state__icon" />
                         <div className="empty-state__title">Нет репозиториев</div>
                         <div className="empty-state__text">Подключите репозиторий, чтобы видеть его PR</div>
-                        <button className="button" onClick={() => on.stub({ kind: 'connect' })}>
+                        <button className="button" onClick={() => on.settings('add-repo')}>
                             Подключить…
                         </button>
                     </div>

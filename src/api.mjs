@@ -1,6 +1,6 @@
 import { execFile, spawnSync } from 'node:child_process';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, statSync, watch, writeFileSync } from 'node:fs';
+import { chmodSync, createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, watch, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { homedir } from 'node:os';
 import { extname, isAbsolute, join, resolve, sep } from 'node:path';
@@ -145,7 +145,7 @@ const routes = (deps) => {
     };
     return [
         // Чтение
-        { method: 'GET', path: '/health', read: () => ({ ...version(), platform: process.platform, dataDir: DATA_DIR, logDir: LOG_DIR, tokenFile: TOKEN_FILE, cli: join(TOOL_DIR, 'bin', 'pr-reviewer'), worker: { running: isAlive(join(DATA_DIR, 'worker.pid')), heartbeat: readFileSafe(join(DATA_DIR, 'heartbeat')) }, paused: existsSync(join(DATA_DIR, 'paused')), now: new Date().toISOString() }) },
+        { method: 'GET', path: '/health', read: () => ({ ...version(), platform: process.platform, dataDir: DATA_DIR, logDir: LOG_DIR, reposDir: join(GIT_ROOT, 'repos'), tokenFile: TOKEN_FILE, cli: join(TOOL_DIR, 'bin', 'pr-reviewer'), worker: { running: isAlive(join(DATA_DIR, 'worker.pid')), heartbeat: readFileSafe(join(DATA_DIR, 'heartbeat')) }, paused: existsSync(join(DATA_DIR, 'paused')), now: new Date().toISOString() }) },
         {
             method: 'GET',
             path: '/status',
@@ -182,6 +182,14 @@ const routes = (deps) => {
         { method: 'GET', path: '/memory/{repo}/plan', ...cliAction(({ params, config }) => ['memory', 'review', repoParam(params, config), '--show', '--json'], { json: true }) },
         { method: 'GET', path: '/memory/{repo}/history', read: ({ params }) => loadMemoryHistory(repoParam(params, loadConfig())) },
         { method: 'GET', path: '/config', read: () => loadConfig() },
+        {
+            method: 'GET',
+            path: '/config/file',
+            read: () => {
+                const file = join(deps.configDir, 'config.json');
+                return { path: file, text: readFileSync(file, 'utf8'), modifiedAt: statSync(file).mtime.toISOString() };
+            },
+        },
         { method: 'GET', path: '/secrets', read: () => deps.secretStatus(loadConfig()) },
         { method: 'GET', path: '/log', read: ({ query }) => ({ lines: tailLines(join(LOG_DIR, 'worker.log'), Math.min(5000, Number(query.get('lines')) || 500)) }) },
         {
@@ -289,6 +297,30 @@ const routes = (deps) => {
                 if (errors.length) throw new ApiError(400, `Настройки не сохранены: ${errors.join('; ')}`);
                 deps.saveConfig(body);
                 return { ok: true };
+            },
+        },
+        // Редактор config.json в приложении: текст как есть, без переформатирования, и защита от перезаписи чужих правок —
+        // сервис и переключатели настроек тоже пишут в этот файл
+        {
+            method: 'PUT',
+            path: '/config/file',
+            write: ({ body }) => {
+                if (typeof body?.text !== 'string') throw new ApiError(400, 'Нужно поле text');
+                const file = join(deps.configDir, 'config.json');
+                if (body.modifiedAt && Math.floor(statSync(file).mtimeMs) > Date.parse(body.modifiedAt)) {
+                    throw new ApiError(409, 'Файл изменился, пока он был открыт (например, переключили модель в настройках). Нажмите «Перечитать» и внесите правку заново.');
+                }
+                let parsed;
+                try {
+                    parsed = JSON.parse(body.text);
+                } catch (error) {
+                    throw new ApiError(400, `Настройки не сохранены: ${error.message}`);
+                }
+                const errors = validate(JSON.parse(readFileSync(CONFIG_SCHEMA, 'utf8')), parsed);
+                if (errors.length) throw new ApiError(400, `Настройки не сохранены: ${errors.join('; ')}`);
+                writeFileSync(`${file}.tmp`, body.text);
+                renameSync(`${file}.tmp`, file);
+                return { ok: true, modifiedAt: statSync(file).mtime.toISOString() };
             },
         },
         {

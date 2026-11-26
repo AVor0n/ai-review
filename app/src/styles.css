@@ -23,3 +23,38 @@ body {
     max-width: 100%;
     max-height: 100%;
 }
+/* Редактор config.json: подсвеченный текст под прозрачным полем ввода с теми же метриками */
+.code-editor--live {
+    position: relative;
+    padding: 0;
+    overflow: hidden;
+}
+.code-editor--live pre,
+.code-editor--live textarea {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: var(--space-8) var(--space-10);
+    overflow: auto;
+    font: inherit;
+    line-height: inherit;
+    white-space: pre;
+    tab-size: 4;
+    background: transparent;
+    border: 0;
+}
+.code-editor--live pre {
+    pointer-events: none;
+}
+.code-editor--live textarea {
+    color: transparent;
+    caret-color: var(--label);
+    resize: none;
+    outline: none;
+}
+.code-editor--live textarea::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+}

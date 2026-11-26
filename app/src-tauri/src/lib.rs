@@ -263,6 +263,28 @@ fn reveal_path(path: String) -> Result<(), String> {
     }
 }
 
+// Системные настройки уведомлений: на Mac — раздел «Уведомления», на Windows — «Параметры › Уведомления».
+// Через opener нельзя: он открывает только http(s), а это свои схемы систем
+#[tauri::command]
+fn open_notification_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open").arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension").spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        std::process::Command::new("cmd").args(["/c", "start", "", "ms-settings:notifications"]).creation_flags(CREATE_NO_WINDOW).spawn().map_err(|error| error.to_string())?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        Err("настройки уведомлений открываются только на macOS и Windows".into())
+    }
+}
+
 // Файл или папка в приложении по умолчанию: Просмотр, плеер, Finder или Проводник
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
@@ -470,7 +492,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]

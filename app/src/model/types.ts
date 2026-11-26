@@ -16,8 +16,8 @@ export type Status = {
     workers: { fix: boolean; arch: boolean; qa: boolean };
 };
 
-export type AgentConfig = { shortName: string; auto?: boolean; keychainService?: string; tokenLifetimeDays?: number };
-export type RepoConfig = { workspace: string; slug: string; paused?: boolean };
+export type AgentConfig = { shortName: string; auto?: boolean; keychainService?: string; tokenLifetimeDays?: number; model?: string; effort?: string; reasoningEffort?: string };
+export type RepoConfig = { workspace: string; slug: string; paused?: boolean; remote?: string; source?: string };
 
 export type Config = {
     repos: RepoConfig[];
@@ -25,7 +25,8 @@ export type Config = {
     intervalMinutes?: number;
     memory?: { maxLessons?: number };
     branchPattern?: string;
-    bitbucket?: { keychainService?: string; tokenLifetimeDays?: number };
+    ignorePaths?: string[];
+    bitbucket?: { keychainService?: string; tokenLifetimeDays?: number; email?: string };
     arch?: { agent?: string };
     qa?: { frontend?: string };
 };
@@ -62,7 +63,7 @@ export type PrState = {
 
 export type WorkerState = { repos?: Record<string, { prs: Record<string, PrState> }> };
 
-export type Limit = { usedPercent: number; resetsAt?: string | null; at?: string | null };
+export type Limit = { usedPercent: number; window?: string; resetsAt?: string | null; at?: string | null; error?: { code?: number | null; text: string } | null; errorAt?: string | null };
 
 export type FixState = {
     repo: string;
@@ -90,7 +91,7 @@ export type QaState = {
 
 export type Lesson = { id: string; text: string; at: string; manual?: boolean };
 
-export type Secret = { id: string; present: boolean; savedAt: string | null };
+export type Secret = { id: string; service?: string; present: boolean; savedAt: string | null };
 
 export type Data = {
     status: Status | null;

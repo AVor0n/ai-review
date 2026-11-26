@@ -1,7 +1,7 @@
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification';
 import { isMuted, loadPrefs } from './model/prefs';
 
-// Системные уведомления. Пауза — из меню по правому клику; настройки по видам появятся вместе с экраном настроек
+// Системные уведомления. Пауза — из меню по правому клику и «Настроек», что показывать — решают alerts.ts и настройки уведомлений
 let allowed: boolean | null = null;
 
 const ensurePermission = async () => {

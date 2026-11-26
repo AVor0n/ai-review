@@ -5,8 +5,9 @@ import { clock, minutesText, parse, plural, shortDate } from './format';
 import type { Prefs } from './prefs';
 import type { Data, Lesson } from './types';
 import type { StubTarget } from './stubs';
+import type { SettingsSheet } from '../settings/model';
 
-export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'stub'; target: StubTarget } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
+export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'stub'; target: StubTarget } | { kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
 
 export type Banner = {
     id: string;
@@ -47,7 +48,7 @@ const tokenBanner = (token: TokenInfo): Banner => {
         title,
         // Слова «Keychain» нет: на Windows секреты хранятся не там
         text: `${impact} Выпустите новый и сохраните — срок обновится сам.`,
-        actions: [{ label: 'Обновить…', kind: 'stub', target: { kind: 'token', id: token.id, title: token.title, lifetimeDays: token.lifetimeDays } }],
+        actions: [{ label: 'Обновить…', kind: 'settings', sheet: 'tokens' }],
         close: token.isExpired ? undefined : { hint: 'Скрыть до завтра', kind: 'token', key: token.id },
     };
 };

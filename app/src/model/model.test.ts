@@ -165,9 +165,6 @@ describe('заглушки', () => {
     });
 
     it('Windows — команды с полным путём к CLI, домашняя папка сокращена', () => {
-        const token = stub({ kind: 'token', id: 'bitbucket', title: 'Bitbucket', lifetimeDays: 365 }, 'win', env);
-        expect(token.tab).toBe('settings');
-        expect(token.commands.map((command) => command.text)).toEqual(['~/tools/pr-reviewer/bin/pr-reviewer secret set bitbucket', '~/tools/pr-reviewer/bin/pr-reviewer token bitbucket 365']);
         expect(stub({ kind: 'tab', tab: 'log' }, 'win', env).commands[1].text).toBe('tail -f ~/.local/state/pr-reviewer/worker.log');
     });
 });

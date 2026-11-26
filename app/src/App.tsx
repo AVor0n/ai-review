@@ -8,6 +8,8 @@ import { Overview, type OverviewHandlers } from './components/Overview';
 import { Stub } from './components/Stub';
 import { StatsScreen } from './stats/StatsScreen';
 import { BacklogScreen } from './backlog/BacklogScreen';
+import { SettingsScreen } from './settings/SettingsScreen';
+import type { SettingsSheet } from './settings/model';
 import { MemorySheet } from './memory/MemorySheet';
 import { ArchSheet } from './arch/ArchSheet';
 import { FixSheet } from './fix/FixSheet';
@@ -17,13 +19,15 @@ import { newLessons } from './model/banners';
 import { invoke } from '@tauri-apps/api/core';
 import { useData } from './data';
 import { banners as buildBanners, serviceDownBanner, type Banner, type BannerAction } from './model/banners';
-import { archAgentName, threads } from './model/derive';
+import { agentName, archAgentName, threads } from './model/derive';
 import { parse } from './model/format';
 import { loadPrefs, muteUntil, savePrefs, withSeenRepos, type Prefs } from './model/prefs';
 import { stub as stubContent, TABS, type CliEnv, type StubTarget, type TabId } from './model/stubs';
 import { trayModel } from './model/tray';
 import type { PullRequest } from './model/types';
 import { notify, reviewNotice } from './notify';
+import { checkAlerts, initialMemory, saveMemory } from './alerts';
+import { allows, loadNotifications } from './model/notifications';
 import { isWindows, serviceDown, useService } from './service';
 import { applyTrayIcon, applyTrayMenu } from './trayIcon';
 
@@ -45,7 +49,9 @@ export const App = () => {
     const [now, setNow] = useState(() => new Date());
     const [stub, setStub] = useState<StubTarget | null>(null);
     // Перенесённые экраны; неперенесённые открывают заглушку поверх них
-    const [screen, setScreen] = useState<'overview' | 'backlog' | 'stats'>('overview');
+    const [screen, setScreen] = useState<'overview' | 'backlog' | 'stats' | 'settings'>('overview')
+    // Лист настроек открывают и из обзора: «Обновить…» у токена, «Подключить…»
+    const [settingsSheet, setSettingsSheet] = useState<SettingsSheet | null>(null);
     const [statsVersion, setStatsVersion] = useState(0);
     // Лист «Память ревьюеров» поверх поповера, на той вкладке, где его открыли
     const [memorySheet, setMemorySheet] = useState<string | null>(null);
@@ -94,7 +100,8 @@ export const App = () => {
             const { data: entries } = await api.GET('/stats', { params: { query: { since } } });
             const fresh = ((entries ?? []) as StatsEntry[]).filter((entry) => entry.at > since);
             if (fresh.length) seenStatsAt.current = fresh[fresh.length - 1].at;
-            for (const entry of fresh.filter((item) => item.pass !== 'replies')) {
+            const settings = loadNotifications();
+            for (const entry of fresh.filter((item) => item.pass !== 'replies' && allows(settings, 'reviews', item.repo))) {
                 const notice = reviewNotice(entry, (id) => dataRef.current.config.agents[id]?.shortName ?? id);
                 notify(notice.title, notice.body);
             }
@@ -103,6 +110,18 @@ export const App = () => {
     );
 
     const { connection, retry } = useService(onChange);
+
+    // Уведомления о замечаниях, комментариях, обновлениях PR, доработке и ошибках — по каждому изменению данных
+    const alertMemory = useRef(initialMemory());
+    useEffect(() => {
+        if (!data.status) return;
+        const { notices, memory } = checkAlerts(data, loadNotifications(), alertMemory.current, (id) => agentName(data.config, id));
+        alertMemory.current = memory;
+        saveMemory(memory);
+        for (const notice of notices) notify(notice.title, notice.body);
+        // Конфиг и память на уведомления не влияют
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [data.status, data.snapshots, data.state, data.fixes]);
     apiRef.current = connection.phase === 'up' ? connection.api : null;
     if (connection.phase === 'up') healthRef.current = connection.health;
     const offline = connection.phase === 'down';
@@ -149,6 +168,7 @@ export const App = () => {
             setArchSheet(null);
             setFixSheet(null);
             setQaSheet(null);
+            setSettingsSheet(null);
             setBannersExpanded(false);
             setNow(new Date());
             // Статус — заново: при открытии поповера шапка и баннеры не должны показывать устаревший проход
@@ -215,9 +235,15 @@ export const App = () => {
 
     updateMemorySeen.current = (slug) => updatePrefs((previous) => ({ ...previous, memorySeenAt: { ...previous.memorySeenAt, [slug]: new Date().toISOString() } }));
 
+    const openSettings = (sheet: SettingsSheet | null) => {
+        setStub(null);
+        setScreen('settings');
+        setSettingsSheet(sheet);
+    };
+
     const handlers: OverviewHandlers = {
         command,
-        stub: setStub,
+        settings: (sheet) => openSettings(sheet),
         open: (url) => openUrl(url).catch(() => {}),
         review: (repo, pr, agent) => apiRef.current && runAction(() => apiRef.current!.POST('/reviews', { body: { repo, pr, agent } })),
         // Подтверждения — системный диалог с текстами из OverviewView.swift
@@ -246,6 +272,7 @@ export const App = () => {
             })),
         banner: (action: BannerAction) => {
             if (action.kind === 'stub') setStub(action.target);
+            else if (action.kind === 'settings') openSettings(action.sheet);
             else if (action.kind === 'memory') setMemorySheet(action.slug);
             else if (action.kind === 'stop') command('/stop');
             else if (action.kind === 'copy') copy(action.text);
@@ -286,10 +313,10 @@ export const App = () => {
                         <div className="segmented" role="tablist">
                             {TABS.map((item) => (
                                 <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => {
-                                        if (item.id === 'overview' || item.id === 'backlog' || item.id === 'stats') {
+                                        if (item.id !== 'log') {
                                             setScreen(item.id);
                                             setStub(null);
-                                        } else setStub({ kind: 'tab', tab: item.id });
+                                        } else setStub({ kind: 'tab', tab: 'log' });
                                     }}>
                                     {item.title}
                                 </button>
@@ -300,6 +327,23 @@ export const App = () => {
                         <Stub stub={shownStub} onCopy={copy} />
                     ) : screen === 'backlog' ? (
                         <BacklogScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
+                    ) : screen === 'settings' ? (
+                        <SettingsScreen
+                            api={connection.phase === 'up' ? connection.api : null}
+                            data={data}
+                            memoryBroken={memoryBroken}
+                            prefs={prefs}
+                            updatePrefs={updatePrefs}
+                            platform={platform}
+                            cli={env.cli}
+                            reposDir={healthRef.current?.reposDir ?? null}
+                            canOpenInCode={canOpenInCode}
+                            sheet={settingsSheet}
+                            setSheet={setSettingsSheet}
+                            onOpenMemory={(slug) => setMemorySheet(slug)}
+                            onOpenLog={() => setStub({ kind: 'tab', tab: 'log' })}
+                            onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)}
+                        />
                     ) : screen === 'stats' ? (
                         <StatsScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : (

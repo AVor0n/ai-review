@@ -254,3 +254,22 @@ test('задача бэклога: running — только при живом п
     writeFileSync(join(DATA_DIR, 'backlog-job.json'), JSON.stringify({ kind: 'learn', state: 'done', pid: process.pid }));
     assert.equal((await call('GET', '/backlog/job')).json.job.running, false);
 });
+
+test('config.json из редактора: текст как есть, проверка схемы и защита от перезаписи чужих правок', async () => {
+    const file = join(configDir, 'config.json');
+    const text = `${JSON.stringify(config, null, 4)}\n`;
+    writeFileSync(file, text);
+    const opened = await call('GET', '/config/file');
+    assert.deepEqual(conforms('GET', '/config/file', opened.json), []);
+    assert.equal(opened.json.text, text);
+    const edited = text.replace('"intervalMinutes": 5', '"intervalMinutes": 7');
+    const savedFile = await call('PUT', '/config/file', { body: { text: edited, modifiedAt: opened.json.modifiedAt } });
+    assert.equal(savedFile.status, 200);
+    assert.equal(readFileSync(file, 'utf8'), edited);
+    assert.equal((await call('PUT', '/config/file', { body: { text: '{ "repos": ', modifiedAt: savedFile.json.modifiedAt } })).status, 400);
+    assert.equal((await call('PUT', '/config/file', { body: { text: edited.replace('"intervalMinutes": 7', '"intervalMinutes": "семь"'), modifiedAt: savedFile.json.modifiedAt } })).status, 400);
+    const stale = await call('PUT', '/config/file', { body: { text, modifiedAt: '2000-01-01T00:00:00.000Z' } });
+    assert.equal(stale.status, 409);
+    assert.match(stale.json.error, /Перечитать/);
+    assert.equal(readFileSync(file, 'utf8'), edited);
+});

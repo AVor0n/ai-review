@@ -3775,6 +3775,115 @@
                     }
                 }
             }
+        },
+        "/config/file": {
+            "get": {
+                "summary": "config.json как текст",
+                "description": "Для встроенного редактора: текст без переформатирования и время изменения файла.",
+                "responses": {
+                    "200": {
+                        "description": "Готово",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "type": "string",
+                                            "description": "Путь к config.json"
+                                        },
+                                        "text": {
+                                            "type": "string",
+                                            "description": "Содержимое файла"
+                                        },
+                                        "modifiedAt": {
+                                            "type": "string",
+                                            "description": "Время изменения файла, ISO"
+                                        }
+                                    },
+                                    "required": [
+                                        "path",
+                                        "text",
+                                        "modifiedAt"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "summary": "Сохранить config.json из редактора",
+                "description": "Текст проверяется как JSON и по schema/config.schema.json. Если файл изменился после modifiedAt — 409, ничего не пишется.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Новое содержимое"
+                                    },
+                                    "modifiedAt": {
+                                        "type": "string",
+                                        "description": "Время изменения файла, когда его открыли"
+                                    }
+                                },
+                                "required": [
+                                    "text"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Готово",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean"
+                                        },
+                                        "modifiedAt": {
+                                            "type": "string",
+                                            "description": "Новое время изменения файла"
+                                        }
+                                    },
+                                    "required": [
+                                        "ok",
+                                        "modifiedAt"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный JSON или поле не по схеме",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Файл изменился, пока был открыт",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     "components": {
@@ -3880,6 +3989,10 @@
                     "now": {
                         "type": "string",
                         "format": "date-time"
+                    },
+                    "reposDir": {
+                        "type": "string",
+                        "description": "Папка служебных копий репозиториев: <reposDir>/<slug>"
                     }
                 },
                 "required": [
@@ -3893,7 +4006,8 @@
                     "cli",
                     "worker",
                     "paused",
-                    "now"
+                    "now",
+                    "reposDir"
                 ]
             },
             "Status": {
