@@ -4,6 +4,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect, useRef, useState, type WheelEvent } from 'react';
 import { createApi, type ApiClient } from '../api/client';
 import { Icon } from '../components/Icon';
+import { t, useLang } from '../i18n';
+import { formatNumber } from '../model/format';
 import { fileName, isVideo, mediaUrl, parseViewerQuery, type ViewerRequest } from './media';
 
 // Окно просмотра скриншотов и видео прогона — перенос QaMediaWindow и QaMediaBrowser из menubar/QaViews.swift.
@@ -21,7 +23,7 @@ const loadRate = () => {
     }
 };
 
-const rateTitle = (rate: number) => `${String(rate).replace('.', ',')}×`;
+const rateTitle = (rate: number) => `${formatNumber(rate)}×`;
 
 export const Viewer = ({ initial }: { initial: string }) => {
     const [request, setRequest] = useState<ViewerRequest | null>(() => parseViewerQuery(initial));
@@ -33,6 +35,7 @@ export const Viewer = ({ initial }: { initial: string }) => {
     const [rate, setRate] = useState(loadRate);
     const video = useRef<HTMLVideoElement>(null);
     const image = useRef<HTMLImageElement>(null);
+    const lang = useLang();
 
     useEffect(() => {
         invoke<string>('api_token').then((token) => setApi(createApi(token)), (reason) => setError(String(reason)));
@@ -44,14 +47,18 @@ export const Viewer = ({ initial }: { initial: string }) => {
 
     const path = request?.files[request.index];
     useEffect(() => {
+        if (!request || !path) return;
+        getCurrentWindow()
+            .setTitle(t('qa.viewer.windowTitle', { file: fileName(path), index: request.index + 1, total: request.files.length }))
+            .catch(() => {});
+    }, [request, path, lang]);
+
+    useEffect(() => {
         setUrl(null);
         setScale(null);
         setError(null);
         if (!api || !request || !path) return;
         mediaUrl(api, request.repo, request.pr, path).then(setUrl, (reason) => setError(String(reason?.message ?? reason)));
-        getCurrentWindow()
-            .setTitle(`${fileName(path)} — ${request.index + 1} из ${request.files.length}`)
-            .catch(() => {});
     }, [api, request, path]);
 
     useEffect(() => {
@@ -107,14 +114,14 @@ export const Viewer = ({ initial }: { initial: string }) => {
                     ))}
             </div>
             <div className="viewer__bar">
-                <button className="square-button" title="Предыдущий" disabled={!request || request.index <= 0} onClick={() => go(-1)}>
+                <button className="square-button" title={t('qa.viewer.previous')} disabled={!request || request.index <= 0} onClick={() => go(-1)}>
                     <Icon id="i-chevron-left" />
                 </button>
-                <button className="square-button" title="Следующий" disabled={!request || request.index >= request.files.length - 1} onClick={() => go(1)}>
+                <button className="square-button" title={t('qa.viewer.next')} disabled={!request || request.index >= request.files.length - 1} onClick={() => go(1)}>
                     <Icon id="i-chevron-right" />
                 </button>
                 {video_ ? (
-                    <div className="segmented" style={{ '--segment-width': '48px' } as React.CSSProperties} title="Скорость видео">
+                    <div className="segmented" style={{ '--segment-width': '48px' } as React.CSSProperties} title={t('qa.viewer.speed')}>
                         {RATES.map((value) => (
                             <button key={value} className="segmented__item" aria-selected={rate === value} onClick={() => setRate(value)}>
                                 {rateTitle(value)}
@@ -122,21 +129,21 @@ export const Viewer = ({ initial }: { initial: string }) => {
                         ))}
                     </div>
                 ) : (
-                    <span className="viewer__hint">Щипок или двойной клик — увеличить</span>
+                    <span className="viewer__hint">{t('qa.viewer.zoomHint')}</span>
                 )}
                 <span className="spacer" />
                 {fullPath && (
                     <>
                         <button className="button" onClick={() => invoke('reveal_path', { path: fullPath }).catch(() => {})}>
-                            {isWindows ? 'Показать в Проводнике' : 'Показать в Finder'}
+                            {isWindows ? t('qa.viewer.revealExplorer') : t('qa.viewer.revealFinder')}
                         </button>
                         <button className="button" onClick={() => invoke('open_path', { path: fullPath }).catch(() => {})}>
-                            {isWindows ? 'Открыть в приложении по умолчанию' : video_ ? 'Открыть в другом приложении' : 'Открыть в Просмотре'}
+                            {isWindows ? t('qa.viewer.openDefault') : video_ ? t('qa.viewer.openOther') : t('qa.viewer.openPreview')}
                         </button>
                     </>
                 )}
                 <button className="button" onClick={close}>
-                    Закрыть
+                    {t('common.action.close')}
                 </button>
             </div>
         </div>

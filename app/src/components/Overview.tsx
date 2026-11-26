@@ -7,6 +7,7 @@ import type { Data } from '../model/types';
 import { Banners } from './Banners';
 import { Icon } from './Icon';
 import { PrRow, type RowHandlers } from './PrRow';
+import { t } from '../i18n';
 
 export type OverviewHandlers = RowHandlers & {
     command: (path: '/run-now' | '/stop' | '/resume' | '/sync') => void;
@@ -33,7 +34,7 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
         return (
             <div className="status-bar">
                 <span className="status-dot status-dot--offline" />
-                <span className="status-text">{state.offline ? 'Сервис не отвечает' : 'Подключение к сервису…'}</span>
+                <span className="status-text">{state.offline ? t('overview.status.offline') : t('overview.status.connecting')}</span>
             </div>
         );
     const running = isRunning(data.status);
@@ -47,10 +48,18 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
                 <span
                     className="status-text"
                     title={reviews
-                        .map((review) => `${shortRepoName(review.repo, data.config.displayPrefix)} #${review.pr}${review.title ? ` «${review.title}»` : ''} · ${agentName(data.config, review.agent)}, ${roleName(review.role)}`)
+                        .map((review) =>
+                            t(review.title ? 'overview.status.reviewHintTitled' : 'overview.status.reviewHint', {
+                                repo: shortRepoName(review.repo, data.config.displayPrefix),
+                                pr: review.pr,
+                                title: review.title ?? '',
+                                model: agentName(data.config, review.agent),
+                                role: roleName(review.role),
+                            }),
+                        )
                         .join('\n')}
                 >
-                    Идут ревью:&nbsp;
+                    {t('overview.status.reviews')}&nbsp;
                     {reviews.map((review, index) => (
                         <Fragment key={`${review.repo}#${review.pr}#${review.agent}`}>
                             {index > 0 && <span className="status-text__sep"> · </span>}
@@ -61,13 +70,13 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
                 </span>
             ) : (
                 // Полный текст паузы не помещается рядом с кнопкой «Включить» и капсулами
-                <span className="status-text" title={paused && !running ? 'Фоновое ревью выключено, работают только запуски по иконкам' : undefined}>
+                <span className="status-text" title={paused && !running ? t('overview.status.pausedHint') : undefined}>
                     {headline(data, now)}
                 </span>
             )}
             {paused && !running && (
                 <button className="link-button" onClick={() => on.command('/resume')}>
-                    Включить
+                    {t('overview.status.resume')}
                 </button>
             )}
             <span className="spacer" />
@@ -83,22 +92,22 @@ const StatusBar = ({ state, on }: { state: OverviewState; on: OverviewHandlers }
                 </button>
             ))}
             {running ? (
-                <button className="icon-button" title={reviews.length > 1 ? 'Прервать все ревью и очистить очередь' : 'Прервать ревью и очистить очередь'} onClick={() => on.command('/stop')}>
+                <button className="icon-button" title={reviews.length > 1 ? t('overview.status.stopAll') : t('overview.status.stop')} onClick={() => on.command('/stop')}>
                     <Icon id="i-stop" />
                 </button>
             ) : (
                 !paused && (
-                    <button className="icon-button" title="Проверить сейчас, не дожидаясь расписания" onClick={() => on.command('/run-now')}>
+                    <button className="icon-button" title={t('overview.status.runNow')} onClick={() => on.command('/run-now')}>
                         <Icon id="i-play" />
                     </button>
                 )
             )}
             {state.syncing ? (
-                <button className="icon-button" disabled title="Обновляю список PR">
+                <button className="icon-button" disabled title={t('overview.status.syncing')}>
                     <Icon id="i-spinner" />
                 </button>
             ) : (
-                <button className="icon-button" title="Обновить список PR" onClick={() => on.command('/sync')}>
+                <button className="icon-button" title={t('overview.status.sync')} onClick={() => on.command('/sync')}>
                     <Icon id="i-refresh" className="icon icon--14" />
                 </button>
             )}
@@ -123,14 +132,14 @@ const Repos = ({ state, on }: { state: OverviewState; on: OverviewHandlers }) =>
                                 {snapshot && <span>· {snapshot.prs.length}</span>}
                                 {/* При выключенном общем фоновом ревью об этом уже говорит шапка обзора */}
                                 {repo.paused && !isPaused(data.status) && (
-                                    <span className="section__plain" style={{ display: 'flex', alignItems: 'center', gap: 4 }} title="Фоновое ревью этого репозитория выключено в настройках. Ручной запуск по значку модели работает">
+                                    <span className="section__plain" style={{ display: 'flex', alignItems: 'center', gap: 4 }} title={t('overview.repo.pausedHint')}>
                                         {/* Разметка и стили — как в шаблоне tpl-repos макета */}
                                         <Icon id="i-pause-fill" style={{ color: 'var(--orange)' }} />
-                                        фоновое ревью выключено
+                                        {t('overview.repo.paused')}
                                     </span>
                                 )}
                                 <span className="spacer" />
-                                {snapshot && <span className="section__plain">обновлено {ago(snapshot.fetchedAt, state.now)}</span>}
+                                {snapshot && <span className="section__plain">{t('overview.repo.updated', { time: ago(snapshot.fetchedAt, state.now) })}</span>}
                             </button>
                             {expanded && (
                                 <div className="section__card">
@@ -142,7 +151,7 @@ const Repos = ({ state, on }: { state: OverviewState; on: OverviewHandlers }) =>
                                             </Fragment>
                                         ))
                                     ) : (
-                                        <div className="section__empty">{snapshot ? 'Открытых PR нет' : state.syncing ? 'Загружаю список PR…' : 'Список PR ещё не загружен'}</div>
+                                        <div className="section__empty">{t(snapshot ? 'overview.repo.empty' : state.syncing ? 'overview.repo.loading' : 'overview.repo.notLoaded')}</div>
                                     )}
                                 </div>
                             )}
@@ -164,8 +173,8 @@ export const Overview = ({ state, on }: { state: OverviewState; on: OverviewHand
             {!hasData && state.offline && (
                 <div className="empty-state">
                     <Icon id="i-tray" className="icon empty-state__icon" />
-                    <div className="empty-state__title">Нет данных</div>
-                    <div className="empty-state__text">Список PR появится, когда сервис ответит</div>
+                    <div className="empty-state__title">{t('overview.empty.noDataTitle')}</div>
+                    <div className="empty-state__text">{t('overview.empty.noDataText')}</div>
                 </div>
             )}
             {hasData &&
@@ -174,10 +183,10 @@ export const Overview = ({ state, on }: { state: OverviewState; on: OverviewHand
                 ) : (
                     <div className="empty-state">
                         <Icon id="i-tray" className="icon empty-state__icon" />
-                        <div className="empty-state__title">Нет репозиториев</div>
-                        <div className="empty-state__text">Подключите репозиторий, чтобы видеть его PR</div>
+                        <div className="empty-state__title">{t('overview.empty.noReposTitle')}</div>
+                        <div className="empty-state__text">{t('overview.empty.noReposText')}</div>
                         <button className="button" onClick={() => on.settings('add-repo')}>
-                            Подключить…
+                            {t('overview.empty.connect')}
                         </button>
                     </div>
                 ))}

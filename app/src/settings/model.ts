@@ -1,4 +1,5 @@
-import { ago, clock, moment as momentShort, parse, resetFull, shortDate } from '../model/format';
+import { t } from '../i18n';
+import { ago, clock, formatDate, moment as momentShort, parse, resetFull, shortDate } from '../model/format';
 import type { TokenInfo } from '../model/derive';
 import type { AgentConfig, Limit } from '../model/types';
 
@@ -12,8 +13,8 @@ export const stepInterval = (current: number, direction: 1 | -1) =>
     direction > 0 ? INTERVALS.find((value) => value > current) : [...INTERVALS].reverse().find((value) => value < current);
 
 // Псевдоним opus всегда указывает на последнюю Opus; остальные — конкретные версии
-export const CLAUDE_MODELS = [
-    { id: 'opus', title: 'Opus (последняя)', label: 'Claude Opus' },
+export const claudeModels = () => [
+    { id: 'opus', title: t('settings.models.opusLatest'), label: 'Claude Opus' },
     { id: 'claude-opus-5-5', title: 'Opus 5.5', label: 'Claude Opus 5.5' },
     { id: 'claude-sonnet-5-5', title: 'Sonnet 5.5', label: 'Claude Sonnet 5.5' },
     { id: 'claude-haiku-5-5', title: 'Haiku 5.5', label: 'Claude Haiku 5.5' },
@@ -33,20 +34,20 @@ const codexEfforts = (model: CodexModel | undefined) => model?.supported_reasoni
 
 // Модель из конфига, которой нет в списке, всё равно показываем первой — иначе меню выглядело бы пустым
 export const modelOptions = (id: string, current: string, models: Models): Option[] => {
-    const known: Option[] = id === 'claude' ? CLAUDE_MODELS : id === 'cursor' ? models.cursor : models.codex.map((model) => ({ id: model.slug, title: model.display_name }));
+    const known: Option[] = id === 'claude' ? claudeModels() : id === 'cursor' ? models.cursor : models.codex.map((model) => ({ id: model.slug, title: model.display_name }));
     return !current || known.some((option) => option.id === current) ? known : [{ id: current, title: current }, ...known];
 };
 
 export const effortOptions = (id: string, current: string, models: Models): Option[] =>
     id === 'claude'
-        ? [{ id: 'default', title: 'По умолчанию' }, ...CLAUDE_EFFORTS.map((effort) => ({ id: effort, title: effort }))]
+        ? [{ id: 'default', title: t('settings.models.defaultEffort') }, ...CLAUDE_EFFORTS.map((effort) => ({ id: effort, title: effort }))]
         : codexEfforts(models.codex.find((model) => model.slug === current)).map((effort) => ({ id: effort, title: effort }));
 
 export const currentEffort = (id: string, agent: AgentConfig | undefined) => (id === 'claude' ? (agent?.effort ?? 'default') : (agent?.reasoningEffort ?? ''));
 
 // Что отправить сервису при выборе модели: подпись для комментариев и, у Codex, уровень, если новая модель его не поддерживает
 export const modelChange = (id: string, value: string, agent: AgentConfig | undefined, models: Models) => {
-    if (id === 'claude') return { model: value, label: CLAUDE_MODELS.find((model) => model.id === value)?.label };
+    if (id === 'claude') return { model: value, label: claudeModels().find((model) => model.id === value)?.label };
     if (id === 'cursor') {
         const title = models.cursor.find((model) => model.id === value)?.title;
         return { model: value, label: title ? `Cursor ${title}` : undefined };
@@ -63,43 +64,42 @@ const HOUR = 3_600_000;
 
 export type LimitView = { bar: number | null; stale: boolean; warning: boolean; text: string; low: boolean; none: boolean; hint: string };
 
-const resetDay = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' });
 const moment = (date: Date | null, now: Date) => (date ? momentShort(date, now) : '—');
 const momentFull = (date: Date | null) => (date ? resetFull(date) : '—');
-const errorText = (error: NonNullable<Limit['error']>) => ([401, 403].includes(error.code ?? 0) ? `ошибка ${error.code}, ${error.text}` : error.text);
+const errorText = (error: NonNullable<Limit['error']>) => ([401, 403].includes(error.code ?? 0) ? t('settings.limit.errorCode', { code: error.code ?? 0, text: error.text }) : error.text);
 
 // Строка лимита под именем модели — те же правила свежести и подсказки, что у AgentRow
 export const limitView = (id: string, limit: Limit | undefined, agentName: string, now = new Date()): LimitView => {
     const blank = { bar: null, stale: false, warning: false, low: false, none: false, hint: '' };
-    if (!limit) return { ...blank, none: true, text: POLLED_LIMITS.includes(id) ? 'лимит недоступен' : 'лимит появится после ближайшего запуска' };
+    if (!limit) return { ...blank, none: true, text: POLLED_LIMITS.includes(id) ? t('settings.limit.unavailable') : t('settings.limit.afterRun') };
     const remaining = Math.max(0, 100 - limit.usedPercent);
     const percent = `${Math.round(remaining)}%`;
     const updatedAt = parse(limit.at);
     const resetsAt = parse(limit.resetsAt);
-    const window = limit.window === 'month' ? 'месяца' : 'недели';
-    const regular = `${percent} ${window} осталось${resetsAt ? ` · до ${resetDay.format(resetsAt)}` : ''}`;
+    const window = limit.window === 'month' ? 'month' : 'week';
+    const regular = resetsAt ? t(`settings.limit.leftUntil.${window}`, { percent, date: formatDate(resetsAt, { day: 'numeric', month: 'short' }) }) : t(`settings.limit.left.${window}`, { percent });
     const reset = resetsAt !== null && resetsAt <= now;
     // Лимит без опроса (Claude) приходит только с запусков модели: старые данные — норма, а не сбой, поэтому полоса остаётся цветной
     if (!POLLED_LIMITS.includes(id)) {
-        if (reset) return { ...blank, text: 'лимит сброшен', hint: `Лимит сбросился ${momentFull(resetsAt)}. Новый остаток появится после ближайшего ревью ${agentName}` };
+        if (reset) return { ...blank, text: t('settings.limit.reset'), hint: t('settings.limit.resetHint', { reset: momentFull(resetsAt), agent: agentName }) };
         return {
             ...blank,
             bar: remaining,
             low: remaining < 15,
             text: regular,
-            hint: `Остаток на ${momentFull(updatedAt)} — после последнего ревью ${agentName}. Отдельно лимит ${agentName} не опрашивается; подписку тратят и другие сессии ${agentName}, поэтому сейчас остаток может быть меньше`,
+            hint: t('settings.limit.ownHint', { at: momentFull(updatedAt), agent: agentName }),
         };
     }
     const fresh = !limit.error && updatedAt !== null && now.getTime() - updatedAt.getTime() < HOUR && !reset;
     if (fresh) {
-        return { ...blank, bar: remaining, low: remaining < 15, text: regular, hint: `Остаток лимита подписки на ${limit.window === 'month' ? 'месяц' : 'неделю'}, сброс ${momentFull(resetsAt)}. Обновлено ${ago(limit.at, now)}` };
+        return { ...blank, bar: remaining, low: remaining < 15, text: regular, hint: t(`settings.limit.freshHint.${window}`, { reset: momentFull(resetsAt), ago: ago(limit.at, now) }) };
     }
     // Неудачный опрос не стирает прошлый остаток, поэтому старое значение помечается, а после сброса не показывается вовсе
-    const attempt = parse(limit.errorAt) ? `Последняя попытка — ${moment(parse(limit.errorAt), now)}` : '';
+    const attempt = parse(limit.errorAt) ? t('settings.limit.lastAttempt', { at: moment(parse(limit.errorAt), now) }) : '';
     if (reset) {
         return limit.error
-            ? { ...blank, warning: true, text: 'лимит сброшен · не обновляется', hint: `Лимит сбросился ${momentFull(resetsAt)}, а новый остаток получить не удалось: ${errorText(limit.error)}. ${attempt}` }
-            : { ...blank, text: 'лимит сброшен, остаток обновится' };
+            ? { ...blank, warning: true, text: t('settings.limit.resetFailed'), hint: t('settings.limit.resetFailedHint', { reset: momentFull(resetsAt), error: errorText(limit.error), attempt }) }
+            : { ...blank, text: t('settings.limit.resetPending') };
     }
     if (limit.error) {
         return {
@@ -107,11 +107,11 @@ export const limitView = (id: string, limit: Limit | undefined, agentName: strin
             bar: remaining,
             stale: true,
             warning: true,
-            text: `${percent} на ${moment(updatedAt, now)} · не обновляется`,
-            hint: `Не удалось обновить лимит: ${errorText(limit.error)}. ${attempt}. Показан остаток на ${momentFull(updatedAt)}, сейчас он может быть другим`,
+            text: t('settings.limit.failed', { percent, at: moment(updatedAt, now) }),
+            hint: t('settings.limit.failedHint', { error: errorText(limit.error), attempt, at: momentFull(updatedAt) }),
         };
     }
-    return { ...blank, bar: remaining, stale: true, text: `${percent} · данные от ${moment(updatedAt, now)}`, hint: `Остаток на ${momentFull(updatedAt)}, обновится при следующем запросе. Сейчас он может быть другим` };
+    return { ...blank, bar: remaining, stale: true, text: t('settings.limit.stale', { percent, at: moment(updatedAt, now) }), hint: t('settings.limit.staleHint', { at: momentFull(updatedAt) }) };
 };
 
 export const limitColor = (view: LimitView) => (view.stale ? 'var(--label-3)' : (view.bar ?? 100) < 15 ? 'var(--orange)' : (view.bar ?? 100) < 40 ? 'var(--yellow)' : 'var(--green)');
@@ -119,34 +119,33 @@ export const limitColor = (view: LimitView) => (view.stale ? 'var(--label-3)' : 
 // Значение строки «Токены» — ближайшее истечение; предупреждение окрашивает строку так же, как баннер в обзоре
 export const tokensSummary = (all: TokenInfo[], now = new Date()): { text: string; color: string | null } => {
     const expired = all.find((token) => token.isExpired);
-    if (expired) return { text: `${expired.title}: истёк`, color: 'var(--red)' };
+    if (expired) return { text: t('settings.tokens.expired', { token: expired.title }), color: 'var(--red)' };
     const expiring = all.filter((token) => token.isExpiring).sort((a, b) => (a.daysLeft ?? 0) - (b.daysLeft ?? 0))[0];
-    if (expiring) return { text: `${expiring.title}: ${expiring.daysLeft ?? 0} дн.`, color: 'var(--orange)' };
+    if (expiring) return { text: t('settings.tokens.daysLeft', { token: expiring.title, count: expiring.daysLeft ?? 0 }), color: 'var(--orange)' };
     const nearest = all.map((token) => token.expiresAt).filter((date): date is Date => date !== null).sort((a, b) => a.getTime() - b.getTime())[0];
-    return nearest ? { text: `до ${shortDate(nearest, now)}`, color: null } : { text: String(all.length), color: null };
+    return nearest ? { text: t('settings.tokens.until', { date: shortDate(nearest, now) }), color: null } : { text: String(all.length), color: null };
 };
 
-export const LIFETIMES: Option[] = [
-    { id: '30', title: '30 дней' },
-    { id: '90', title: '90 дней' },
-    { id: '180', title: '180 дней' },
-    { id: '365', title: '1 год' },
-    { id: '0', title: 'Без срока' },
+export const lifetimes = (): Option[] => [
+    ...[30, 90, 180].map((count) => ({ id: String(count), title: t('settings.tokens.lifetimeDays', { count }) })),
+    { id: '365', title: t('settings.tokens.lifetimeYear') },
+    { id: '0', title: t('settings.tokens.lifetimeNone') },
 ];
 
 export const lifetimeOptions = (lifetimeDays: number | null): Option[] => {
-    if (lifetimeDays === null) return [{ id: 'unset', title: 'Не указан' }, ...LIFETIMES];
-    return LIFETIMES.some((option) => option.id === String(lifetimeDays)) ? LIFETIMES : [{ id: String(lifetimeDays), title: `${lifetimeDays} дн.` }, ...LIFETIMES];
+    const all = lifetimes();
+    if (lifetimeDays === null) return [{ id: 'unset', title: t('settings.tokens.lifetimeUnset') }, ...all];
+    return all.some((option) => option.id === String(lifetimeDays)) ? all : [{ id: String(lifetimeDays), title: t('settings.tokens.lifetimeCustom', { count: lifetimeDays }) }, ...all];
 };
 
 export const tokenStatus = (token: TokenInfo, savedAt: Date | null, now = new Date()): { text: string; color: string | null } => {
-    if (!savedAt) return { text: 'Не сохранён', color: 'var(--red)' };
-    const saved = `Сохранён ${shortDate(savedAt, now)}`;
-    if (token.lifetimeDays === null) return { text: `${saved} · срок не указан — выберите тот, что задали при выпуске`, color: null };
-    if (token.lifetimeDays <= 0 || !token.expiresAt) return { text: `${saved} · без срока`, color: null };
+    if (!savedAt) return { text: t('settings.tokens.notSaved'), color: 'var(--red)' };
+    const saved = shortDate(savedAt, now);
+    if (token.lifetimeDays === null) return { text: t('settings.tokens.noLifetime', { saved }), color: null };
+    if (token.lifetimeDays <= 0 || !token.expiresAt) return { text: t('settings.tokens.unlimited', { saved }), color: null };
     const date = shortDate(token.expiresAt, now);
-    if (token.isExpired) return { text: `${saved} · истёк ${date}`, color: 'var(--red)' };
-    return { text: `${saved} · до ${date}, осталось ${token.daysLeft ?? 0} дн.`, color: token.isExpiring ? 'var(--orange)' : null };
+    if (token.isExpired) return { text: t('settings.tokens.expiredOn', { saved, date }), color: 'var(--red)' };
+    return { text: t('settings.tokens.activeUntil', { saved, date, count: token.daysLeft ?? 0 }), color: token.isExpiring ? 'var(--orange)' : null };
 };
 
 export const ISSUE_URLS: Record<string, string> = {
@@ -159,7 +158,7 @@ export const ISSUE_URLS: Record<string, string> = {
 export const saveCommand = (token: TokenInfo, service: string | undefined, account: string, platform: 'mac' | 'win', cli: string) =>
     platform === 'win'
         ? `${cli} secret set ${token.id}`
-        : `read -rs 'TOKEN?Токен ${token.title}: ' && security add-generic-password -U -s ${service ?? ''} -a ${account} -T /usr/bin/security -w "$TOKEN"; unset TOKEN`;
+        : `read -rs 'TOKEN?${t('settings.tokens.prompt', { token: token.title })}' && security add-generic-password -U -s ${service ?? ''} -a ${account} -T /usr/bin/security -w "$TOKEN"; unset TOKEN`;
 
 export const isValidPattern = (pattern: string) => {
     if (!pattern) return false;
@@ -240,13 +239,12 @@ export const fieldDescription = (schema: unknown, path: (string | null)[]) => {
 export const buildInfo = (commit: string, iso: string, dirty: boolean, now = new Date()) => {
     const date = parse(iso);
     if (!date) return null;
-    const pad = (value: number) => String(value).padStart(2, '0');
-    const day = `${pad(date.getDate())}.${pad(date.getMonth() + 1)}${date.getFullYear() === now.getFullYear() ? '' : `.${date.getFullYear()}`}`;
+    const day = formatDate(date, date.getFullYear() === now.getFullYear() ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', year: 'numeric' });
     const when = `${day} ${clock(date)}`;
-    const full = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long', year: 'numeric' }).format(date).replace(/ г\.$/, '');
+    const full = t('common.time.dateAtTime', { date: formatDate(date, { day: 'numeric', month: 'long', year: 'numeric' }).replace(/ г\.$/, ''), time: clock(date) });
     return {
-        text: commit ? `Сборка ${commit.slice(0, 7)} · ${when}` : `Сборка от ${when}`,
+        text: commit ? t('settings.build.commit', { commit: commit.slice(0, 7), when }) : t('settings.build.date', { when }),
         dirty: !!commit && dirty,
-        hint: `Собрано ${full} в ${clock(date)}${commit ? ` из коммита ${commit}` : ''}${commit && dirty ? ' + незакоммиченные правки' : ''}`,
+        hint: !commit ? t('settings.build.hint', { when: full }) : dirty ? t('settings.build.hintDirty', { when: full, commit }) : t('settings.build.hintCommit', { when: full, commit }),
     };
 };

@@ -1,5 +1,6 @@
 import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
 import type { PullRequest } from '../model/types';
 import { CloseButton, SheetFrame } from './controls';
 import { isValidPattern } from './model';
@@ -19,13 +20,13 @@ export const BranchesSheet = ({ saved, prs, onSave, onClose }: { saved: string; 
     };
 
     return (
-        <SheetFrame width={560} label="Ветки для ревью" onClose={onClose}>
+        <SheetFrame width={560} label={t('settings.branches.title')} onClose={onClose}>
             <div className="sheet__head">
                 <span className="sheet__titles">
-                    <span className="sheet__title">Ветки для ревью</span>
-                    <span className="sheet__subtitle">Регулярное выражение для исходной ветки PR, без учёта регистра. Остальные PR фон пропускает, вручную их можно отревьюить кликом по иконке модели.</span>
+                    <span className="sheet__title">{t('settings.branches.title')}</span>
+                    <span className="sheet__subtitle">{t('settings.branches.subtitle')}</span>
                 </span>
-                <CloseButton onClose={onClose} title="Закрыть без сохранения" />
+                <CloseButton onClose={onClose} title={t('settings.closeWithoutSaving')} />
             </div>
             <div className="input-card">
                 <input
@@ -40,14 +41,14 @@ export const BranchesSheet = ({ saved, prs, onSave, onClose }: { saved: string; 
                     onKeyDown={(event) => event.key === 'Enter' && save()}
                 />
                 {!valid && (
-                    <span title={text ? 'Неверное регулярное выражение — список показывает последний верный шаблон' : 'Введите шаблон'} style={{ display: 'flex', color: text ? 'var(--red)' : 'var(--label-2)' }}>
+                    <span title={text ? t('settings.branches.invalid') : t('settings.branches.empty')} style={{ display: 'flex', color: text ? 'var(--red)' : 'var(--label-2)' }}>
                         <Icon id="i-warning-fill" />
                     </span>
                 )}
             </div>
             <div className="section">
                 <div className="section__header">
-                    Открытые PR · подходит {prs.filter(matches).length} из {prs.length}
+                    {t('settings.branches.matches', { matched: prs.filter(matches).length, total: prs.length })}
                 </div>
                 {/* Список по прошлому шаблону приглушён, чтобы не выдавать его за результат текущего ввода */}
                 <div className="section__card" style={{ height: 200, overflow: 'auto', opacity: valid ? 1 : 0.5 }}>
@@ -73,7 +74,7 @@ export const BranchesSheet = ({ saved, prs, onSave, onClose }: { saved: string; 
             <div className="sheet__footer">
                 <span className="spacer" />
                 <button className="button button--prominent" disabled={!valid || text === saved} onClick={save}>
-                    Сохранить
+                    {t('common.action.save')}
                 </button>
             </div>
         </SheetFrame>

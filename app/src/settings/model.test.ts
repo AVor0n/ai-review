@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import schema from '../../../schema/config.schema.json';
+import { setLang } from '../i18n';
 import type { TokenInfo } from '../model/derive';
 import { configProblem, highlight, jsonSyntaxError } from './configText';
 import { buildInfo, configPath, effortOptions, fieldDescription, limitView, modelChange, modelOptions, pathTitle, saveCommand, stepInterval, tokensSummary, tokenStatus, type Models } from './model';
@@ -103,5 +104,15 @@ describe('синтаксис config.json по-русски', () => {
     it('проверка совпадает с JSON.parse на настоящем конфиге и схеме', () => {
         const text = JSON.stringify({ $schema: './schema/config.schema.json', a: [1, -2.5e3, true, null, 'x\\"y'], b: { c: {} } }, null, 4);
         expect(jsonSyntaxError(text)).toBeNull();
+    });
+
+    it('на английском — те же место и суть', () => {
+        setLang('en');
+        try {
+            expect(jsonSyntaxError('{ "a" 1 }')).toBe('JSON error at line 1, column 7: colon expected after key');
+            expect(limitView('cursor', undefined, 'Cursor', NOW).text).toBe('limit unavailable');
+        } finally {
+            setLang('ru');
+        }
     });
 });

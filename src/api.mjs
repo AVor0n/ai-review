@@ -319,6 +319,7 @@ const routes = (deps) => {
         { method: 'POST', path: '/backlog/close-stale', ...cliAction(() => ['backlog', 'close-stale']) },
         { method: 'PUT', path: '/settings/branches', ...cliAction(({ body }) => ['branches', field(body, 'pattern')]) },
         { method: 'PUT', path: '/settings/interval', ...cliAction(({ body }) => ['interval', String(field(body, 'minutes', 'integer'))]) },
+        { method: 'PUT', path: '/settings/language', ...cliAction(({ body }) => ['language', field(body, 'language')]) },
         { method: 'POST', path: '/settings/ignore', ...cliAction(({ body }) => ['ignore', 'add', field(body, 'pattern')]) },
         { method: 'DELETE', path: '/settings/ignore', ...cliAction(({ body }) => ['ignore', 'remove', field(body, 'pattern')]) },
         { method: 'PUT', path: '/tokens/{id}/lifetime', ...cliAction(({ params, body }) => ['token', params.id, body?.days === 0 ? 'never' : String(field(body, 'days', 'integer'))]) },

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
 import { CloseButton } from './controls';
 import { LOG_LIMIT, logTime, isLong, type LogEntry } from './log';
 
@@ -38,27 +39,27 @@ export const LogSheet = ({ entries, file, onError, onClose }: { entries: LogEntr
 
     return (
         <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()} onKeyDown={(event) => event.key === 'Escape' && onClose()}>
-            <div className="sheet sheet--wide sheet--tall" role="dialog" aria-label="Журнал">
+            <div className="sheet sheet--wide sheet--tall" role="dialog" aria-label={t('settings.log.title')}>
                 <div className="sheet__head">
                     <span className="sheet__titles">
-                        <span className="sheet__title">Журнал</span>
+                        <span className="sheet__title">{t('settings.log.title')}</span>
                     </span>
                     <CloseButton onClose={onClose} />
                 </div>
                 <div className="sheet__bar">
                     <div className="segmented" style={{ '--segment-width': '100px' } as CSSProperties}>
                         <button className="segmented__item" aria-selected={!errorsOnly} onClick={() => choose(false)}>
-                            Все записи
+                            {t('settings.log.all')}
                         </button>
                         <button className="segmented__item" aria-selected={errorsOnly} onClick={() => choose(true)}>
-                            Ошибки
+                            {t('settings.log.errors')}
                         </button>
                     </div>
                     <span className="spacer" />
                     {file && (
                         <button className="link-button link-button--icon" title={shortPath(file)} onClick={() => invoke('open_path', { path: file }).catch((reason) => onError(String(reason)))}>
                             <Icon id="i-open-external" />
-                            Открыть файл
+                            {t('settings.log.openFile')}
                         </button>
                     )}
                 </div>
@@ -77,7 +78,7 @@ export const LogSheet = ({ entries, file, onError, onClose }: { entries: LogEntr
                                                 <span className="log-row__message selectable">{entry.message}</span>
                                             </div>
                                             {isLong(entry.message) && (
-                                                <button className="log-row__toggle" title={open ? 'Свернуть' : 'Показать целиком'} onClick={() => toggle(entry.id)}>
+                                                <button className="log-row__toggle" title={open ? t('settings.log.collapse') : t('settings.log.expand')} onClick={() => toggle(entry.id)}>
                                                     <Icon id="i-chevron-down" />
                                                 </button>
                                             )}
@@ -89,7 +90,7 @@ export const LogSheet = ({ entries, file, onError, onClose }: { entries: LogEntr
                     ) : (
                         <div className="empty-state">
                             <Icon id={errorsOnly ? 'i-check-circle' : 'i-file-text'} className="icon empty-state__icon" />
-                            <div className="empty-state__title">{errorsOnly ? 'Ошибок нет' : 'Лог пуст'}</div>
+                            <div className="empty-state__title">{errorsOnly ? t('settings.log.noErrors') : t('settings.log.empty')}</div>
                         </div>
                     )}
                 </div>

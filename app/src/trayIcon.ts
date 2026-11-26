@@ -3,6 +3,7 @@ import icons from '../../product/design/web/icons.svg?raw';
 import claude from '../../product/design/web/logos/claude-spark.svg?raw';
 import cursor from '../../product/design/web/logos/cursor-cube.svg?raw';
 import codex from '../../product/design/web/logos/openai-blossom.svg?raw';
+import { t } from './i18n';
 import type { MenuEntry, TrayIcon } from './model/tray';
 
 // Значок трея рисуется здесь из спрайта иконок и знаков моделей дизайн-системы: так он совпадает с поповером.
@@ -22,7 +23,7 @@ const isTraySymbol = (id: string) => id.startsWith('i-tray-');
 
 const symbolSvg = (id: string, color: string) => {
     const symbol = new DOMParser().parseFromString(icons, 'image/svg+xml').getElementById(id);
-    if (!symbol) throw new Error(`Нет иконки ${id}`);
+    if (!symbol) throw new Error(t('app.trayIcon.missing', { id }));
     const line = isTraySymbol(id) && !isWindows ? ' style="--tray-line: 1"' : '';
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${symbol.getAttribute('viewBox')}" fill="${color}" color="${color}"${line}>${symbol.innerHTML}</svg>`;
 };
@@ -31,7 +32,7 @@ const loadImage = (svg: string) =>
     new Promise<HTMLImageElement>((resolve, reject) => {
         const image = new Image();
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error('Не удалось нарисовать значок'));
+        image.onerror = () => reject(new Error(t('app.trayIcon.drawFailed')));
         image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
     });
 
@@ -97,7 +98,7 @@ const renderFrames = async (icon: TrayIcon, frames: Frame[], dark: boolean) => {
 
 const toPng = (canvas: HTMLCanvasElement) =>
     new Promise<number[]>((resolve, reject) =>
-        canvas.toBlob(async (blob) => (blob ? resolve([...new Uint8Array(await blob.arrayBuffer())]) : reject(new Error('Не удалось сохранить значок'))), 'image/png'),
+        canvas.toBlob(async (blob) => (blob ? resolve([...new Uint8Array(await blob.arrayBuffer())]) : reject(new Error(t('app.trayIcon.saveFailed')))), 'image/png'),
     );
 
 let lastIcon = '';

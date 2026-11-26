@@ -11,6 +11,7 @@ import { muteUntil, isMuted, type Prefs } from '../model/prefs';
 import { loadNotifications, muteSummary, saveNotifications, type NotificationSettings, KINDS } from '../model/notifications';
 import type { Data } from '../model/types';
 import { loadTheme, setTheme, type Theme } from '../theme';
+import { setLangSetting, t, useLangSetting, type LangSetting } from '../i18n';
 import { BranchesSheet } from './BranchesSheet';
 import { ConfigSheet } from './ConfigSheet';
 import { NavRow, Select, Stepper, Switch, popupMenu } from './controls';
@@ -31,7 +32,7 @@ import {
 } from './model';
 import { NotificationsSheet } from './NotificationsSheet';
 import { LogSheet } from './LogSheet';
-import { errorsLastDay, type LogEntry } from './log';
+import { errorsLastDay, LOG_LIMIT, type LogEntry } from './log';
 import { AddRepoSheet, IgnoreSheet } from './RepoSheets';
 import { TokensSheet } from './TokensSheet';
 
@@ -39,12 +40,7 @@ import { TokensSheet } from './TokensSheet';
 // Разметка — шаблон tpl-settings макета 2026-11-26-tauri-settings.html
 type Result = { error?: unknown };
 
-const THEMES: { id: Theme; title: string }[] = [
-    { id: 'system', title: 'Системная' },
-    { id: 'light', title: 'Светлая' },
-    { id: 'dark', title: 'Тёмная' },
-];
-const DIM = 'Сначала включите фоновое ревью наверху';
+const THEMES: Theme[] = ['system', 'light', 'dark'];
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
 // Codex и Cursor отдают лимиты по сети: спрашиваем не чаще раза в 5 минут, своим таймером — модель без лимита не дёргает сеть при каждом открытии
@@ -86,6 +82,7 @@ export const SettingsScreen = ({
     onCopy: (text: string) => Promise<boolean>;
 }) => {
     const [theme, chooseTheme] = useState<Theme>(loadTheme);
+    const language = useLangSetting();
     const [notifications, setNotifications] = useState<NotificationSettings>(loadNotifications);
     const [denied, setDenied] = useState(false);
     const [now, setNow] = useState(() => new Date());
@@ -178,17 +175,17 @@ export const SettingsScreen = ({
     };
 
     const remove = async (slug: string) => {
-        const confirmed = await confirm('Ревью этого репозитория прекратится, служебная копия будет удалена. Комментарии в Bitbucket и статистика останутся.', {
-            title: `Отключить ${slug}?`,
+        const confirmed = await confirm(t('settings.repos.remove.message'), {
+            title: t('settings.repos.remove.title', { repo: slug }),
             kind: 'warning',
-            okLabel: 'Отключить и удалить клон',
-            cancelLabel: 'Отмена',
+            okLabel: t('settings.repos.remove.confirm'),
+            cancelLabel: t('common.action.cancel'),
         });
         if (confirmed && api) run(() => api.DELETE('/repos/{repo}', { params: { path: { repo: slug } } }));
     };
 
     const ignore = async (method: 'POST' | 'DELETE', pattern: string) => {
-        if (!api) return 'Сервис не отвечает';
+        if (!api) return t('settings.error.noService');
         const { error: failure } = method === 'POST' ? await api.POST('/settings/ignore', { body: { pattern } }) : await api.DELETE('/settings/ignore', { body: { pattern } });
         return failure ? errorText(failure) : null;
     };
@@ -196,20 +193,21 @@ export const SettingsScreen = ({
     const openSystemNotifications = () => invoke('open_notification_settings').catch((reason) => setError(String(reason)));
 
     const footer = [
-        paused ? 'Ручной запуск из обзора работает всегда.' : 'Выключение фонового ревью прерывает идущее ревью.',
+        paused ? t('settings.general.footer.manual') : t('settings.general.footer.stops'),
         denied
             ? platform === 'win'
-                ? 'Windows запретила уведомления — включите их в параметрах Windows.'
-                : 'macOS запретила уведомления — включите их в системных настройках.'
+                ? t('settings.general.footer.deniedWin')
+                : t('settings.general.footer.deniedMac')
             : (() => {
                   const own = config.repos.map((repo) => repo.slug).filter((slug) => notifications.repos[slug]);
-                  return own.length ? `Свои уведомления у ${own.join(', ')}.` : '';
+                  return own.length ? t('settings.general.footer.ownRepos', { repos: own.join(', ') }) : '';
               })(),
     ]
         .filter(Boolean)
         .join(' ');
 
-    const notificationsValue = denied ? (platform === 'win' ? 'Запрещены в Windows' : 'Запрещены в macOS') : muted ? muteSummary(prefs.mutedUntil, now) : `${notifications.all.enabled.length} из ${KINDS.length}`;
+    const notificationsValue = denied ? t(`settings.general.notificationsDenied.${platform}`) : muted ? muteSummary(prefs.mutedUntil, now) : t('settings.general.notificationsCount', { enabled: notifications.all.enabled.length, total: KINDS.length });
+    const dim = t('settings.general.dim');
     const allTokens = tokens(data, now);
     const tokenValue = tokensSummary(allTokens, now);
     const build = buildInfo(__BUILD__.commit, __BUILD__.date, __BUILD__.dirty, now);
@@ -219,11 +217,11 @@ export const SettingsScreen = ({
         const broken = memoryBroken[repo.slug];
         const badge = broken ? 'var(--red)' : fresh > 0 ? 'var(--accent)' : null;
         const cloned = clones[repo.slug] === true;
-        const subtitle = repo.source ? `${repo.remote ?? ''} · первый клон с ${repo.source}` : (repo.remote ?? '');
+        const subtitle = repo.source ? t('settings.repos.firstClone', { remote: repo.remote ?? '', source: repo.source }) : (repo.remote ?? '');
         const url = `https://bitbucket.org/${repo.workspace}/${repo.slug}`;
         return (
             // У неактивного переключателя подсказка может не показаться — дублируем её на всю строку
-            <div className="settings-row" title={paused ? DIM : undefined}>
+            <div className="settings-row" title={paused ? dim : undefined}>
                 <span className="icon-tile" style={repo.paused || paused ? tone('var(--gray)') : undefined}>
                     <Icon id="i-repo-fill" />
                 </span>
@@ -243,19 +241,19 @@ export const SettingsScreen = ({
                 {cloning.has(repo.slug) ? (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--text-callout)', color: 'var(--label-2)' }}>
                         <Icon id="i-spinner" />
-                        Скачивается…
+                        {t('settings.repos.downloading')}
                     </span>
                 ) : (
                     !cloned && (
                         <button className="link-button" onClick={() => clone(repo.slug)}>
-                            Скачать
+                            {t('settings.repos.download')}
                         </button>
                     )
                 )}
                 <button
                     className={`memory-chip${badge ? ' memory-chip--marked' : ''}`}
                     style={badge ? tone(badge) : undefined}
-                    title={broken ? `Память повреждена: ${broken}` : fresh > 0 ? `Новых правил: ${fresh}. Откройте, чтобы посмотреть` : 'Память ревьюеров: правила из ответов команды на замечания'}
+                    title={broken ? t('settings.repos.memoryBroken', { reason: broken }) : fresh > 0 ? t('settings.repos.memoryNew', { count: fresh }) : t('settings.repos.memoryHint')}
                     onClick={() => onOpenMemory(repo.slug)}
                 >
                     <Icon id="i-brain" />
@@ -263,18 +261,18 @@ export const SettingsScreen = ({
                 </button>
                 <button
                     className="icon-button"
-                    title="Ещё"
+                    title={t('common.action.more')}
                     onClick={() =>
                         popupMenu([
-                            { text: 'Открыть в Bitbucket', action: () => openUrl(url).catch(() => {}) },
-                            { text: 'Память ревьюеров…', action: () => onOpenMemory(repo.slug) },
+                            { text: t('settings.repos.openBitbucket'), action: () => openUrl(url).catch(() => {}) },
+                            { text: t('settings.repos.memory'), action: () => onOpenMemory(repo.slug) },
                             {
-                                text: platform === 'win' ? 'Показать служебную копию в Проводнике' : 'Показать служебную копию в Finder',
+                                text: platform === 'win' ? t('settings.repos.revealWin') : t('settings.repos.revealMac'),
                                 enabled: cloned && !!reposDir,
                                 action: () => invoke('reveal_path', { path: `${reposDir}/${repo.slug}` }).catch((reason) => setError(String(reason))),
                             },
                             'separator',
-                            { text: 'Отключить…', action: () => remove(repo.slug) },
+                            { text: t('settings.repos.disconnect'), action: () => remove(repo.slug) },
                         ])
                     }
                 >
@@ -284,7 +282,7 @@ export const SettingsScreen = ({
                 <Switch
                     checked={!repo.paused}
                     disabled={paused}
-                    title={paused ? DIM : repo.paused ? 'Фоновое ревью репозитория выключено' : 'Фоновое ревью репозитория включено'}
+                    title={paused ? dim : repo.paused ? t('settings.repos.paused') : t('settings.repos.active')}
                     onChange={(on) => api && run(() => api.POST(on ? '/repos/{repo}/resume' : '/repos/{repo}/pause', { params: { path: { repo: repo.slug } } }))}
                 />
             </div>
@@ -314,18 +312,18 @@ export const SettingsScreen = ({
                         {limit.text}
                     </span>
                 </span>
-                <Select options={modelOptions(id, current, models)} value={current} width={160} title="Модель" onSelect={(value) => setAgent(modelChange(id, value, agent, models))} />
+                <Select options={modelOptions(id, current, models)} value={current} width={160} title={t('settings.models.model')} onSelect={(value) => setAgent(modelChange(id, value, agent, models))} />
                 {id === 'cursor' ? (
                     // У Cursor уровень рассуждений — часть id модели: grok-4.7-high, claude-opus-5-5-xhigh
-                    <span className="select-note" title="У Cursor уровень reasoning выбирается вместе с моделью">
-                        в названии модели
+                    <span className="select-note" title={t('settings.models.cursorEffortHint')}>
+                        {t('settings.models.cursorEffort')}
                     </span>
                 ) : (
-                    <Select options={effortOptions(id, current, models)} value={effort} width={160} title="Уровень reasoning" onSelect={(value) => setAgent({ effort: value })} />
+                    <Select options={effortOptions(id, current, models)} value={effort} width={160} title={t('settings.models.effort')} onSelect={(value) => setAgent({ effort: value })} />
                 )}
                 <Switch
                     checked={agent?.auto !== false}
-                    title="Участвует ли модель в фоновом ревью. Выключенная в фоне не ревьюит и не отвечает в тредах, но запускается по клику на её иконку в обзоре"
+                    title={t('settings.models.auto')}
                     onChange={(auto) => setAgent({ auto })}
                 />
             </div>
@@ -342,46 +340,59 @@ export const SettingsScreen = ({
                         <div className="banner banner--alert" role="alert">
                             <Icon id="i-warning-fill" className="icon banner__icon" />
                             <div className="banner__body">
-                                <div className="banner__title">Не удалось выполнить команду</div>
+                                <div className="banner__title">{t('settings.error.title')}</div>
                                 <div className="banner__text banner__text--clamp selectable">{error}</div>
                             </div>
                             <div className="banner__actions">
-                                <button className="close-button" title="Скрыть" onClick={() => setError(null)}>
+                                <button className="close-button" title={t('common.action.hide')} onClick={() => setError(null)}>
                                     <Icon id="i-close" />
                                 </button>
                             </div>
                         </div>
                     )}
                     <div className="section">
-                        <div className="section__header">Общие</div>
+                        <div className="section__header">{t('settings.general.header')}</div>
                         <div className="section__card">
                             <div className="settings-row">
-                                <span className="settings-row__title">Тема</span>
+                                <span className="settings-row__title">{t('settings.theme.title')}</span>
                                 <div className="segmented segmented--dimension">
                                     {THEMES.map((item) => (
                                         <button
-                                            key={item.id}
+                                            key={item}
                                             className="segmented__item"
-                                            aria-selected={theme === item.id}
+                                            aria-selected={theme === item}
                                             onClick={() => {
-                                                chooseTheme(item.id);
-                                                setTheme(item.id);
+                                                chooseTheme(item);
+                                                setTheme(item);
                                             }}
                                         >
-                                            {item.title}
+                                            {t(`settings.theme.${item}`)}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                             <div className="row-divider" />
-                            <div className="settings-row" title="Новые коммиты и ответы в тредах включённых репозиториев проверяются по расписанию. Выключение прерывает идущее ревью; по клику на иконку модели в обзоре ревью запускается всегда">
-                                <span className="settings-row__title">Фоновое ревью</span>
+                            <div className="settings-row" title={t('common.language.hint')}>
+                                <span className="settings-row__title">{t('common.language.title')}</span>
+                                <Select
+                                    options={(['system', 'ru', 'en'] as const).map((id) => ({ id, title: t(`common.language.${id}`) }))}
+                                    value={language}
+                                    width={160}
+                                    onSelect={(id) => {
+                                        setLangSetting(id as LangSetting);
+                                        if (api) run(() => api.PUT('/settings/language', { body: { language: id as LangSetting } }));
+                                    }}
+                                />
+                            </div>
+                            <div className="row-divider" />
+                            <div className="settings-row" title={t('settings.general.backgroundHint')}>
+                                <span className="settings-row__title">{t('settings.general.background')}</span>
                                 <Switch checked={!paused} onChange={(on) => api && run(() => api.POST(on ? '/resume' : '/pause'))} />
                             </div>
                             <div className="row-divider" />
-                            <div className={`settings-row${paused ? ' settings-row--dim' : ''}`} title={paused ? DIM : 'Как часто искать новые коммиты и ответы в тредах. Действует со следующей минуты'}>
-                                <span className="settings-row__title">Проверять каждые</span>
-                                <span className="settings-row__value">{interval} мин</span>
+                            <div className={`settings-row${paused ? ' settings-row--dim' : ''}`} title={paused ? dim : t('settings.general.intervalHint')}>
+                                <span className="settings-row__title">{t('settings.general.interval')}</span>
+                                <span className="settings-row__value">{t('common.time.minutes', { minutes: interval })}</span>
                                 <Stepper
                                     disabled={paused}
                                     onStep={(direction) => {
@@ -391,12 +402,12 @@ export const SettingsScreen = ({
                                 />
                             </div>
                             <div className="row-divider" />
-                            <NavRow title="Уведомления" value={notificationsValue} color={denied || muted ? 'var(--orange)' : null} onClick={() => setSheet('notifications')} />
+                            <NavRow title={t('settings.notifications.title')} value={notificationsValue} color={denied || muted ? 'var(--orange)' : null} onClick={() => setSheet('notifications')} />
                         </div>
                         <div className="section__footer">{footer}</div>
                     </div>
                     <div className="section">
-                        <div className="section__header">Подключённые репозитории</div>
+                        <div className="section__header">{t('settings.repos.header')}</div>
                         <div className="section__card">
                             {config.repos.map((repo) => (
                                 <Fragment key={repo.slug}>
@@ -408,12 +419,12 @@ export const SettingsScreen = ({
                                 <span className="settings-row__lead">
                                     <Icon id="i-plus-circle-fill" />
                                 </span>
-                                <span className="settings-row__title">Добавить репозиторий</span>
+                                <span className="settings-row__title">{t('settings.repos.add')}</span>
                             </button>
                         </div>
                     </div>
                     <div className="section">
-                        <div className="section__header">Модели</div>
+                        <div className="section__header">{t('settings.models.header')}</div>
                         <div className="section__card">
                             {agentIds(config).map((id, index) => (
                                 <Fragment key={id}>
@@ -422,28 +433,28 @@ export const SettingsScreen = ({
                                 </Fragment>
                             ))}
                         </div>
-                        <div className="section__footer">Выключенная модель запускается только по клику на её иконку в обзоре.</div>
+                        <div className="section__footer">{t('settings.models.footer')}</div>
                     </div>
                     <div className="section">
-                        <div className="section__header">Дополнительно</div>
+                        <div className="section__header">{t('settings.advanced.header')}</div>
                         <div className="section__card">
                             <NavRow
-                                title="Ветки для ревью"
+                                title={t('settings.branches.title')}
                                 value={config.branchPattern ?? DEFAULT_BRANCH_PATTERN}
                                 mono
-                                hint="Фоновое ревью берёт только PR, исходная ветка которых подходит под шаблон. Вручную можно отревьюить любой PR"
+                                hint={t('settings.branches.hint')}
                                 onClick={() => setSheet('branches')}
                             />
                             <div className="row-divider" />
-                            <NavRow title="Исключения из диффа" value={String(config.ignorePaths?.length ?? 0)} onClick={() => setSheet('ignore')} />
+                            <NavRow title={t('settings.ignore.title')} value={String(config.ignorePaths?.length ?? 0)} onClick={() => setSheet('ignore')} />
                             <div className="row-divider" />
-                            <NavRow title="Токены" value={tokenValue.text} color={tokenValue.color} hint="Сроки токенов Bitbucket и моделей; за 14 дней до истечения в обзоре появится предупреждение" onClick={() => setSheet('tokens')} />
+                            <NavRow title={t('settings.tokens.title')} value={tokenValue.text} color={tokenValue.color} hint={t('settings.tokens.hint')} onClick={() => setSheet('tokens')} />
                             <div className="row-divider" />
                             <NavRow title="config.json" onClick={() => setSheet('config')} />
                             <div className="row-divider" />
-                            <NavRow title="Журнал" value={errorsLastDay(log, now)} color="var(--orange)" hint="Журнал сервиса: последние 300 записей" onClick={() => setSheet('log')} />
+                            <NavRow title={t('settings.log.title')} value={errorsLastDay(log, now)} color="var(--orange)" hint={t('settings.log.hint', { count: LOG_LIMIT })} onClick={() => setSheet('log')} />
                         </div>
-                        <div className="section__footer">Шаблон веток касается только фонового ревью.</div>
+                        <div className="section__footer">{t('settings.advanced.footer')}</div>
                     </div>
                     {build && (
                         <div className="build-info selectable" title={build.hint}>
@@ -452,7 +463,7 @@ export const SettingsScreen = ({
                                 <>
                                     {' '}
                                     <span className="tag" style={{ '--tag-color': 'var(--orange)' } as CSSProperties}>
-                                        правки не закоммичены
+                                        {t('settings.build.dirty')}
                                     </span>
                                 </>
                             )}
@@ -498,7 +509,7 @@ export const SettingsScreen = ({
             {sheet === 'add-repo' && (
                 <AddRepoSheet
                     onAdd={async (ref) => {
-                        if (!api) return 'Сервис не отвечает';
+                        if (!api) return t('settings.error.noService');
                         const { data: added, error: failure } = await api.POST('/repos', { body: { ref } });
                         if (failure) return errorText(failure);
                         // Как addRepo в SwiftUI: служебная копия скачивается сразу, без «Скачать»

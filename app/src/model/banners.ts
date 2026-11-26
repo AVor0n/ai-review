@@ -1,10 +1,11 @@
 // Баннеры обзора по важности — как banners в OverviewView.swift. Цвет — по SwiftUI:
 // красный — critical, оранжевый — alert, жёлтый — warning, акцентный — info (product/design/web/components.css)
 import { memoryLimit, tokens, workerStall, isRunning, type TokenInfo } from './derive';
-import { clock, minutesText, parse, plural, shortDate } from './format';
+import { clock, minutesText, parse, shortDate } from './format';
 import type { Prefs } from './prefs';
 import type { Data, Lesson } from './types';
 import type { SettingsSheet } from '../settings/model';
+import { t } from '../i18n';
 
 export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
 
@@ -38,17 +39,20 @@ export const newLessons = (lessons: Lesson[], seenAt: string | undefined) => {
 
 const tokenBanner = (token: TokenInfo): Banner => {
     const date = token.expiresAt ? shortDate(token.expiresAt) : '';
-    const title = token.isExpired ? `Токен ${token.title} истёк ${date}` : token.daysLeft === 0 ? `Токен ${token.title} истекает сегодня` : `Токен ${token.title} истекает через ${token.daysLeft ?? 0} дн. — ${date}`;
-    const impact = token.id === 'bitbucket' ? 'Без него фоновое ревью не видит PR и не публикует комментарии.' : `Без него ${token.title} не сможет ревьюить в фоне.`;
+    const title = token.isExpired
+        ? t('overview.banners.tokenExpired', { name: token.title, date })
+        : token.daysLeft === 0
+          ? t('overview.banners.tokenToday', { name: token.title })
+          : t('overview.banners.tokenSoon', { name: token.title, count: token.daysLeft ?? 0, date });
     return {
         id: `token-${token.id}`,
         variant: token.isExpired ? 'critical' : 'warning',
         icon: 'i-key-fill',
         title,
         // Слова «Keychain» нет: на Windows секреты хранятся не там
-        text: `${impact} Выпустите новый и сохраните — срок обновится сам.`,
-        actions: [{ label: 'Обновить…', kind: 'settings', sheet: 'tokens' }],
-        close: token.isExpired ? undefined : { hint: 'Скрыть до завтра', kind: 'token', key: token.id },
+        text: token.id === 'bitbucket' ? t('overview.banners.tokenTextBitbucket') : t('overview.banners.tokenText', { name: token.title }),
+        actions: [{ label: t('overview.banners.tokenUpdate'), kind: 'settings', sheet: 'tokens' }],
+        close: token.isExpired ? undefined : { hint: t('overview.banners.tokenClose'), kind: 'token', key: token.id },
     };
 };
 
@@ -60,28 +64,24 @@ const memoryBanner = (slug: string, count: number, limit: number): Banner => {
         id: `memory-${slug}`,
         variant: full ? 'critical' : 'warning',
         icon: 'i-brain',
-        title: overflow ? `Память ${slug} переполнена: ${count} из ${limit}` : full ? `Память ${slug} заполнена: ${count} из ${limit}` : `Память ${slug} почти заполнена: ${count} из ${limit}`,
-        text: overflow
-            ? 'Вытеснять нечего: все правила добавлены или исправлены вручную либо выучены недавно. Удалите лишние или поднимите memory.maxLessons в config.json.'
-            : full
-              ? 'Новые правила вытесняют наименее полезные автоматические. Удалите лишние или поправьте нужные — исправленные вручную не вытесняются.'
-              : 'Скоро новые правила начнут вытеснять наименее полезные. Просмотрите память: удалите лишнее, поправьте нужное — исправленные вручную правила не вытесняются.',
-        actions: [{ label: 'Проверить правила', kind: 'memory', slug }],
+        title: t(overflow ? 'overview.banners.memoryOverflow' : full ? 'overview.banners.memoryFull' : 'overview.banners.memoryNearlyFull', { repo: slug, count, limit }),
+        text: t(overflow ? 'overview.banners.memoryOverflowText' : full ? 'overview.banners.memoryFullText' : 'overview.banners.memoryNearlyFullText'),
+        actions: [{ label: t('overview.banners.memoryCheck'), kind: 'memory', slug }],
     };
 };
 
 export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | null; memoryBroken: Record<string, string> }, now = new Date()): Banner[] => {
     const result: Banner[] = [];
-    const log: BannerAction = { label: 'Журнал', kind: 'settings', sheet: 'log' };
+    const log: BannerAction = { label: t('overview.banners.log'), kind: 'settings', sheet: 'log' };
     const stall = workerStall(data.status, now);
     if (stall)
         result.push({
             id: 'stall',
             variant: 'alert',
             icon: 'i-hourglass',
-            title: `Проход ревью не продвигается ${minutesText(stall.minutes)}`,
-            text: `Сервис не подаёт признаков жизни, последняя запись в журнале — в ${clock(stall.since)}. Похоже, завис git или сеть. «Прервать» остановит этот проход, следующий начнётся по расписанию.`,
-            actions: [log, { label: 'Прервать', kind: 'stop', destructive: true }],
+            title: t('overview.banners.stallTitle', { duration: minutesText(stall.minutes) }),
+            text: t('overview.banners.stallText', { time: clock(stall.since) }),
+            actions: [log, { label: t('overview.banners.stop'), kind: 'stop', destructive: true }],
         });
     const lastRunError = isRunning(data.status) || data.status?.phase !== 'error' ? null : data.status?.lastError;
     const error = extra.syncError ?? lastRunError;
@@ -90,7 +90,7 @@ export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | n
             id: 'error',
             variant: 'alert',
             icon: 'i-warning-fill',
-            title: extra.syncError ? 'Не удалось выполнить команду' : 'Последний запуск завершился с ошибкой',
+            title: extra.syncError ? t('overview.banners.commandFailed') : t('overview.banners.lastRunFailed'),
             text: error.trim(),
             clamp: true,
             actions: [log],
@@ -98,7 +98,7 @@ export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | n
     const all = tokenBanners(tokens(data, now), prefs, now);
     result.push(...all.filter((token) => token.isExpired).map(tokenBanner));
     for (const slug of Object.keys(extra.memoryBroken).sort())
-        result.push({ id: `broken-${slug}`, variant: 'critical', icon: 'i-brain', title: `Память ${slug} повреждена — ревью идёт без её правил`, text: extra.memoryBroken[slug], clamp: true, actions: [] });
+        result.push({ id: `broken-${slug}`, variant: 'critical', icon: 'i-brain', title: t('overview.banners.memoryBroken', { repo: slug }), text: extra.memoryBroken[slug], clamp: true, actions: [] });
     result.push(...all.filter((token) => !token.isExpired).map(tokenBanner));
     const limit = memoryLimit(data.config);
     // Репозитории, где память заполнена на 80% и больше: пора просмотреть правила, пока не начали вытесняться правила
@@ -115,11 +115,11 @@ export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | n
             id: `lessons-${repo.slug}`,
             variant: 'info',
             icon: 'i-brain',
-            title: `Новые правила в памяти ${repo.slug}: ${fresh.length}`,
+            title: t('overview.banners.lessons', { repo: repo.slug, count: fresh.length }),
             text: latest.text,
             clamp: true,
-            actions: [{ label: 'Посмотреть', kind: 'memory', slug: repo.slug }],
-            close: { hint: 'Скрыть баннер. Подсветка памяти в настройках останется, пока вы её не откроете', kind: 'lessons', key: repo.slug },
+            actions: [{ label: t('overview.banners.lessonsView'), kind: 'memory', slug: repo.slug }],
+            close: { hint: t('overview.banners.lessonsClose'), kind: 'lessons', key: repo.slug },
         });
     }
     return result;
@@ -130,14 +130,14 @@ export const serviceDownBanner = (down: { text: string; command: string }): Bann
     id: 'service-down',
     variant: 'critical',
     icon: 'i-power',
-    title: 'Сервис не запущен',
+    title: t('overview.banners.serviceDown'),
     text: down.text,
     command: down.command,
     actions: [
-        { label: 'Скопировать команду', kind: 'copy', text: down.command },
-        { label: 'Проверить снова', kind: 'retry' },
+        { label: t('overview.banners.copyCommand'), kind: 'copy', text: down.command },
+        { label: t('overview.banners.retry'), kind: 'retry' },
     ],
 });
 
 // Ещё 1 сообщение, ещё 2 сообщения, ещё 5 сообщений
-export const moreMessages = (count: number) => `Ещё ${count} ${plural(count, 'сообщение', 'сообщения', 'сообщений')}`;
+export const moreMessages = (count: number) => t('overview.banners.more', { count });

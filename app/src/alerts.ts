@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { minutesText } from './model/format';
 import { findingUrl, workerStall } from './model/derive';
 import { allows, allowsLevel, levelsText, rulesFor, type NotificationKind, type NotificationSettings } from './model/notifications';
@@ -71,7 +72,7 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
         notices.push({
             id: `${first.repo}#${first.pr.id}#${first.finding.agent}#${first.finding.at}`,
             kind: 'findings',
-            title: `${levelsText(counts)} в ${first.repo} #${first.pr.id} · ${agentName(first.finding.agent)}`,
+            title: t('alerts.findings', { levels: levelsText(counts), repo: first.repo, pr: first.pr.id, agent: agentName(first.finding.agent) }),
             subtitle: first.pr.title,
             body: group.map((item) => `${item.finding.level}: ${item.finding.title}`).join('\n'),
             url: findingUrl(first.pr, first.finding),
@@ -85,11 +86,12 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
     for (const group of Object.values(groupBy(comments.items.filter((item) => allows(settings, 'comments', item.repo)), (item) => `${item.repo}#${item.pr.id}`))) {
         const first = group[0];
         const last = group[group.length - 1];
+        const where = { repo: first.repo, pr: first.pr.id };
         const authors = [...new Set(group.map((item) => item.comment.author).filter(Boolean))].sort().join(', ');
         notices.push({
             id: `comments#${first.repo}#${first.pr.id}#${last.comment.id}`,
             kind: 'comments',
-            title: group.length > 1 ? `${group.length} комментария в ${first.repo} #${first.pr.id}` : `${first.comment.reply ? 'Ответ' : 'Комментарий'} в ${first.repo} #${first.pr.id}`,
+            title: group.length > 1 ? t('alerts.comments', { count: group.length, ...where }) : t(first.comment.reply ? 'alerts.reply' : 'alerts.comment', where),
             subtitle: authors || first.pr.title,
             body: group.map((item) => `${item.comment.author ? `${item.comment.author}: ` : ''}${item.comment.text}`).join('\n'),
             url: last.comment.url ?? first.pr.url,
@@ -106,15 +108,15 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
         if (!known || !allows(settings, 'updates', repo)) continue;
         for (const pr of snapshot.prs) {
             if (!(pr.id in known)) {
-                notices.push({ id: `new#${repo}#${pr.id}`, kind: 'updates', title: `Новый PR ${repo} #${pr.id}`, subtitle: pr.author ?? '', body: pr.title, url: pr.url });
+                notices.push({ id: `new#${repo}#${pr.id}`, kind: 'updates', title: t('alerts.newPr', { repo, pr: pr.id }), subtitle: pr.author ?? '', body: pr.title, url: pr.url });
                 continue;
             }
             // Свой пуш доработки — уже сообщила доработка
             const pushedByFix = fixes.some((fix) => fix.repo === repo && fix.pr === pr.id && fix.report?.head === pr.head);
-            if (known[pr.id] !== pr.head && !pushedByFix) notices.push({ id: `push#${repo}#${pr.id}#${pr.head}`, kind: 'updates', title: `Новые коммиты в ${repo} #${pr.id}`, subtitle: pr.author ?? '', body: pr.title, url: pr.url });
+            if (known[pr.id] !== pr.head && !pushedByFix) notices.push({ id: `push#${repo}#${pr.id}#${pr.head}`, kind: 'updates', title: t('alerts.newCommits', { repo, pr: pr.id }), subtitle: pr.author ?? '', body: pr.title, url: pr.url });
         }
         for (const [id, head] of Object.entries(known)) {
-            if (!current[Number(id)]) notices.push({ id: `closed#${repo}#${id}#${head}`, kind: 'updates', title: `PR ${repo} #${id} закрыт`, body: 'Влит или отклонён' });
+            if (!current[Number(id)]) notices.push({ id: `closed#${repo}#${id}#${head}`, kind: 'updates', title: t('alerts.closed.title', { repo, pr: id }), body: t('alerts.closed.body') });
         }
     }
 
@@ -127,12 +129,12 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
     next.since.fixes = finished.since;
     for (const fix of finished.items.filter((item) => allows(settings, 'fixes', item.repo))) {
         const rebase = fix.mode === 'rebase';
-        const counts = rebase || !fix.report ? '' : `\nИсправлено ${fix.report.fixed?.length ?? 0}, не исправлено ${fix.report.skipped?.length ?? 0}`;
+        const counts = rebase || !fix.report ? '' : `\n${t('alerts.fix.counts', { fixed: fix.report.fixed?.length ?? 0, skipped: fix.report.skipped?.length ?? 0 })}`;
         const pr = prs.find((item) => item.repo === fix.repo && item.pr.id === fix.pr)?.pr;
         notices.push({
             id: `fix#${fix.repo}#${fix.pr}#${fix.finishedAt ?? ''}`,
             kind: 'fixes',
-            title: `${rebase ? 'Rebase' : 'Доработка'} ${fix.repo} #${fix.pr}${fix.state === 'done' ? '' : ' не удалась'}`,
+            title: t(`alerts.${rebase ? 'rebase' : 'fix'}.${fix.state === 'done' ? 'done' : 'failed'}`, { repo: fix.repo, pr: fix.pr }),
             subtitle: pr?.title ?? '',
             body: `${fix.report?.message ?? fix.error ?? ''}${counts}`,
             url: pr?.url ?? null,
@@ -145,14 +147,14 @@ export const checkAlerts = (data: Data, settings: NotificationSettings, memory: 
         const previous = memory.lastRunAt;
         next.lastRunAt = status.lastRunAt ?? null;
         if (previous !== undefined && previous !== next.lastRunAt && status.phase === 'error' && status.errorStreak === 1 && status.lastError && allows(settings, 'errors')) {
-            notices.push({ id: `error#${status.lastRunAt ?? ''}`, kind: 'errors', title: 'PR Reviewer: проход завершился с ошибкой', body: status.lastError });
+            notices.push({ id: `error#${status.lastRunAt ?? ''}`, kind: 'errors', title: t('alerts.runError'), body: status.lastError });
         }
     }
     const stall = workerStall(status, now);
     const run = status?.lastRunAt ?? 'run';
     if (stall && run !== memory.stall && allows(settings, 'errors')) {
         next.stall = run;
-        notices.push({ id: `stall#${run}`, kind: 'errors', title: 'Проход ревью завис', body: `Сервис не отвечает ${minutesText(stall.minutes)} — похоже, завис git или сеть. Прервать проход можно в «Обзоре».` });
+        notices.push({ id: `stall#${run}`, kind: 'errors', title: t('alerts.stall.title'), body: t('alerts.stall.body', { duration: minutesText(stall.minutes) }) });
     }
 
     return { notices, memory: next };

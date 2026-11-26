@@ -1,8 +1,9 @@
 import { agentName, canTest, qaConfigured, findingUrl, importantFindings, isTaskBranch } from '../model/derive';
-import { QA_OFF, archAction, fixAction, modelButtons, qaAction, threadsCounter, updatedText, type RowAction } from '../model/row';
+import { archAction, fixAction, modelButtons, qaAction, qaOff, threadsCounter, updatedText, type RowAction } from '../model/row';
 import type { SettingsSheet } from '../settings/model';
 import type { Data, PullRequest } from '../model/types';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 
 export type RowHandlers = {
     review: (repo: string, pr: number, agent: string) => void;
@@ -43,7 +44,7 @@ export const PrRow = ({ data, repo, pr, now, on }: { data: Data; repo: string; p
                     </button>
                 ))}
             </div>
-            <div className="pr-row__main" title="Открыть PR в Bitbucket" onClick={() => on.open(pr.url)}>
+            <div className="pr-row__main" title={t('overview.row.openPr')} onClick={() => on.open(pr.url)}>
                 <div className="pr-row__title">
                     <span className="pr-row__id">#{pr.id}</span>
                     <span className="pr-row__name">{pr.title}</span>
@@ -53,7 +54,7 @@ export const PrRow = ({ data, repo, pr, now, on }: { data: Data; repo: string; p
             {worst && (
                 <button
                     className={`tag ${worst.level === 'P0' ? 'tag--red' : 'tag--orange'}`}
-                    title={`${important.map((finding) => `${finding.level} · ${agentName(data.config, finding.agent)}: ${finding.title}`).join('\n')}\n\nСтроки ещё не правили. Нажмите, чтобы открыть замечание`}
+                    title={`${important.map((finding) => `${finding.level} · ${agentName(data.config, finding.agent)}: ${finding.title}`).join('\n')}\n\n${t('overview.row.importantHint')}`}
                     onClick={() => on.open(findingUrl(pr, worst))}
                 >
                     {important.length > 1 ? `${worst.level} +${important.length - 1}` : worst.level}
@@ -63,7 +64,7 @@ export const PrRow = ({ data, repo, pr, now, on }: { data: Data; repo: string; p
                 <span className="tag">Draft</span>
             ) : (
                 !isTaskBranch(data.config, pr.source) && (
-                    <span className="tag" title={`Ветка ${pr.source} не подходит под шаблон веток задач, поэтому фоновое ревью этот PR пропускает. Запустить ревью можно кликом по иконке модели. Шаблон — в настройках`}>
+                    <span className="tag" title={t('overview.row.untrackedHint', { branch: pr.source })}>
                         Untracked
                     </span>
                 )
@@ -81,7 +82,7 @@ export const PrRow = ({ data, repo, pr, now, on }: { data: Data; repo: string; p
                 <ActionButton action={qaAction(data, repo, pr)} onClick={() => on.report('qa', repo, pr.id)} />
             ) : (
                 // Пока репозитории QA не заданы, кнопка объясняет, что настроить, — у всех PR, ведь фронтенд ещё не выбран
-                !qaConfigured(data.config) && <ActionButton action={QA_OFF} onClick={() => on.settings('config')} />
+                !qaConfigured(data.config) && <ActionButton action={qaOff()} onClick={() => on.settings('config')} />
             )}
             <span className="pr-row__updated" title={updated.hint}>
                 {updated.text}

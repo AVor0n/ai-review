@@ -30,6 +30,7 @@ export type Config = {
     arch?: { agent?: string };
     qa?: { frontend?: string; backend?: string };
     displayPrefix?: string;
+    language?: 'system' | 'ru' | 'en';
 };
 
 export type OpenThread = { id: number };

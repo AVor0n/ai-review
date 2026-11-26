@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification';
+import { t } from './i18n';
 import { levelsText } from './model/notifications';
 import { isMuted, loadPrefs } from './model/prefs';
 
@@ -26,9 +27,9 @@ type StatsEntry = { at: string; repo: string; pr: number; agent: string; pass?: 
 export const reviewNotice = (entry: StatsEntry, agentName: (id: string) => string, pr?: { title: string; url: string }): Notice => {
     const levels = levelsText(entry.findings ?? {});
     return {
-        title: `${agentName(entry.agent)} закончил ревью ${entry.repo} #${entry.pr}`,
+        title: t('alerts.review.title', { agent: agentName(entry.agent), repo: entry.repo, pr: entry.pr }),
         subtitle: pr?.title ?? entry.title ?? '',
-        body: levels ? `Замечания: ${levels}` : 'Замечаний нет',
+        body: levels ? t('alerts.review.findings', { levels }) : t('alerts.review.clean'),
         url: pr?.url ?? entry.url ?? null,
     };
 };

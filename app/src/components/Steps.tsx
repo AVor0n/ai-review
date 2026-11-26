@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { parse } from '../model/format';
 import { middle } from '../model/middle';
 import { Icon } from './Icon';
+import { t } from '../i18n';
 
 // Ход доработки или тестирования — перенос FixTimeline из menubar/FixViews.swift: у каждого шага длительность до следующего,
 // у текущего — живой таймер и последнее действие модели или проверки
@@ -11,10 +12,10 @@ const ACTIVITY_CHARS = 76;
 
 export const stepDuration = (seconds: number) => {
     const total = Math.max(0, Math.floor(seconds));
-    return total < 60 ? `${total} с` : `${Math.floor(total / 60)} мин ${total % 60} с`;
+    return total < 60 ? t('common.time.seconds', { seconds: total }) : t('common.time.minutesSeconds', { minutes: Math.floor(total / 60), seconds: total % 60 });
 };
 
-export const Steps = ({ title = 'Ход доработки', steps, active, failed, finishedAt, activity }: { title?: string; steps: Step[]; active: boolean; failed: boolean; finishedAt?: string | null; activity?: string | null }) => {
+export const Steps = ({ title = t('overview.steps.title'), steps, active, failed, finishedAt, activity }: { title?: string; steps: Step[]; active: boolean; failed: boolean; finishedAt?: string | null; activity?: string | null }) => {
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
         if (!active) return;

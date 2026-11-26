@@ -1,6 +1,8 @@
 import { Fragment, useState, type CSSProperties, type ReactNode } from 'react';
 import { LEVELS, fateClosed, fateTotal, perThousand, type Density, type Fate } from './data';
 import { decimal, levelCount } from './format';
+import { t } from '../i18n';
+import { formatNumber } from '../model/format';
 import { Icon } from '../components/Icon';
 
 // Строки вкладки «Статистика» — разметка из шаблона tpl-stats макета 2026-11-26-tauri-stats.html
@@ -32,7 +34,7 @@ export const Card = ({ header, footer, children }: { header?: ReactNode; footer?
     </div>
 );
 
-export const Empty = ({ text = 'За выбранный период данных нет' }: { text?: string }) => <div className="section__empty">{text}</div>;
+export const Empty = ({ text }: { text?: string }) => <div className="section__empty">{text ?? t('stats.noData')}</div>;
 
 // Строки через разделитель, как RowDivider между строками GroupedSection
 export const Rows = ({ children }: { children: ReactNode[] }) => (
@@ -80,9 +82,9 @@ export const StatLine = ({ title, value, c }: { title: string; value: string; c?
 );
 
 const FATE_PARTS = [
-    { title: 'Исправлено', key: 'addressed', c: 'var(--fate-addressed)' },
-    { title: 'Отклонено', key: 'dismissed', c: 'var(--fate-dismissed)' },
-    { title: 'Ждут правки', key: 'waiting', c: 'var(--fate-waiting)' },
+    { key: 'addressed', c: 'var(--fate-addressed)' },
+    { key: 'dismissed', c: 'var(--fate-dismissed)' },
+    { key: 'waiting', c: 'var(--fate-waiting)' },
 ] as const;
 
 export const FateRow = ({ name, agent, fate }: { name: string; agent?: string; fate: Fate }) => (
@@ -90,8 +92,8 @@ export const FateRow = ({ name, agent, fate }: { name: string; agent?: string; f
         <div className="fate-row__head">
             {agent && <span className={`model-mark model--${agent}`} />}
             <span className="fate-row__name">{name}</span>
-            {fateClosed(fate) > 0 && <span className="fate-row__note">исправлено {Math.floor((fate.addressed * 100) / fateClosed(fate))}% закрытых</span>}
-            <span className="fate-row__total">{fateTotal(fate)} замеч.</span>
+            {fateClosed(fate) > 0 && <span className="fate-row__note">{t('stats.fate.closedShare', { percent: Math.floor((fate.addressed * 100) / fateClosed(fate)) })}</span>}
+            <span className="fate-row__total">{t('stats.fate.total', { count: fateTotal(fate) })}</span>
         </div>
         <div className="stack">
             {FATE_PARTS.filter((part) => fate[part.key] > 0).map((part) => (
@@ -102,7 +104,7 @@ export const FateRow = ({ name, agent, fate }: { name: string; agent?: string; f
             {FATE_PARTS.map((part) => (
                 <span key={part.key} className="legend__item">
                     <Dot c={part.c} />
-                    {part.title} <span className="legend__count">{fate[part.key]}</span>
+                    {t(`stats.fate.${part.key}`)} <span className="legend__count">{fate[part.key]}</span>
                 </span>
             ))}
         </div>
@@ -118,7 +120,7 @@ export const DensityRow = ({ row, scale }: { row: Density; scale: number }) => {
             <div className="density-row__label">
                 <span className="density-row__name">{row.name}</span>
                 <span className="density-row__meta">
-                    {row.prs} PR · {row.lines.toLocaleString('ru')} строк · {row.total} замеч.{row.isLowVolume ? ' · мало данных' : ''}
+                    {[t('stats.density.prs', { count: row.prs }), t('stats.density.lines', { count: row.lines, lines: formatNumber(row.lines) }), t('stats.fate.total', { count: row.total }), ...(row.isLowVolume ? [t('stats.density.lowVolume')] : [])].join(' · ')}
                 </span>
             </div>
             <div className={`density-row__bars${hover ? ' density-row__bars--hover' : ''}`}>
@@ -139,7 +141,7 @@ export const DensityRow = ({ row, scale }: { row: Density; scale: number }) => {
                                         {levelCount(level, count)}
                                         <span className="level-tooltip__level">{level}</span>
                                     </span>
-                                    <span className="level-tooltip__note">{decimal(perThousand(row, count))} на 1000 строк</span>
+                                    <span className="level-tooltip__note">{t('stats.density.perThousand', { value: decimal(perThousand(row, count)) })}</span>
                                 </span>
                             )}
                         </span>

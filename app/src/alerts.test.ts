@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { checkAlerts, type AlertMemory } from './alerts';
+import { setLang } from './i18n';
 import { DEFAULT_RULES, allows, levelsText, muteSummary, repoSummary, type NotificationSettings } from './model/notifications';
 import { emptyData, type Data, type PullRequest } from './model/types';
 
@@ -58,6 +59,19 @@ describe('уведомления', () => {
         expect(first.notices).toEqual([]);
         expect(checkAlerts(data({ status: status('t2', 1) }), settings, first.memory, name).notices.map((notice) => notice.title)).toEqual(['PR Reviewer: проход завершился с ошибкой']);
         expect(checkAlerts(data({ status: status('t2', 2) }), settings, { ...first.memory, lastRunAt: 't1' }, name).notices).toEqual([]);
+    });
+
+    it('на английском: формы числа и тексты из словаря', () => {
+        const comments = [1, 2].map((id) => ({ id, author: 'Ann', text: 'Why?', reply: false, at: '2026-11-26T11:00:00Z' }));
+        const value = data({ snapshots: { front: { fetchedAt: '', prs: [pr(7, 'a', { humanComments: comments }), pr(8, 'b')] } } });
+        setLang('en');
+        try {
+            const titles = checkAlerts(value, settings, memory({ heads: { front: { 7: 'a' } } }), name).notices.map((notice) => notice.title);
+            expect(titles).toEqual(['2 comments in front #7', 'New PR front #8']);
+            expect(muteSummary('forever')).toBe('Muted');
+        } finally {
+            setLang('ru');
+        }
     });
 
     it('сводка «Не беспокоить»', () => {

@@ -1,6 +1,7 @@
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem } from '@tauri-apps/api/menu';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
 import type { Option } from './model';
 
 // Общие элементы управления дизайн-системы: .switch, .select, .stepper, .settings-row. Одинаковые на Mac и Windows
@@ -40,10 +41,10 @@ export const Select = ({ options, value, onSelect, width, title }: { options: Op
 export const Stepper = ({ onStep, disabled }: { onStep: (direction: 1 | -1) => void; disabled?: boolean }) => (
     // Минус уменьшает интервал — проверки чаще; в макете подсказки кнопок перепутаны
     <span className="stepper">
-        <button title="Чаще" disabled={disabled} onClick={() => onStep(-1)}>
+        <button title={t('settings.stepper.more')} disabled={disabled} onClick={() => onStep(-1)}>
             <Icon id="i-minus" />
         </button>
-        <button title="Реже" disabled={disabled} onClick={() => onStep(1)}>
+        <button title={t('settings.stepper.less')} disabled={disabled} onClick={() => onStep(1)}>
             <Icon id="i-plus" />
         </button>
     </span>
@@ -62,7 +63,7 @@ export const NavRow = ({ title, value, mono, color, hint, onClick }: { title: st
     </button>
 );
 
-export const CloseButton = ({ onClose, title = 'Закрыть' }: { onClose: () => void; title?: string }) => (
+export const CloseButton = ({ onClose, title = t('common.action.close') }: { onClose: () => void; title?: string }) => (
     <button className="round-button round-button--close" title={title} onClick={onClose}>
         <Icon id="i-close" />
     </button>

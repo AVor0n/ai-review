@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import { moment } from './format';
 
 // Настройки уведомлений по видам и репозиториям — перенос NotificationKind, NotificationRules и NotificationSettings из menubar/Alerts.swift.
@@ -7,13 +8,26 @@ export type Level = 'P1' | 'P2' | 'P3';
 export type NotificationRules = { enabled: NotificationKind[]; level: Level };
 export type NotificationSettings = { all: NotificationRules; repos: Record<string, NotificationRules> };
 
+// Подписи — геттеры: список общий для модуля, а текст берётся на языке момента отрисовки
+const kindEntry = (id: NotificationKind, icon: string, color: string) => ({
+    id,
+    icon,
+    color,
+    get title() {
+        return t(`alerts.settings.kinds.${id}.title`);
+    },
+    get detail() {
+        return t(`alerts.settings.kinds.${id}.detail`);
+    },
+});
+
 export const KINDS: { id: NotificationKind; title: string; detail: string; icon: string; color: string }[] = [
-    { id: 'findings', title: 'Замечания моделей', detail: 'Новые замечания в PR', icon: 'i-bubble-warning-fill', color: 'var(--red)' },
-    { id: 'comments', title: 'Комментарии людей', detail: 'Новые треды и ответы команды, кроме ваших', icon: 'i-bubble-text-fill', color: 'var(--blue)' },
-    { id: 'reviews', title: 'Ревью завершено', detail: 'Модель прошла PR: сколько замечаний или «чисто»', icon: 'i-bubble-check-fill', color: 'var(--green)' },
-    { id: 'updates', title: 'Обновление PR', detail: 'Новые коммиты, новые и закрытые PR', icon: 'i-pull-request', color: 'var(--purple)' },
-    { id: 'fixes', title: 'Доработка и rebase', detail: 'Итог: запушено, конфликты, упали проверки', icon: 'i-fix', color: 'var(--orange)' },
-    { id: 'errors', title: 'Ошибки сервиса', detail: 'Первая ошибка подряд и зависший проход', icon: 'i-warning-fill', color: 'var(--gray)' },
+    kindEntry('findings', 'i-bubble-warning-fill', 'var(--red)'),
+    kindEntry('comments', 'i-bubble-text-fill', 'var(--blue)'),
+    kindEntry('reviews', 'i-bubble-check-fill', 'var(--green)'),
+    kindEntry('updates', 'i-pull-request', 'var(--purple)'),
+    kindEntry('fixes', 'i-fix', 'var(--orange)'),
+    kindEntry('errors', 'i-warning-fill', 'var(--gray)'),
 ];
 
 // Ошибки сервиса не относятся к репозиторию — настраиваются только для всех
@@ -22,7 +36,12 @@ export const REPO_KINDS = KINDS.filter((kind) => kind.id !== 'errors');
 export const LEVELS: { id: Level; title: string }[] = [
     { id: 'P1', title: 'P0–P1' },
     { id: 'P2', title: 'P0–P2' },
-    { id: 'P3', title: 'Все' },
+    {
+        id: 'P3',
+        get title() {
+            return t('alerts.settings.levelAll');
+        },
+    },
 ];
 
 // Раньше приложение сообщало только о P0–P1, доработке и ошибках; комментарии людей — новое и полезное по умолчанию
@@ -63,14 +82,14 @@ export const toggleKind = (rules: NotificationRules, kind: NotificationKind, on:
 
 export const repoSummary = (settings: NotificationSettings, repo: string) => {
     const own = settings.repos[repo];
-    if (!own) return 'Как для всех';
-    return `Свои · ${REPO_KINDS.filter((kind) => own.enabled.includes(kind.id)).length} из ${REPO_KINDS.length}`;
+    if (!own) return t('alerts.settings.repoInherit');
+    return t('alerts.settings.repoOwn', { count: REPO_KINDS.filter((item) => own.enabled.includes(item.id)).length, total: REPO_KINDS.length });
 };
 
 // «Выключены до 14:30»; не сегодня — с датой; бессрочно — просто «Выключены»
 export const muteSummary = (mutedUntil: string | null, now = new Date()) => {
-    if (!mutedUntil || mutedUntil === 'forever') return 'Выключены';
-    return `Выключены до ${moment(new Date(mutedUntil), now)}`;
+    if (!mutedUntil || mutedUntil === 'forever') return t('alerts.settings.muted');
+    return t('alerts.settings.mutedUntil', { time: moment(new Date(mutedUntil), now) });
 };
 
 const FINDING_LEVELS = ['P0', 'P1', 'P2', 'P3'];

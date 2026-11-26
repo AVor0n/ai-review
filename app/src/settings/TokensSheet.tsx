@@ -1,5 +1,6 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { Fragment, useState, type CSSProperties } from 'react';
+import { t } from '../i18n';
 import type { TokenInfo } from '../model/derive';
 import { parse } from '../model/format';
 import type { Config, Secret } from '../model/types';
@@ -32,10 +33,10 @@ export const TokensSheet = ({
     };
 
     return (
-        <SheetFrame width={560} label="Токены" onClose={onClose}>
+        <SheetFrame width={560} label={t('settings.tokens.title')} onClose={onClose}>
             <div className="sheet__head">
                 <span className="sheet__titles">
-                    <span className="sheet__title">Токены</span>
+                    <span className="sheet__title">{t('settings.tokens.title')}</span>
                 </span>
                 <CloseButton onClose={onClose} />
             </div>
@@ -63,22 +64,22 @@ export const TokensSheet = ({
                                         options={lifetimeOptions(token.lifetimeDays)}
                                         value={token.lifetimeDays === null ? 'unset' : String(token.lifetimeDays)}
                                         width={120}
-                                        title="Срок, выбранный при выпуске токена"
+                                        title={t('settings.tokens.lifetime')}
                                         onSelect={(id) => Number.isInteger(Number(id)) && onLifetime(token.id, Number(id))}
                                     />
                                 </div>
                                 <div style={{ display: 'flex', gap: 16 }}>
                                     {url ? (
                                         <button className="link-button" title={url} onClick={() => openUrl(url).catch(() => {})}>
-                                            Выпустить новый ↗
+                                            {t('settings.tokens.issue')}
                                         </button>
                                     ) : (
-                                        <button className="link-button" title="Выполните в терминале: команда откроет браузер и выведет новый токен" onClick={() => copy('claude setup-token', `issue-${token.id}`)}>
-                                            {copied === `issue-${token.id}` ? 'Скопировано' : 'Скопировать «claude setup-token»'}
+                                        <button className="link-button" title={t('settings.tokens.setupTokenHint')} onClick={() => copy('claude setup-token', `issue-${token.id}`)}>
+                                            {copied === `issue-${token.id}` ? t('settings.tokens.copied') : t('settings.tokens.copySetupToken', { command: 'claude setup-token' })}
                                         </button>
                                     )}
                                     <button className="link-button" title={command} onClick={() => copy(command, `save-${token.id}`)}>
-                                        {copied === `save-${token.id}` ? 'Скопировано' : 'Скопировать команду сохранения'}
+                                        {copied === `save-${token.id}` ? t('settings.tokens.copied') : t('settings.tokens.copySave')}
                                     </button>
                                 </div>
                             </div>
@@ -87,7 +88,7 @@ export const TokensSheet = ({
                 })}
             </div>
             <div className="section__footer" style={{ padding: 0 } as CSSProperties}>
-                Срок в самом токене не прочитать: он считается от даты сохранения. Выпустите новый токен, сохраните его командой из буфера — дата обновится, предупреждение пропадёт.
+                {t('settings.tokens.footer')}
             </div>
         </SheetFrame>
     );

@@ -3024,6 +3024,76 @@
                 }
             }
         },
+        "/settings/language": {
+            "put": {
+                "summary": "Язык интерфейса приложения",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "language": {
+                                        "enum": [
+                                            "system",
+                                            "ru",
+                                            "en"
+                                        ],
+                                        "description": "system — как в системе"
+                                    }
+                                },
+                                "required": [
+                                    "language"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Готово",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ActionResult"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный запрос",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Нет такого репозитория или ресурса",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Команда не выполнена: error — понятная причина по-русски",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/settings/ignore": {
             "post": {
                 "summary": "Исключить файлы из диффа",

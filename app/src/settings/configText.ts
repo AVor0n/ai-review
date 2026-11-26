@@ -1,5 +1,6 @@
 import schema from '../../../schema/config.schema.json';
 import { validate } from '../../../src/json-schema.mjs';
+import { t } from '../i18n';
 
 // Проверка до записи — та же, что у сервиса (src/json-schema.mjs): битый конфиг остановил бы и фоновое ревью, и приложение
 export type Token = { text: string; kind: 'k' | 's' | 'n' | 'b' | 'p' | null };
@@ -29,7 +30,7 @@ export const jsonSyntaxError = (text: string): string | null => {
     let index = 0;
     const fail = (what: string): never => {
         const before = text.slice(0, index).split('\n');
-        throw new Error(`Ошибка JSON в строке ${before.length}, столбце ${before[before.length - 1].length + 1}: ${what}`);
+        throw new Error(t('settings.json.at', { line: before.length, column: before[before.length - 1].length + 1, problem: what }));
     };
     const space = () => {
         while (index < text.length && ' \t\n\r'.includes(text[index])) index++;
@@ -37,20 +38,20 @@ export const jsonSyntaxError = (text: string): string | null => {
     const string = () => {
         index++;
         while (index < text.length && text[index] !== '"') {
-            if (text[index] === '\n') fail('строка не закрыта кавычкой');
+            if (text[index] === '\n') fail(t('settings.json.unclosedString'));
             if (text[index] === '\\') {
                 index++;
-                if (!'"\\/bfnrtu'.includes(text[index] ?? '')) fail('неверная escape-последовательность');
+                if (!'"\\/bfnrtu'.includes(text[index] ?? '')) fail(t('settings.json.badEscape'));
             }
             index++;
         }
-        if (index >= text.length) fail('строка не закрыта кавычкой');
+        if (index >= text.length) fail(t('settings.json.unclosedString'));
         index++;
     };
     const value = (): void => {
         space();
         const char = text[index];
-        if (char === undefined) return fail('файл обрывается, ожидается значение');
+        if (char === undefined) return fail(t('settings.json.endValue'));
         if (char === '{') return object();
         if (char === '[') return array();
         if (char === '"') return string();
@@ -64,9 +65,9 @@ export const jsonSyntaxError = (text: string): string | null => {
             index += word[0].length;
             return;
         }
-        if (char === "'") return fail('строки и ключи — в двойных кавычках');
-        if (char === '}' || char === ']') return fail('лишняя запятая или пропущено значение');
-        fail('ожидается значение: строка в двойных кавычках, число, true, false, null, объект или массив');
+        if (char === "'") return fail(t('settings.json.singleQuotes'));
+        if (char === '}' || char === ']') return fail(t('settings.json.missingValue'));
+        fail(t('settings.json.expectedValue'));
     };
     const object = () => {
         index++;
@@ -74,11 +75,11 @@ export const jsonSyntaxError = (text: string): string | null => {
         if (text[index] === '}') return void index++;
         for (;;) {
             space();
-            if (text[index] === '}') fail('лишняя запятая перед }');
-            if (text[index] !== '"') fail('ключ должен быть строкой в двойных кавычках');
+            if (text[index] === '}') fail(t('settings.json.commaBeforeObjectEnd'));
+            if (text[index] !== '"') fail(t('settings.json.keyNotString'));
             string();
             space();
-            if (text[index] !== ':') fail('после ключа ожидается двоеточие');
+            if (text[index] !== ':') fail(t('settings.json.expectedColon'));
             index++;
             value();
             space();
@@ -87,7 +88,7 @@ export const jsonSyntaxError = (text: string): string | null => {
                 continue;
             }
             if (text[index] === '}') return void index++;
-            fail(index >= text.length ? 'файл обрывается, не хватает }' : 'ожидается запятая или }');
+            fail(index >= text.length ? t('settings.json.endObject') : t('settings.json.expectedObjectComma'));
         }
     };
     const array = () => {
@@ -100,17 +101,17 @@ export const jsonSyntaxError = (text: string): string | null => {
             if (text[index] === ',') {
                 index++;
                 space();
-                if (text[index] === ']') fail('лишняя запятая перед ]');
+                if (text[index] === ']') fail(t('settings.json.commaBeforeArrayEnd'));
                 continue;
             }
             if (text[index] === ']') return void index++;
-            fail(index >= text.length ? 'файл обрывается, не хватает ]' : 'ожидается запятая или ]');
+            fail(index >= text.length ? t('settings.json.endArray') : t('settings.json.expectedArrayComma'));
         }
     };
     try {
         value();
         space();
-        if (index < text.length) fail('лишний текст после конца JSON');
+        if (index < text.length) fail(t('settings.json.trailingText'));
         return null;
     } catch (error) {
         return (error as Error).message;
@@ -124,10 +125,10 @@ export const configProblem = (text: string) => {
     try {
         value = JSON.parse(text);
     } catch {
-        return 'Ошибка JSON: файл не читается';
+        return t('settings.config.unreadable');
     }
     const problems = validate(schema, value);
     if (!problems.length) return null;
-    return problems.length > 1 ? `${problems[0]} (и ещё ${problems.length - 1})` : problems[0];
+    return problems.length > 1 ? t('settings.config.moreProblems', { problem: problems[0], count: problems.length - 1 }) : problems[0];
 };
 

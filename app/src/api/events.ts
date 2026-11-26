@@ -1,3 +1,5 @@
+import { t } from '../i18n';
+
 // Поток изменений GET /events (SSE). EventSource не умеет заголовок Authorization, поэтому поток читается через fetch
 export type ChangeEvent = { type: string; at: string };
 
@@ -21,7 +23,7 @@ export const parseFrames = (buffer: string): { events: { event: string; data: st
 // Читает поток, пока соединение живо; промис завершается, когда сервер закрыл поток или он оборвался
 export const streamEvents = async (url: string, token: string, onChange: (event: ChangeEvent) => void, signal: AbortSignal) => {
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal });
-    if (!response.ok || !response.body) throw new Error(`поток событий ответил ${response.status}`);
+    if (!response.ok || !response.body) throw new Error(t('app.service.streamStatus', { status: response.status }));
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
     let buffer = '';
     for (;;) {

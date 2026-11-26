@@ -1,6 +1,7 @@
 // Производные состояния обзора — перенос логики из menubar/Model.swift, OverviewView.swift и AgentIcons.swift
 import { daysBetweenDates, parse } from './format';
 import type { ArchState, Config, Data, FixState, PullRequest, QaState, Review, Status, TrackedFinding } from './types';
+import { t } from '../i18n';
 
 export const AGENT_ORDER = ['claude', 'codex', 'cursor'];
 const STALL_MS = 15 * 60_000;
@@ -86,12 +87,12 @@ const minutesUntil = (date: Date, now: Date) => Math.ceil((date.getTime() - now.
 
 export const headline = (data: Data, now = new Date()) => {
     const current = runningReviews(data.status)[0];
-    if (current) return `Идёт ревью ${current.repo} #${current.pr} · ${agentName(data.config, current.agent)}`;
-    if (isPaused(data.status)) return 'Фоновое ревью выключено';
+    if (current) return t('overview.headline.running', { repo: current.repo, pr: current.pr, model: agentName(data.config, current.agent) });
+    if (isPaused(data.status)) return t('overview.headline.paused');
     const next = nextPassAt(data, now);
-    if (!next) return 'Ожидание';
+    if (!next) return t('overview.headline.idle');
     const minutes = minutesUntil(next, now);
-    return minutes <= 1 ? 'Ожидание · проверка в течение минуты' : `Ожидание · следующая проверка через ${minutes} мин`;
+    return minutes <= 1 ? t('overview.headline.soon') : t('overview.headline.next', { minutes });
 };
 
 // Проход завис, если сервис 15 минут не обновлял пульс: его останавливает только заблокированный процесс (git, сеть)
@@ -106,13 +107,13 @@ export const workerStall = (status: Status | null, now = new Date()) => {
 export const fixOf = (data: Data, repo: string, pr: number): FixState | null => {
     const fix = data.fixes.find((item) => item.repo === repo && item.pr === pr);
     if (!fix) return null;
-    return fix.state === 'running' && !data.status?.workers.fix ? { ...fix, state: 'failed', step: null, activity: null, error: 'доработка прервана' } : fix;
+    return fix.state === 'running' && !data.status?.workers.fix ? { ...fix, state: 'failed', step: null, activity: null, error: t('overview.interrupted.fix') } : fix;
 };
 
 export const archOf = (data: Data, repo: string, pr: number): ArchState | null => {
     const arch = data.archs.find((item) => item.repo === repo && item.pr === pr);
     if (!arch) return null;
-    return arch.state === 'running' && !data.status?.workers.arch ? { ...arch, state: 'failed', activity: null, error: 'архитектурное ревью прервано' } : arch;
+    return arch.state === 'running' && !data.status?.workers.arch ? { ...arch, state: 'failed', activity: null, error: t('overview.interrupted.arch') } : arch;
 };
 
 export const qaOf = (data: Data, repo: string, pr: number): QaState | null => {
@@ -120,7 +121,7 @@ export const qaOf = (data: Data, repo: string, pr: number): QaState | null => {
     if (!qa) return null;
     const started = qa.state === 'planning' || qa.state === 'running';
     if (!started || data.status?.workers.qa) return qa;
-    return { ...qa, state: qa.state === 'planning' ? 'plan-failed' : 'failed', error: 'тестирование прервано', step: null, activity: null };
+    return { ...qa, state: qa.state === 'planning' ? 'plan-failed' : 'failed', error: t('overview.interrupted.qa'), step: null, activity: null };
 };
 
 export const isFixActive = (fix: FixState | null) => fix?.state === 'queued' || fix?.state === 'running';

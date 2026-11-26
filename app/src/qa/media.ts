@@ -1,4 +1,5 @@
 import type { ApiClient } from '../api/client';
+import { t } from '../i18n';
 
 // Скриншоты и видео прогона приходят через API сервиса (GET /qa/{repo}/{pr}/file): на Windows файлы лежат в WSL,
 // а вебвью их напрямую не видит. Ссылки blob живут, пока открыто приложение
@@ -14,7 +15,7 @@ export const mediaUrl = (api: ApiClient, repo: string, pr: number, path: string)
     const key = `${repo}#${pr}#${path}`;
     if (!files.has(key)) {
         const request = api.GET('/qa/{repo}/{pr}/file', { params: { path: { repo, pr }, query: { path } }, parseAs: 'blob' }).then(({ data, error }) => {
-            if (!data) throw new Error(error ? String((error as { error?: string }).error ?? error) : 'Файл не получен');
+            if (!data) throw new Error(error ? String((error as { error?: string }).error ?? error) : t('qa.media.notReceived'));
             return URL.createObjectURL(data as Blob);
         });
         request.catch(() => files.delete(key));

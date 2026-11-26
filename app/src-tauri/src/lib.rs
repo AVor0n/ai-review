@@ -13,6 +13,36 @@ static MODAL: AtomicBool = AtomicBool::new(false);
 fn set_modal(open: bool) {
     MODAL.store(open, Ordering::SeqCst);
 }
+
+// Язык интерфейса выбирает вебвью (config.json → language) и сообщает сюда: на нём ошибки команд и стартовое меню трея (#68)
+static ENGLISH: AtomicBool = AtomicBool::new(false);
+// Пока вебвью не прислал своё меню, стоит стартовое — его при смене языка пересобираем
+static WEBVIEW_MENU: AtomicBool = AtomicBool::new(false);
+
+fn tr(ru: &'static str, en: &'static str) -> &'static str {
+    if ENGLISH.load(Ordering::SeqCst) { en } else { ru }
+}
+
+// Последний язык — в папке приложения: стартовое меню показывается до загрузки вебвью, и ему нужен язык прошлого запуска
+fn language_file(app: &AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|dir| dir.join("language"))
+}
+
+#[tauri::command]
+fn set_language(app: AppHandle, lang: String) -> Result<(), String> {
+    ENGLISH.store(lang == "en", Ordering::SeqCst);
+    if let Some(file) = language_file(&app) {
+        if std::fs::read_to_string(&file).ok().as_deref() != Some(lang.as_str()) {
+            let _ = file.parent().map(std::fs::create_dir_all);
+            let _ = std::fs::write(&file, &lang);
+        }
+    }
+    if WEBVIEW_MENU.load(Ordering::SeqCst) {
+        return Ok(());
+    }
+    let tray = app.tray_by_id(TRAY_ID).ok_or(tr("нет значка", "no tray icon"))?;
+    tray.set_menu(Some(initial_menu(&app).map_err(|error| error.to_string())?)).map_err(|error| error.to_string())
+}
 use std::time::Duration;
 
 use tauri::{
@@ -75,15 +105,15 @@ fn api_token() -> Result<String, String> {
             .args(["-e", "sh", "-c", r#"cat "${XDG_DATA_HOME:-$HOME/.local/share}/pr-reviewer/api-token""#])
             .creation_flags(CREATE_NO_WINDOW)
             .output()
-            .map_err(|error| format!("Не удалось запустить WSL: {error}"))?;
+            .map_err(|error| format!("{}: {error}", tr("Не удалось запустить WSL", "Could not start WSL")))?;
         if !output.status.success() {
-            return Err("В WSL нет токена API: сервис не установлен или ни разу не запускался".into());
+            return Err(tr("В WSL нет токена API: сервис не установлен или ни разу не запускался", "No API token in WSL: the service is not installed or has never run").into());
         }
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let home = dirs::home_dir().ok_or("Не найдена домашняя папка")?;
+        let home = dirs::home_dir().ok_or(tr("Не найдена домашняя папка", "Home folder not found"))?;
         let path = if cfg!(target_os = "macos") {
             home.join("Library/Application Support/pr-reviewer/api-token")
         } else {
@@ -91,7 +121,7 @@ fn api_token() -> Result<String, String> {
         };
         std::fs::read_to_string(&path)
             .map(|token| token.trim().to_string())
-            .map_err(|_| "Нет токена API: сервис не установлен или ни разу не запускался".into())
+            .map_err(|_| tr("Нет токена API: сервис не установлен или ни разу не запускался", "No API token: the service is not installed or has never run").into())
     }
 }
 
@@ -117,13 +147,13 @@ fn apply_tray_icon(tray: &TrayIcon, image: Image<'static>, template: bool) -> ta
 
 #[tauri::command]
 fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks: Option<u32>, template: bool, title: Option<String>) -> Result<(), String> {
-    let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
+    let tray = app.tray_by_id(TRAY_ID).ok_or(tr("нет значка", "no tray icon"))?;
     let images = frames
         .iter()
         .map(|bytes| Image::from_bytes(bytes).map(|image| image.to_owned()))
         .collect::<tauri::Result<Vec<Image<'static>>>>()
         .map_err(|error| error.to_string())?;
-    let first = images.first().cloned().ok_or("нет кадров")?;
+    let first = images.first().cloned().ok_or(tr("нет кадров", "no frames"))?;
     let generation = app.state::<TrayAnimation>().0.fetch_add(1, Ordering::SeqCst) + 1;
     apply_tray_icon(&tray, first, template).map_err(|error| error.to_string())?;
     // Число PR без ревью справа от значка — только на macOS; на Windows оно нарисовано бейджем в кадре
@@ -156,7 +186,7 @@ fn set_tray_icon(app: AppHandle, frames: Vec<Vec<u8>>, frame_ms: u64, max_ticks:
 
 #[tauri::command]
 fn set_tray_tooltip(app: AppHandle, tooltip: String) -> Result<(), String> {
-    let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
+    let tray = app.tray_by_id(TRAY_ID).ok_or(tr("нет значка", "no tray icon"))?;
     tray.set_tooltip(Some(tooltip)).map_err(|error| error.to_string())
 }
 
@@ -192,10 +222,11 @@ fn menu_items(app: &AppHandle, entries: &[MenuEntry]) -> tauri::Result<Vec<Box<d
 
 #[tauri::command]
 fn set_tray_menu(app: AppHandle, items: Vec<MenuEntry>) -> Result<(), String> {
-    let tray = app.tray_by_id(TRAY_ID).ok_or("нет значка")?;
+    let tray = app.tray_by_id(TRAY_ID).ok_or(tr("нет значка", "no tray icon"))?;
     let children = menu_items(&app, &items).map_err(|error| error.to_string())?;
     let refs: Vec<&dyn IsMenuItem<tauri::Wry>> = children.iter().map(|item| item.as_ref()).collect();
     let menu = Menu::with_items(&app, &refs).map_err(|error| error.to_string())?;
+    WEBVIEW_MENU.store(true, Ordering::SeqCst);
     tray.set_menu(Some(menu)).map_err(|error| error.to_string())
 }
 
@@ -227,7 +258,7 @@ fn open_in_code(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let status = std::process::Command::new("open").args(["-b", "com.microsoft.VSCode", &path]).status().map_err(|error| error.to_string())?;
-        if status.success() { Ok(()) } else { Err("не удалось открыть VS Code".into()) }
+        if status.success() { Ok(()) } else { Err(tr("не удалось открыть VS Code", "could not open VS Code").into()) }
     }
     #[cfg(target_os = "windows")]
     {
@@ -240,7 +271,7 @@ fn open_in_code(path: String) -> Result<(), String> {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = path;
-        Err("VS Code открывается только на macOS и Windows".into())
+        Err(tr("VS Code открывается только на macOS и Windows", "VS Code opens only on macOS and Windows").into())
     }
 }
 
@@ -252,7 +283,7 @@ fn windows_path(path: &str) -> Result<String, String> {
     let converted = std::process::Command::new("wsl.exe").args(["-e", "wslpath", "-w", path]).creation_flags(CREATE_NO_WINDOW).output().map_err(|error| error.to_string())?;
     let result = String::from_utf8_lossy(&converted.stdout).trim().to_string();
     if result.is_empty() {
-        return Err("WSL не перевёл путь к файлу".into());
+        return Err(tr("WSL не перевёл путь к файлу", "WSL could not convert the file path").into());
     }
     Ok(result)
 }
@@ -276,7 +307,7 @@ fn reveal_path(path: String) -> Result<(), String> {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = path;
-        Err("показать файл можно только на macOS и Windows".into())
+        Err(tr("показать файл можно только на macOS и Windows", "showing a file works only on macOS and Windows").into())
     }
 }
 
@@ -298,7 +329,7 @@ fn open_notification_settings() -> Result<(), String> {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        Err("настройки уведомлений открываются только на macOS и Windows".into())
+        Err(tr("настройки уведомлений открываются только на macOS и Windows", "notification settings open only on macOS and Windows").into())
     }
 }
 
@@ -352,7 +383,7 @@ fn open_path(path: String) -> Result<(), String> {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let _ = path;
-        Err("открыть файл можно только на macOS и Windows".into())
+        Err(tr("открыть файл можно только на macOS и Windows", "opening a file works only on macOS and Windows").into())
     }
 }
 
@@ -417,14 +448,14 @@ fn hide_popover_unless_viewer(app: AppHandle) {
 // Картинка вкладки (камера статистики): PNG приходит телом запроса, имя — заголовком. Файл — в «Загрузки», затем открывается
 #[tauri::command]
 fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
-    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("нет картинки".into()) };
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err(tr("нет картинки", "no image").into()) };
     let name = request.headers().get("x-file-name").and_then(|value| value.to_str().ok()).unwrap_or("pr-reviewer.png");
     // Имя задаёт вебвью, но в путь попадает только простое имя файла
     if name.is_empty() || !name.chars().all(|char| char.is_ascii_alphanumeric() || "-_.".contains(char)) || name.starts_with('.') {
-        return Err("недопустимое имя файла".into());
+        return Err(tr("недопустимое имя файла", "invalid file name").into());
     }
-    let path = dirs::download_dir().ok_or("не найдена папка «Загрузки»")?.join(name);
-    std::fs::write(&path, bytes).map_err(|error| format!("не удалось сохранить картинку: {error}"))?;
+    let path = dirs::download_dir().ok_or(tr("не найдена папка «Загрузки»", "Downloads folder not found"))?.join(name);
+    std::fs::write(&path, bytes).map_err(|error| format!("{}: {error}", tr("не удалось сохранить картинку", "could not save the image")))?;
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|error| error.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
@@ -505,10 +536,14 @@ fn toggle_popover(app: &AppHandle) {
     let _ = window.set_focus();
 }
 
+fn initial_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let status = MenuItem::with_id(app, "info-0", tr("Подключение к сервису…", "Connecting to the service…"), false, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", tr("Выйти из PR Reviewer", "Quit PR Reviewer"), true, cfg!(target_os = "macos").then_some("CmdOrCtrl+Q"))?;
+    Menu::with_items(app, &[&status, &PredefinedMenuItem::separator(app)?, &quit])
+}
+
 fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
-    let status = MenuItem::with_id(app, "info-0", "Подключение к сервису…", false, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Выйти из PR Reviewer", true, cfg!(target_os = "macos").then_some("CmdOrCtrl+Q"))?;
-    let menu = Menu::with_items(app, &[&status, &PredefinedMenuItem::separator(app)?, &quit])?;
+    let menu = initial_menu(app)?;
 
     TrayIconBuilder::with_id(TRAY_ID)
         .icon(initial_tray_image()?)
@@ -543,13 +578,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification, set_modal])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification, set_modal, set_language])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             app.manage(TrayRect(Mutex::new(None)));
             app.manage(TrayAnimation(AtomicU64::new(0)));
+            if let Some(file) = language_file(app.handle()) {
+                ENGLISH.store(std::fs::read_to_string(file).is_ok_and(|lang| lang == "en"), Ordering::SeqCst);
+            }
             build_tray(app.handle())?;
             if debug_show() {
                 toggle_popover(app.handle());

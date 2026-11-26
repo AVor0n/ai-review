@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { setLang } from '../i18n';
 import { errorsLastDay, isLong, logTime } from './log';
 
 const NOW = new Date('2026-11-26T12:00:00Z');
@@ -10,6 +11,13 @@ describe('журнал', () => {
         expect(errorsLastDay([entry(1, true)], NOW)).toBe('1 ошибка за сутки');
         expect(errorsLastDay([entry(1, true), entry(2, true), entry(23, true), entry(25, true)], NOW)).toBe('3 ошибки за сутки');
         expect(errorsLastDay([1, 2, 3, 4, 5].map((hours) => entry(hours, true)), NOW)).toBe('5 ошибок за сутки');
+        setLang('en');
+        try {
+            expect(errorsLastDay([entry(1, true)], NOW)).toBe('1 error in 24 h');
+            expect(errorsLastDay([entry(1, true), entry(2, true)], NOW)).toBe('2 errors in 24 h');
+        } finally {
+            setLang('ru');
+        }
     });
 
     it('длинная или многострочная запись сворачивается', () => {

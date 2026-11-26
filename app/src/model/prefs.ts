@@ -1,5 +1,7 @@
 // Личные настройки приложения — как UserDefaults в SwiftUI: свёрнутые репозитории, закрытые баннеры,
 // просмотренная память, пауза уведомлений. Живут в localStorage вебвью, а не в config.json сервиса
+import { t } from '../i18n';
+
 export type Prefs = {
     collapsedRepos: string[];
     tokenBannerClosedAt: Record<string, string>;
@@ -38,14 +40,14 @@ export const withSeenRepos = (prefs: Prefs, slugs: string[], now = new Date()): 
 
 export const isMuted = (prefs: Prefs, now = new Date()) => prefs.mutedUntil === 'forever' || (prefs.mutedUntil !== null && new Date(prefs.mutedUntil) > now);
 
-export const MUTE_PERIODS: { hours: number | null; title: string }[] = [
-    { hours: 1, title: 'На 1 час' },
-    { hours: 2, title: 'На 2 часа' },
-    { hours: 4, title: 'На 4 часа' },
-    { hours: 8, title: 'На 8 часов' },
-    { hours: 12, title: 'На 12 часов' },
-    { hours: 24, title: 'На 24 часа' },
-    { hours: null, title: 'Пока не включу' },
-];
+const mutePeriod = (hours: number | null) => ({
+    hours,
+    // Подпись — геттером: список читают и меню трея, и лист уведомлений, а язык меняется на ходу
+    get title() {
+        return hours === null ? t('overview.mute.forever') : t('overview.mute.hours', { count: hours });
+    },
+});
+
+export const MUTE_PERIODS: { hours: number | null; readonly title: string }[] = [1, 2, 4, 8, 12, 24, null].map(mutePeriod);
 
 export const muteUntil = (hours: number | null, now = new Date()) => (hours === null ? 'forever' : new Date(now.getTime() + hours * 3_600_000).toISOString());

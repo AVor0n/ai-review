@@ -357,6 +357,18 @@ const setPollInterval = () => {
     console.log(`Фоновая проверка раз в ${minutes} мин`);
 };
 
+const LANGUAGES = ['system', 'ru', 'en'];
+
+const setLanguage = () => {
+    const [language] = args;
+    if (!LANGUAGES.includes(language)) throw new Error(`Язык — ${LANGUAGES.join(' | ')}`);
+    const config = loadConfig();
+    if (language === 'system') delete config.language;
+    else config.language = language;
+    saveConfig(config);
+    console.log(language === 'system' ? 'Язык приложения — как в системе' : `Язык приложения — ${language}`);
+};
+
 const review = () => {
     const config = loadConfig();
     const request = { repo: option('--repo'), pr: Number(option('--pr')), agent: option('--agent') };
@@ -775,6 +787,7 @@ const commands = {
     review,
     sync,
     interval: setPollInterval,
+    language: setLanguage,
     agent: agentCommand,
     branches: setBranchPattern,
     token: setTokenLifetime,
@@ -851,6 +864,8 @@ const commands = {
   backlog close-stale [--repo <slug>]
                  отклонить записи, которые разбор по коду счёл неактуальными (решено, удалено, не баг)
   interval <мин> как часто проверять PR в фоне; действует со следующей минуты, без переустановки
+  language <system|ru|en>
+                 язык интерфейса приложения в трее: как в системе, русский или английский
   branches <regexp>
                  какие исходные ветки PR ревьюятся фоном (остальные — только вручную)
   secret status | secret set <bitbucket|claude|cursor>

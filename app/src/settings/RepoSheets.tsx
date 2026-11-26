@@ -1,5 +1,6 @@
 import { Fragment, useState } from 'react';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
 import { CloseButton, SheetFrame } from './controls';
 
 type Run = (pattern: string) => Promise<string | null>;
@@ -21,10 +22,10 @@ export const AddRepoSheet = ({ onAdd, onClose }: { onAdd: (ref: string) => Promi
     };
 
     return (
-        <SheetFrame width={520} label="Новый репозиторий" onClose={onClose}>
+        <SheetFrame width={520} label={t('settings.addRepo.title')} onClose={onClose}>
             <div className="sheet__head">
                 <span className="sheet__titles">
-                    <span className="sheet__title">Новый репозиторий</span>
+                    <span className="sheet__title">{t('settings.addRepo.title')}</span>
                 </span>
             </div>
             <div className="labeled" style={{ gap: 6 }}>
@@ -34,11 +35,11 @@ export const AddRepoSheet = ({ onAdd, onClose }: { onAdd: (ref: string) => Promi
                     className="text-field"
                     style={{ flex: 'none' }}
                     value={ref}
-                    placeholder="https://bitbucket.org/workspace/repo или workspace/repo"
+                    placeholder={t('settings.addRepo.placeholder')}
                     onChange={(event) => setRef(event.target.value)}
                     onKeyDown={(event) => event.key === 'Enter' && add()}
                 />
-                <span className="info-card__body">Подойдёт ссылка на репозиторий или PR, SSH-адрес клона или workspace/slug.</span>
+                <span className="info-card__body">{t('settings.addRepo.hint')}</span>
             </div>
             {error && (
                 <span className="form-message selectable" style={{ '--c': 'var(--red)' } as React.CSSProperties}>
@@ -49,15 +50,15 @@ export const AddRepoSheet = ({ onAdd, onClose }: { onAdd: (ref: string) => Promi
                 {busy && (
                     <>
                         <Icon id="i-spinner" />
-                        <span style={{ color: 'var(--label-2)' }}>Проверяю доступ…</span>
+                        <span style={{ color: 'var(--label-2)' }}>{t('settings.addRepo.checking')}</span>
                     </>
                 )}
                 <span className="spacer" />
                 <button className="button" onClick={onClose}>
-                    Отмена
+                    {t('common.action.cancel')}
                 </button>
                 <button className="button button--prominent" disabled={busy || !value} onClick={add}>
-                    Добавить
+                    {t('settings.addRepo.add')}
                 </button>
             </div>
         </SheetFrame>
@@ -77,11 +78,11 @@ export const IgnoreSheet = ({ patterns, onAdd, onRemove, onClose }: { patterns: 
     };
 
     return (
-        <SheetFrame width={520} label="Исключения из диффа" onClose={onClose}>
+        <SheetFrame width={520} label={t('settings.ignore.title')} onClose={onClose}>
             <div className="sheet__head">
                 <span className="sheet__titles">
-                    <span className="sheet__title">Исключения из диффа</span>
-                    <span className="sheet__subtitle">Файлы по этим шаблонам вырезаются из диффа PR перед ревью — меньше токенов и ложных замечаний. Формат glob, ** — любое число папок. Действует со следующего ревью.</span>
+                    <span className="sheet__title">{t('settings.ignore.title')}</span>
+                    <span className="sheet__subtitle">{t('settings.ignore.subtitle')}</span>
                 </span>
                 <CloseButton onClose={onClose} />
             </div>
@@ -91,7 +92,7 @@ export const IgnoreSheet = ({ patterns, onAdd, onRemove, onClose }: { patterns: 
                         {index > 0 && <div className="row-divider" />}
                         <div className="settings-row" style={{ minHeight: 0, paddingBlock: 7 }}>
                             <span className="settings-row__title settings-row__value--mono selectable">{item}</span>
-                            <button className="icon-button icon-button--remove" title="Снова отдавать моделям" onClick={() => run(onRemove(item))}>
+                            <button className="icon-button icon-button--remove" title={t('settings.ignore.remove')} onClick={() => run(onRemove(item))}>
                                 <Icon id="i-minus-circle-fill" />
                             </button>
                         </div>
@@ -100,7 +101,7 @@ export const IgnoreSheet = ({ patterns, onAdd, onRemove, onClose }: { patterns: 
             </div>
             <div className="input-card">
                 <Icon id="i-plus-circle-fill" style={{ color: 'var(--green)' }} />
-                <input spellCheck={false} value={pattern} placeholder="Шаблон, например **/generated/**" onChange={(event) => setPattern(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && add()} />
+                <input spellCheck={false} value={pattern} placeholder={t('settings.ignore.placeholder')} onChange={(event) => setPattern(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && add()} />
             </div>
             {error && (
                 <span className="form-message selectable" style={{ '--c': 'var(--red)' } as React.CSSProperties}>

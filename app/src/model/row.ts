@@ -22,27 +22,22 @@ import {
     type Availability,
     type ReviewState,
 } from './derive';
-import { ago, fullDate, parse, plural, resetFull, resetShort } from './format';
+import { ago, fullDate, parse, resetFull, resetShort } from './format';
 import type { Data, PullRequest } from './types';
+import { t } from '../i18n';
 
 export type ModelButton = { agent: string; state: ReviewState; badge: 'limit' | 'manual' | null; hint: string; busy: boolean };
 
 export const modelHint = (name: string, state: ReviewState, available: Availability, skip: string | null) => {
     // У лимита нет «Нажмите, чтобы запустить»: запуск упрётся в лимит, но кнопка работает — данные о лимите могут устареть
-    if ((state === 'none' || state === 'stale') && available.kind === 'limit') return `${name}: лимит исчерпан ${resetShort(available.resetsAt)} — ревью будет после сброса`;
-    if (state === 'none' && available.kind === 'manual') return `${name}: ревью не было — модель только для ручного запуска. Нажмите, чтобы запустить`;
-    if (state === 'stale' && available.kind === 'manual') return `${name}: ревью было на старом коммите, в фоне модель не запускается. Нажмите, чтобы проверить новый`;
-    if (state === 'done' && skip === 'rebase') return `${name}: повторное ревью не нужно — после rebase изменения те же. Нажмите, чтобы проверить заново`;
-    if (state === 'done' && skip === 'ignored') return `${name}: ревью не понадобилось — в диффе только исключённые файлы. Нажмите, чтобы проверить заново`;
-    if (state === 'done' && skip === 'empty') return `${name}: ревью не понадобилось — в PR нет изменений относительно целевой ветки. Нажмите, чтобы проверить заново`;
-    const base = {
-        none: `${name}: ревью не было. Нажмите, чтобы запустить`,
-        stale: `${name}: ревью было на старом коммите. Нажмите, чтобы проверить новый`,
-        done: `${name}: ревью актуально. Нажмите, чтобы проверить заново`,
-        queued: `${name}: ревью в очереди`,
-        running: `${name}: идёт ревью`,
-    }[state];
-    return available.kind === 'manual' ? `${base}. В фоне эта модель не запускается` : base;
+    if ((state === 'none' || state === 'stale') && available.kind === 'limit') return t('overview.model.limit', { name, reset: resetShort(available.resetsAt) });
+    if (state === 'none' && available.kind === 'manual') return t('overview.model.manualNone', { name });
+    if (state === 'stale' && available.kind === 'manual') return t('overview.model.manualStale', { name });
+    if (state === 'done' && skip === 'rebase') return t('overview.model.rebase', { name });
+    if (state === 'done' && skip === 'ignored') return t('overview.model.ignored', { name });
+    if (state === 'done' && skip === 'empty') return t('overview.model.empty', { name });
+    const base = t(`overview.model.${state}`, { name });
+    return available.kind === 'manual' ? t('overview.model.manualSuffix', { hint: base }) : base;
 };
 
 const repoPaused = (data: Data, repo: string) => data.config.repos.some((item) => item.slug === repo && item.paused);
@@ -69,10 +64,12 @@ export const capsules = (data: Data, now = new Date()): Capsule[] => {
             ? {
                   agent,
                   limited: true,
-                  text: `${name}: лимит ${resetShort(available.resetsAt, now)}`,
-                  hint: `${name} исчерпал лимит, сброс ${resetFull(available.resetsAt)}. После сброса модель снова начнёт ревью сама${available.updatedAt ? `. Обновлено ${ago(available.updatedAt, now)}` : ''}`,
+                  text: t('overview.capsule.limit', { name, reset: resetShort(available.resetsAt, now) }),
+                  hint: available.updatedAt
+                      ? t('overview.capsule.limitHintUpdated', { name, reset: resetFull(available.resetsAt), time: ago(available.updatedAt, now) })
+                      : t('overview.capsule.limitHint', { name, reset: resetFull(available.resetsAt) }),
               }
-            : { agent, limited: false, text: `${name}: только вручную`, hint: `${name} не участвует в фоновом ревью и запускается только по клику на значок. Включить — Настройки → Модели` },
+            : { agent, limited: false, text: t('overview.capsule.manual', { name }), hint: t('overview.capsule.manualHint', { name }) },
     );
 };
 
@@ -86,47 +83,45 @@ export const threadsCounter = (data: Data, repo: string, pr: PullRequest, now = 
     if (clean) {
         // Пропуск без ревью голова тоже считает проверенной: галочка не должна выдавать его за чистое ревью
         const reasons = auto.map((agent) => skipReason(data, repo, pr, agent));
-        const hint = reasons.includes('ignored')
-            ? 'Ревью не понадобилось: в диффе только исключённые файлы'
-            : reasons.includes('empty')
-              ? 'Ревью не понадобилось: в PR нет изменений относительно целевой ветки'
-              : 'Модели проверили последний коммит и замечаний не нашли';
+        const hint = t(reasons.includes('ignored') ? 'overview.threads.ignored' : reasons.includes('empty') ? 'overview.threads.empty' : 'overview.threads.clean');
         return { kind: 'clean', label: '', hint };
     }
     if (counts.total === 0) return { kind: 'none', label: counts.label, hint: noReviewHint(data, repo, pr, now) };
     return {
         kind: counts.resolved === counts.total ? 'resolved' : 'open',
         label: counts.label,
-        hint: `Тредов закрыто ${counts.resolved} из ${counts.total}, всего комментариев ${pr.commentCount}`,
+        hint: t('overview.threads.counts', { resolved: counts.resolved, total: counts.total, comments: pr.commentCount }),
     };
 };
 
 const noReviewHint = (data: Data, repo: string, pr: PullRequest, now: Date) => {
-    const manual = 'Запустить можно по значку модели';
-    if (isPaused(data.status)) return `Фоновое ревью выключено. ${manual}`;
-    if (repoPaused(data, repo)) return `Фоновое ревью репозитория выключено. ${manual}`;
-    if (pr.draft) return `Черновик — фоновое ревью черновики пропускает. ${manual}`;
-    if (!isTaskBranch(data.config, pr.source)) return `Ветка вне шаблона веток задач — фоновое ревью её пропускает. ${manual}`;
+    if (isPaused(data.status)) return t('overview.noReview.paused');
+    if (repoPaused(data, repo)) return t('overview.noReview.repoPaused');
+    if (pr.draft) return t('overview.noReview.draft');
+    if (!isTaskBranch(data.config, pr.source)) return t('overview.noReview.untracked');
     const auto = autoAgents(data.config);
-    if (!auto.length) return `Все модели запускаются только вручную — фоновое ревью этот PR не возьмёт. ${manual}`;
-    if (auto.every((agent) => availability(data, agent, now).kind === 'limit')) return 'Все фоновые модели упёрлись в лимит. Ревью будет после сброса';
-    if (isRunning(data.status)) return 'Ревью ещё не было: идёт проход';
+    if (!auto.length) return t('overview.noReview.allManual');
+    if (auto.every((agent) => availability(data, agent, now).kind === 'limit')) return t('overview.noReview.allLimited');
+    if (isRunning(data.status)) return t('overview.noReview.running');
     const next = nextPassAt(data, now);
-    if (!next) return 'Ревью ещё не было: ждёт прохода';
+    if (!next) return t('overview.noReview.waiting');
     const minutes = Math.ceil((next.getTime() - now.getTime()) / 60_000);
-    return minutes <= 1 ? 'Ревью ещё не было: ждёт прохода, следующий в течение минуты' : `Ревью ещё не было: ждёт прохода, следующий через ${minutes} мин`;
+    return minutes <= 1 ? t('overview.noReview.soon') : t('overview.noReview.next', { minutes });
 };
 
 export type ActionColor = 'green' | 'yellow' | 'orange' | 'red' | 'accent' | null;
 export type RowAction = { icon: string; spinner: boolean; color: ActionColor; stale: boolean; disabled: boolean; hint: string };
 
 // Тестирование, пока не заданы репозитории QA: приглушённая кнопка ведёт в config.json
-export const QA_OFF: RowAction = { icon: 'i-qa', spinner: false, color: null, stale: true, disabled: false, hint: 'Тестирование не настроено: укажите qa.frontend и qa.backend в config.json. Нажмите, чтобы открыть его' };
+export const qaOff = (): RowAction => ({ icon: 'i-qa', spinner: false, color: null, stale: true, disabled: false, hint: t('overview.qa.off') });
 
 // Что делает клик: start — подтверждение запуска, report — отчёт и ход (заглушка), none — кнопка выключена
 export type FixAction = RowAction & { click: 'start-fix' | 'start-rebase' | 'report' | 'none' };
 
 const lastLine = (text: string | null | undefined) => text?.split('\n').filter(Boolean).pop() ?? '';
+
+// Шаг и действие приходят из сервиса как есть
+const progress = (step: string | null | undefined, activity: string | null | undefined) => `${step ?? '…'}${activity ? ` — ${activity}` : ''}`;
 
 export const fixAction = (data: Data, repo: string, pr: PullRequest): FixAction => {
     const fix = fixOf(data, repo, pr.id);
@@ -140,26 +135,27 @@ export const fixAction = (data: Data, repo: string, pr: PullRequest): FixAction 
     const rebase = showsState ? fix?.mode === 'rebase' : available === true;
     const state = showsState ? fix?.state : undefined;
     const fresh = newThreads(fix, pr);
-    const name = rebase ? 'Rebase' : 'Доработка';
+    const name = t(rebase ? 'overview.fix.nameRebase' : 'overview.fix.nameFix');
     const icon = state === 'queued' ? 'i-clock' : state === 'done' ? 'i-check-circle' : state === 'failed' ? 'i-warning' : rebase ? 'i-rebase' : 'i-fix';
     const color: ActionColor =
         state === 'done' ? (fresh > 0 ? 'yellow' : 'green') : state === 'failed' ? 'orange' : !state && rebase && conflicts && (showsState || available !== null) ? 'orange' : null;
+    const result = fix?.report?.message ?? t('overview.fix.ready');
     const hint =
         state === 'queued'
-            ? `${name} в очереди`
+            ? t('overview.fix.queued', { name })
             : state === 'running'
-              ? `${name} идёт: ${fix?.step ?? '…'}${fix?.activity ? ` — ${fix.activity}` : ''}. Нажмите, чтобы посмотреть ход или прервать`
+              ? t('overview.fix.running', { name, progress: progress(fix?.step, fix?.activity) })
               : state === 'done' && fresh > 0
-                ? `${name}: ${fix?.report?.message ?? 'готово'}, но после неё появились новые замечания (${fresh}). Нажмите, чтобы посмотреть их и запустить доработку снова`
+                ? t('overview.fix.doneFresh', { name, result, count: fresh })
                 : state === 'done'
-                  ? `${name}: ${fix?.report?.message ?? 'готово'}. Нажмите, чтобы посмотреть отчёт`
+                  ? t('overview.fix.done', { name, result })
                   : state === 'failed'
-                    ? `${name} не удалась: ${lastLine(fix?.error)}. Нажмите, чтобы посмотреть отчёт`
+                    ? t('overview.fix.failed', { name, error: lastLine(fix?.error) })
                     : rebase
-                      ? `Ветка отстала от базы на ${behind} коммит(ов)${conflicts ? ', будут конфликты — их разрешит Claude' : ''} — rebase, проверки и push`
+                      ? t(conflicts ? 'overview.fix.behindConflicts' : 'overview.fix.behind', { count: behind })
                       : available === null
-                        ? 'Открытых замечаний нет, ветка на свежей базе'
-                        : `Исправить открытые замечания (${open}) — Claude: rebase, правки, коммит, проверки и push`;
+                        ? t('overview.fix.nothing')
+                        : t('overview.fix.start', { count: open });
     return {
         icon,
         spinner: isFixActive(fix) && state === 'running',
@@ -171,36 +167,35 @@ export const fixAction = (data: Data, repo: string, pr: PullRequest): FixAction 
     };
 };
 
-const VERDICTS: Record<string, { title: string; color: ActionColor }> = {
-    keep: { title: 'Оставить как есть', color: 'green' },
-    discuss: { title: 'Стоит обсудить', color: 'yellow' },
-    rework: { title: 'Лучше переделать', color: 'orange' },
-};
+const VERDICT_COLORS: Record<string, ActionColor> = { keep: 'green', discuss: 'yellow', rework: 'orange' };
+
+const verdictOf = (verdict: string) =>
+    verdict === 'keep' || verdict === 'discuss' || verdict === 'rework' ? { title: t(`overview.arch.verdict.${verdict}`), color: VERDICT_COLORS[verdict] } : { title: verdict, color: null };
 
 export const archAction = (data: Data, repo: string, pr: PullRequest): RowAction & { click: 'start' | 'report' } => {
     const arch = archOf(data, repo, pr.id);
     const stale = isArchStale(arch, pr);
-    const verdict = arch?.result ? (VERDICTS[arch.result.report.verdict] ?? { title: arch.result.report.verdict, color: null }) : null;
+    const verdict = arch?.result ? verdictOf(arch.result.report.verdict) : null;
     const state = arch?.state;
     const icon = state === 'queued' ? 'i-clock' : state === 'failed' ? 'i-warning' : state === 'done' ? 'i-arch-fill' : 'i-arch';
     const color: ActionColor = state === 'failed' ? 'orange' : state === 'done' ? (verdict?.color ?? null) : null;
+    const verdictText = verdict?.title.toLowerCase() ?? t('overview.arch.ready');
     const hint =
         state === 'queued'
-            ? 'Архитектурное ревью в очереди. Нажмите, чтобы посмотреть'
+            ? t('overview.arch.queued')
             : state === 'running'
-              ? `Идёт архитектурное ревью${arch?.activity ? `: ${arch.activity}` : ''}. Нажмите, чтобы посмотреть ход или прервать`
+              ? arch?.activity
+                  ? t('overview.arch.runningActivity', { activity: arch.activity })
+                  : t('overview.arch.running')
               : state === 'failed'
-                ? `Архитектурное ревью не удалось: ${lastLine(arch?.error)}. Нажмите, чтобы посмотреть`
+                ? t('overview.arch.failed', { error: lastLine(arch?.error) })
                 : state === 'done'
-                  ? stale
-                      ? `Архитектурное ревью: ${verdict?.title.toLowerCase() ?? 'готово'}. Отчёт снят на старом коммите — нажмите, чтобы посмотреть и перезапустить`
-                      : `Архитектурное ревью: ${verdict?.title.toLowerCase() ?? 'готово'}. Нажмите, чтобы посмотреть отчёт`
-                  : `Архитектурное ревью — ${archAgentName(data.config)} оценит цель, альтернативы, где можно проще и риски. Отчёт только здесь, в PR не публикуется`;
+                  ? t(stale ? 'overview.arch.doneStale' : 'overview.arch.done', { verdict: verdictText })
+                  : t('overview.arch.idle', { model: archAgentName(data.config) });
     return { icon, spinner: state === 'running', color, stale: state === 'done' && stale, disabled: false, hint, click: arch ? 'report' : 'start' };
 };
 
-const QA_STATUS: Record<string, string> = { failed: 'ошибка приложения', unconfirmed: 'не подтверждено', blocked: 'не удалось проверить', passed: 'прошло', skipped: 'пропущено' };
-const QA_ORDER = ['failed', 'unconfirmed', 'blocked', 'passed', 'skipped'];
+const QA_ORDER = ['failed', 'unconfirmed', 'blocked', 'passed', 'skipped'] as const;
 
 export const qaAction = (data: Data, repo: string, pr: PullRequest): RowAction => {
     const qa = qaOf(data, repo, pr.id);
@@ -213,32 +208,36 @@ export const qaAction = (data: Data, repo: string, pr: PullRequest): RowAction =
     const cases = qa?.plan?.cases.length ?? 0;
     const hint =
         state === 'planning-queued'
-            ? 'План тестирования в очереди'
+            ? t('overview.qa.planningQueued')
             : state === 'planning'
-              ? `Составляется план тестирования${qa?.activity ? `: ${qa.activity}` : ''}. Нажмите, чтобы посмотреть`
+              ? qa?.activity
+                  ? t('overview.qa.planningActivity', { activity: qa.activity })
+                  : t('overview.qa.planning')
               : state === 'planned'
-                ? `План тестирования готов: ${cases} ${plural(cases, 'кейс', 'кейса', 'кейсов')}. Нажмите, чтобы выбрать кейсы и запустить прогон`
+                ? t('overview.qa.planned', { count: cases })
                 : state === 'plan-failed'
-                  ? `План тестирования не удался: ${error}. Нажмите, чтобы посмотреть`
+                  ? t('overview.qa.planFailed', { error })
                   : state === 'run-queued'
-                    ? 'Прогон в очереди'
+                    ? t('overview.qa.runQueued')
                     : state === 'running'
-                      ? `Идёт прогон: ${qa?.step ?? '…'}${qa?.activity ? ` — ${qa.activity}` : ''}. Нажмите, чтобы посмотреть ход или прервать`
+                      ? t('overview.qa.running', { progress: progress(qa?.step, qa?.activity) })
                       : state === 'failed'
-                        ? `Прогон не удался: ${error}. Нажмите, чтобы посмотреть`
+                        ? t('overview.qa.failed', { error })
                         : state === 'done'
                           ? qa?.run
-                              ? `Прогон готов: ${QA_ORDER.filter((status) => count(status) > 0)
-                                    .map((status) => `${QA_STATUS[status]} — ${count(status)}`)
-                                    .join(', ')}. Нажмите, чтобы посмотреть отчёт`
-                              : 'Прогон готов'
-                          : 'Тестирование PR: Claude составит план — юнит, компонентные и e2e-кейсы, а после вашего выбора напишет и прогонит тесты (e2e — в Playwright на локальном бэкенде). Тесты можно сохранить в репозиторий, в PR ничего не публикуется';
+                              ? t('overview.qa.done', {
+                                    summary: QA_ORDER.filter((status) => count(status) > 0)
+                                        .map((status) => t('overview.qa.statusCount', { status: t(`overview.qa.status.${status}`), count: count(status) }))
+                                        .join(', '),
+                                })
+                              : t('overview.qa.doneEmpty')
+                          : t('overview.qa.idle');
     return { icon, spinner: state === 'planning' || state === 'running', color, stale: false, disabled: false, hint };
 };
 
 export const updatedText = (pr: PullRequest, now = new Date()) => {
     const date = parse(pr.updatedOn);
-    return { text: ago(pr.updatedOn, now), hint: `Обновлён ${date ? fullDate(date) : '—'}` };
+    return { text: ago(pr.updatedOn, now), hint: t('overview.row.updated', { date: date ? fullDate(date) : '—' }) };
 };
 
 // Черновики уходят вниз и приглушаются: фоновое ревью их пропускает, и они только отвлекают.

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { SELECTION_RULES_DATE, startOfDay, weekClosed, weekOf, weekShare, type DayValue, type NoiseWeek } from './data';
 import { dayFull, dayShort } from './format';
+import { t } from '../i18n';
 
 // Графики — своё SVG по классам .chart* из product/design/web/components.css, размеры — как в макете
 // 2026-11-26-tauri-stats.html: ширина области 724 (карточка 748 минус поля .chart)
@@ -45,7 +46,7 @@ export const DailyChart = ({
     reviews?: Map<number, number>;
 }) => {
     const [selected, setSelected] = useState<number | null>(null);
-    if (!values.length && !reviews?.size) return <div className="chart__empty">За выбранный период данных нет</div>;
+    if (!values.length && !reviews?.size) return <div className="chart__empty">{t('stats.noData')}</div>;
 
     const height = 168;
     const top = 16;
@@ -73,8 +74,8 @@ export const DailyChart = ({
         return (
             <div className="chart-tooltip" style={style}>
                 <span className="chart-tooltip__title">{dayFull(day)}</span>
-                {count != null && <span className="chart-tooltip__note">{count} ревью</span>}
-                {!dayValues.length && <span className="chart-tooltip__note">{count == null ? 'нет данных' : 'без комментариев'}</span>}
+                {count != null && <span className="chart-tooltip__note">{t('stats.reviews', { count })}</span>}
+                {!dayValues.length && <span className="chart-tooltip__note">{count == null ? t('stats.chart.noData') : t('stats.chart.noComments')}</span>}
                 {dayValues.map((value) => (
                     <span key={value.group} className="chart-tooltip__row">
                         <span className="dot" style={{ '--c': color(value.group) } as React.CSSProperties} />
@@ -129,7 +130,7 @@ export const DailyChart = ({
                             })}
                             {reviewLabels && count != null && (
                                 <text className={`chart__value${mark}`} x={x + barWidth / 2} y={y(stacked) - 3} textAnchor="middle">
-                                    {shortLabels ? count : `${count} ревью`}
+                                    {shortLabels ? count : t('stats.reviews', { count })}
                                 </text>
                             )}
                             <rect x={index * step} y={0} width={step} height={top + plotHeight} fill="transparent" onMouseEnter={() => setSelected(index)} />
@@ -152,7 +153,7 @@ export const DailyChart = ({
 
 // Доля отклонённых по неделям; столбец — от понедельника до воскресенья, чтобы линия новых правил легла на границу недель
 export const NoiseChart = ({ weeks, start, end }: { weeks: NoiseWeek[]; start: Date; end: Date }) => {
-    if (!weeks.length) return <div className="chart__empty">За выбранный период закрытых замечаний нет</div>;
+    if (!weeks.length) return <div className="chart__empty">{t('stats.chart.noClosed')}</div>;
     const height = 180;
     const top = 4;
     const bottom = 20;
@@ -201,7 +202,7 @@ export const NoiseChart = ({ weeks, start, end }: { weeks: NoiseWeek[]; start: D
                     <>
                         <line className="chart__rule" x1={x(rules)} x2={x(rules)} y1={top} y2={top + plotHeight} />
                         <text className="chart__rule-label" x={x(rules) - 3} y={top - 6} textAnchor="end">
-                            новые правила отбора
+                            {t('stats.chart.rulesLine')}
                         </text>
                     </>
                 )}

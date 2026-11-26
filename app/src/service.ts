@@ -2,6 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { baseUrl, createApi, type ApiClient, type Schemas } from './api/client';
 import { streamEvents, type ChangeEvent } from './api/events';
+import { t } from './i18n';
 
 // Связь с сервисом: токен → /health → поток /events. Пока сервис отвечает, API по таймеру не опрашиваем:
 // после события перечитываем нужный ресурс. Если сервис недоступен — повторяем подключение с паузой
@@ -38,18 +39,18 @@ export const useService = (onChange: Listener) => {
                     const token = await invoke<string>('api_token');
                     const api = createApi(token);
                     const { data: health } = await api.GET('/health', { signal: controller.signal });
-                    if (!health) throw new Error('Сервис не ответил');
+                    if (!health) throw new Error(t('app.service.noAnswer'));
                     attempt = 0;
                     failures = 0;
                     downSince = null;
                     setConnection({ phase: 'up', api, health });
                     listener.current({ type: 'connected', at: new Date().toISOString() }, api);
                     await streamEvents(`${baseUrl()}/events`, token, (event) => listener.current(event, api), controller.signal);
-                    down('Поток событий оборвался');
+                    down(t('app.service.streamBroken'));
                 } catch (error) {
                     if (controller.signal.aborted) return;
                     // invoke отдаёт строку с причиной, fetch — TypeError «Failed to fetch» при закрытом порте
-                    down(typeof error === 'string' ? error : 'Сервис не отвечает на 127.0.0.1');
+                    down(typeof error === 'string' ? error : t('app.service.unreachable'));
                 }
                 // «Проверить снова» прерывает паузу и пробует сразу
                 await new Promise<void>((resolve) => {
@@ -74,10 +75,10 @@ export const isWindows = () => navigator.userAgent.includes('Windows');
 export const serviceDown = () =>
     isWindows()
         ? {
-              text: `Нет ответа от сервиса в WSL (${baseUrl().replace('http://', '')}). Откройте терминал Ubuntu — сервис запускается вместе с WSL. Если он не поднялся, выполните в PowerShell команду ниже.`,
+              text: t('app.service.downWsl', { address: baseUrl().replace('http://', '') }),
               command: 'wsl systemctl --user restart pr-reviewer-api',
           }
         : {
-              text: `Нет ответа от ${baseUrl().replace('http://', '')}. Запустите сервис командой ниже или установите заново через ./install.sh.`,
+              text: t('app.service.downMac', { address: baseUrl().replace('http://', '') }),
               command: 'launchctl kickstart -k gui/$(id -u)/com.avoronin.pr-reviewer.api',
           };

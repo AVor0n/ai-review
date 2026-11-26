@@ -1,15 +1,29 @@
-// Даты и числа по-русски — как Dates и plural-функции в menubar/Model.swift
+import { locale, t } from '../i18n';
+
+// Даты и числа на языке интерфейса — как Dates и plural-функции в menubar/Model.swift
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-const relative = new Intl.RelativeTimeFormat('ru', { numeric: 'auto' });
-const time = new Intl.DateTimeFormat('ru', { hour: '2-digit', minute: '2-digit' });
-const dayMonth = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short' });
-const dayMonthYear = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'short', year: 'numeric' });
-const dayLongMonth = new Intl.DateTimeFormat('ru', { day: 'numeric', month: 'long' });
-const full = new Intl.DateTimeFormat('ru', { dateStyle: 'long', timeStyle: 'short' });
-const medium = new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' });
+// Форматтеры Intl дорогие: по одному на язык и набор опций
+const cache = new Map<string, Intl.DateTimeFormat | Intl.RelativeTimeFormat | Intl.NumberFormat>();
+const cached = <T extends Intl.DateTimeFormat | Intl.RelativeTimeFormat | Intl.NumberFormat>(kind: string, create: (lang: string) => T): T => {
+    const key = `${locale()}:${kind}`;
+    if (!cache.has(key)) cache.set(key, create(locale()));
+    return cache.get(key) as T;
+};
+const dates = (options: Intl.DateTimeFormatOptions) => cached(`date:${JSON.stringify(options)}`, (lang) => new Intl.DateTimeFormat(lang, options));
+// В английском короткие единицы: «5 min ago», в русском — «5 минут назад»
+const relative = () => cached('relative', (lang) => new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: lang === 'ru' ? 'long' : 'short' }));
+export const formatDate = (date: Date, options: Intl.DateTimeFormatOptions) => dates(options).format(date);
+export const formatNumber = (value: number, options: Intl.NumberFormatOptions = {}) => cached(`number:${JSON.stringify(options)}`, (lang) => new Intl.NumberFormat(lang, options)).format(value);
+
+const time = { hour: '2-digit', minute: '2-digit' } as const;
+const dayMonth = { day: 'numeric', month: 'short' } as const;
+const dayMonthYear = { day: 'numeric', month: 'short', year: 'numeric' } as const;
+const dayLongMonth = { day: 'numeric', month: 'long' } as const;
+const full = { dateStyle: 'long', timeStyle: 'short' } as const;
+const medium = { dateStyle: 'medium', timeStyle: 'short' } as const;
 
 export const parse = (iso: string | null | undefined): Date | null => {
     if (!iso) return null;
@@ -26,51 +40,42 @@ export const ago = (value: string | Date | null | undefined, now = new Date()): 
     const date = value instanceof Date ? value : parse(value);
     if (!date) return '—';
     const passed = now.getTime() - date.getTime();
-    if (passed < MINUTE) return 'только что';
-    if (passed < HOUR) return relative.format(-Math.floor(passed / MINUTE), 'minute');
-    if (passed < DAY) return relative.format(-Math.floor(passed / HOUR), 'hour');
+    if (passed < MINUTE) return t('common.time.justNow');
+    if (passed < HOUR) return relative().format(-Math.floor(passed / MINUTE), 'minute');
+    if (passed < DAY) return relative().format(-Math.floor(passed / HOUR), 'hour');
     const days = daysBetween(date, now);
-    if (days < 30) return relative.format(-days, 'day');
-    if (days < 365) return relative.format(-Math.floor(days / 30), 'month');
-    return relative.format(-Math.floor(days / 365), 'year');
+    if (days < 30) return relative().format(-days, 'day');
+    if (days < 365) return relative().format(-Math.floor(days / 30), 'month');
+    return relative().format(-Math.floor(days / 365), 'year');
 };
 
-export const clock = (date: Date) => time.format(date);
+export const clock = (date: Date) => formatDate(date, time);
 
 // Сброс лимита: «до 14:00» сегодня, «до завтра 14:00», дальше — «до 31 окт.»
 export const resetShort = (date: Date, now = new Date()) => {
     const days = daysBetween(now, date);
-    if (days === 0) return `до ${clock(date)}`;
-    if (days === 1) return `до завтра ${clock(date)}`;
-    return `до ${dayMonth.format(date)}`;
+    if (days === 0) return t('common.time.until', { time: clock(date) });
+    if (days === 1) return t('common.time.untilTomorrow', { time: clock(date) });
+    return t('common.time.until', { time: formatDate(date, dayMonth) });
 };
 
 // «25 ноября в 14:30»
-export const resetFull = (date: Date) => `${dayLongMonth.format(date)} в ${clock(date)}`;
+export const resetFull = (date: Date) => t('common.time.dateAtTime', { date: formatDate(date, dayLongMonth), time: clock(date) });
 
 // «25 ноября 2026 г. в 14:00»
-export const fullDate = (date: Date) => full.format(date);
+export const fullDate = (date: Date) => formatDate(date, full);
 
 // Срок токена: год — только если не текущий
-export const shortDate = (date: Date, now = new Date()) => (date.getFullYear() === now.getFullYear() ? dayMonth : dayMonthYear).format(date);
+export const shortDate = (date: Date, now = new Date()) => formatDate(date, date.getFullYear() === now.getFullYear() ? dayMonth : dayMonthYear);
 
 // Срок паузы уведомлений: время сегодня, иначе дата и время
-export const moment = (date: Date, now = new Date()) => (isToday(date, now) ? clock(date) : medium.format(date));
+export const moment = (date: Date, now = new Date()) => (isToday(date, now) ? clock(date) : formatDate(date, medium));
 
-export const minutesText = (minutes: number) => (minutes >= 60 ? `${Math.floor(minutes / 60)} ч ${minutes % 60} мин` : `${minutes} мин`);
-
-// plural(5, 'сообщение', 'сообщения', 'сообщений') → «сообщений»
-export const plural = (count: number, one: string, few: string, many: string) => {
-    const mod10 = count % 10;
-    const mod100 = count % 100;
-    if (mod10 === 1 && mod100 !== 11) return one;
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
-    return many;
-};
+export const minutesText = (minutes: number) => (minutes >= 60 ? t('common.time.hoursMinutes', { hours: Math.floor(minutes / 60), minutes: minutes % 60 }) : t('common.time.minutes', { minutes }));
 
 // Короткое имя в подписях: без общей части имён репозиториев из настройки displayPrefix
 export const shortRepoName = (slug: string, prefix?: string) => (prefix && slug.startsWith(prefix) && slug.length > prefix.length ? slug.slice(prefix.length) : slug);
 
-export const roleName = (role: string) => ({ first: 'первым', second: 'следом', replies: 'ответы' })[role] ?? role;
+export const roleName = (role: string) => (role === 'first' || role === 'second' || role === 'replies' ? t(`common.role.${role}`) : role);
 
 export const daysBetweenDates = daysBetween;

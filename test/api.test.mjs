@@ -108,10 +108,12 @@ test('действия — команды CLI с теми же аргумент�
     assert.deepEqual(conforms('POST', '/fixes/{repo}/{pr}/stop', done.json), []);
     await call('POST', '/reviews', { body: { repo: 'backend', pr: 7, agent: 'claude' } });
     await call('POST', '/qa/backend/7/run', { body: { skip: ['c1', 'c2'], add: ['свой кейс'], note: ' заметка ' } });
+    await call('PUT', '/settings/language', { body: { language: 'en' } });
     assert.deepEqual(saved.cli, [
         ['fix', 'stop', '--repo', 'backend', '--pr', '7'],
         ['review', '--repo', 'backend', '--pr', '7', '--agent', 'claude'],
         ['qa', 'run', '--repo', 'backend', '--pr', '7', '--skip', 'c1,c2', '--add', 'свой кейс', '--note', 'заметка'],
+        ['language', 'en'],
     ]);
     assert.equal((await call('POST', '/fixes/other/7')).status, 404);
     assert.equal((await call('POST', '/reviews', { body: { repo: 'backend' } })).status, 400);

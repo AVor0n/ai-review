@@ -3,6 +3,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { Fragment, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { errorText, type ApiClient } from '../api/client';
 import { Icon } from '../components/Icon';
+import { t, tx } from '../i18n';
 import { Markdown } from '../components/Markdown';
 import { agentName } from '../model/derive';
 import { ago, parse, shortDate } from '../model/format';
@@ -116,10 +117,12 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
     const startJob = (kind: 'triage' | 'learn') => api && run(() => api.POST('/backlog/jobs', { body: { kind } }));
 
     const confirmTriage = async () => {
-        const confirmed = await confirm(
-            'Модель прочитает код основной ветки каждого репозитория и отметит, какие проблемы уже исправлены или пропали. Закрываете вы. Записи, уже проверенные на той же версии кода, пропускаются. Около $1 за 10 записей, несколько минут.',
-            { title: `Разобрать ${waiting} записей по текущему коду?`, kind: 'info', okLabel: 'Разобрать', cancelLabel: 'Отмена' },
-        );
+        const confirmed = await confirm(t('backlog.triageConfirm.body'), {
+            title: t('backlog.triageConfirm.title', { count: waiting }),
+            kind: 'info',
+            okLabel: t('backlog.triageConfirm.ok'),
+            cancelLabel: t('common.action.cancel'),
+        });
         if (confirmed) startJob('triage');
     };
 
@@ -127,11 +130,11 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
         if (!api) return;
         const { data: answer, error: failure } = await api.GET('/backlog/markdown', { params: { query: { all: showAll } } });
         const text = (answer as { output?: string } | undefined)?.output;
-        if (failure || text == null) return setError(failure ? errorText(failure) : 'Сервис не вернул markdown');
+        if (failure || text == null) return setError(failure ? errorText(failure) : t('backlog.errors.noMarkdown'));
         try {
             await navigator.clipboard.writeText(text);
         } catch (reason) {
-            return setError(`Не удалось скопировать в буфер обмена: ${String(reason)}`);
+            return setError(t('backlog.errors.clipboard', { reason: String(reason) }));
         }
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
@@ -159,7 +162,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
     };
 
     const toggle = (id: string) => setExpanded((current) => (current.has(id) ? new Set([...current].filter((value) => value !== id)) : new Set([...current, id])));
-    const sourceName = (source: BacklogSource) => (source.agent === 'human' ? (source.author ?? 'команда') : agentName(data.config, source.agent));
+    const sourceName = (source: BacklogSource) => (source.agent === 'human' ? (source.author ?? t('backlog.row.team')) : agentName(data.config, source.agent));
     const agents = (item: BacklogItem) => [...new Set(item.sources.map(sourceName))].join(', ');
 
     const row = (item: BacklogItem) => {
@@ -171,7 +174,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
         return (
             <div className={`backlog-row${open ? ' backlog-row--expanded' : ''}${isOpen(item) ? '' : ' backlog-row--closed'}`}>
                 <div className="backlog-row__top">
-                    <button className="backlog-row__toggle" title={open ? 'Свернуть' : 'Показать сценарий и исправление'} onClick={() => toggle(item.id)}>
+                    <button className="backlog-row__toggle" title={open ? t('backlog.row.collapse') : t('backlog.row.expand')} onClick={() => toggle(item.id)}>
                         <Icon id="i-chevron-right" className="icon backlog-row__chevron" />
                         <span className="backlog-row__level">
                             <span className="tag" style={tagColor(`var(--level-${item.level.toLowerCase()})`)}>
@@ -185,16 +188,16 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             <Icon id="i-spinner" />
                         ) : isOpen(item) ? (
                             <>
-                                <button className="link-button" title="Отметить, что по проблеме заведена задача; номер задачи можно указать" onClick={() => startEdit(item.id, 'filed')}>
-                                    Задача заведена
+                                <button className="link-button" title={t('backlog.row.fileHint')} onClick={() => startEdit(item.id, 'filed')}>
+                                    {t('backlog.row.filed')}
                                 </button>
                                 {item.triage && isStale(item) ? (
-                                    <button className="link-button link-button--secondary" title="Отклонить с причиной из разбора по коду" onClick={() => setStatus(item.id, 'drop', closeReason(item.triage!))}>
-                                        Закрыть
+                                    <button className="link-button link-button--secondary" title={t('backlog.row.closeHint')} onClick={() => setStatus(item.id, 'drop', closeReason(item.triage!))}>
+                                        {t('backlog.row.close')}
                                     </button>
                                 ) : (
-                                    <button className="link-button link-button--secondary" title="Не заводить задачу. Модели и дальше будут знать о проблеме и не найдут её заново" onClick={() => startEdit(item.id, 'drop')}>
-                                        Отклонить
+                                    <button className="link-button link-button--secondary" title={t('backlog.row.dropHint')} onClick={() => startEdit(item.id, 'drop')}>
+                                        {t('backlog.row.drop')}
                                     </button>
                                 )}
                             </>
@@ -202,25 +205,26 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             <>
                                 {item.status === 'filed' ? (
                                     <span className="tag" style={tagColor('var(--fate-addressed)')}>
-                                        {item.ticket ? `Задача ${item.ticket}` : 'Задача заведена'}
+                                        {item.ticket ? t('backlog.row.ticket', { ticket: item.ticket }) : t('backlog.row.filed')}
                                     </span>
                                 ) : (
-                                    <span className="tag">Отклонено</span>
+                                    <span className="tag">{t('backlog.row.dropped')}</span>
                                 )}
-                                <button className="link-button" title="Снова в «Ждут разбора»" onClick={() => setStatus(item.id, 'reopen')}>
-                                    Вернуть
+                                <button className="link-button" title={t('backlog.row.reopenHint')} onClick={() => setStatus(item.id, 'reopen')}>
+                                    {t('backlog.row.reopen')}
                                 </button>
                             </>
                         )}
                     </span>
                 </div>
                 <div className="backlog-row__meta">
-                    найдено в{' '}
-                    {prSources(item).map((source) => (
-                        <button key={source.pr} className="link-button" title="Открыть PR в Bitbucket" onClick={() => openUrl(source.url).catch(() => {})}>
-                            #{source.pr}
-                        </button>
-                    ))}{' '}
+                    {tx('backlog.row.foundIn', {
+                        prs: prSources(item).map((source) => (
+                            <button key={source.pr} className="link-button" title={t('backlog.row.openPr')} onClick={() => openUrl(source.url).catch(() => {})}>
+                                #{source.pr}
+                            </button>
+                        )),
+                    })}{' '}
                     · {agents(item)}
                     {likelihood && (
                         <>
@@ -242,15 +246,15 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                     <div className="backlog-row__details md">
                         {where && (
                             <div className="labeled">
-                                <span className="labeled__title">Файл</span>
-                                <button className="link-button backlog-row__file" disabled={!url} title={url ? 'Открыть файл в Bitbucket на коммите, где нашли проблему' : where} onClick={() => url && openUrl(url).catch(() => {})}>
+                                <span className="labeled__title">{t('backlog.row.file')}</span>
+                                <button className="link-button backlog-row__file" disabled={!url} title={url ? t('backlog.row.fileLinkHint') : where} onClick={() => url && openUrl(url).catch(() => {})}>
                                     {where}
                                 </button>
                             </div>
                         )}
                         {item.scenario && (
                             <div className="labeled">
-                                <span className="labeled__title">Сценарий</span>
+                                <span className="labeled__title">{t('backlog.row.scenario')}</span>
                                 <span className="selectable">
                                     <Markdown text={item.scenario} />
                                 </span>
@@ -258,7 +262,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                         )}
                         {item.fix && (
                             <div className="labeled">
-                                <span className="labeled__title">Исправление</span>
+                                <span className="labeled__title">{t('backlog.row.fix')}</span>
                                 <span className="selectable">
                                     <Markdown text={item.fix} />
                                 </span>
@@ -266,7 +270,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                         )}
                         {item.status === 'dropped' && item.note && (
                             <div className="labeled">
-                                <span className="labeled__title">Причина отклонения</span>
+                                <span className="labeled__title">{t('backlog.row.dropReason')}</span>
                                 <span className="selectable">
                                     <Markdown text={item.note} />
                                 </span>
@@ -287,7 +291,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             </div>
                         )}
                         <div className="labeled">
-                            <span className="labeled__title">Где нашли</span>
+                            <span className="labeled__title">{t('backlog.row.sources')}</span>
                             {item.sources.map((source, index) => (
                                 <span key={index} className="backlog-row__sources">
                                     {[`#${source.pr}`, sourceName(source), sourceKind(source), ago(source.at)].join(' · ')}
@@ -295,7 +299,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             ))}
                         </div>
                         <span className="backlog-row__id selectable">
-                            id {item.id} · в бэклоге с {parse(item.createdAt) ? shortDate(parse(item.createdAt)!) : '—'}
+                            {t('backlog.row.since', { id: item.id, date: parse(item.createdAt) ? shortDate(parse(item.createdAt)!) : '—' })}
                         </span>
                     </div>
                 )}
@@ -303,7 +307,7 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                     <div className="inline-editor">
                         <input
                             autoFocus
-                            placeholder={edit.action === 'filed' ? 'Номер задачи, например PROJ-1234' : 'Причина, необязательно'}
+                            placeholder={edit.action === 'filed' ? t('backlog.row.ticketPlaceholder') : t('backlog.row.reasonPlaceholder')}
                             value={draft}
                             onChange={(event) => setDraft(event.target.value)}
                             onKeyDown={(event) => {
@@ -312,10 +316,10 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             }}
                         />
                         <button className="link-button link-button--secondary" onClick={() => setEditing(null)}>
-                            Отмена
+                            {t('common.action.cancel')}
                         </button>
                         <button className={`link-button${edit.action === 'drop' ? ' link-button--destructive' : ''}`} onClick={submit}>
-                            {edit.action === 'filed' ? 'Сохранить' : 'Отклонить'}
+                            {edit.action === 'filed' ? t('common.action.save') : t('backlog.row.drop')}
                         </button>
                     </div>
                 )}
@@ -331,31 +335,27 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
             <div className="toolbar">
                 <div className="segmented" style={{ '--segment-width': '110px' } as CSSProperties}>
                     <button className="segmented__item" aria-selected={!showAll} onClick={() => choose(false)}>
-                        Ждут разбора
+                        {t('backlog.filter.waiting')}
                     </button>
                     <button className="segmented__item" aria-selected={showAll} onClick={() => choose(true)}>
-                        Все
+                        {t('backlog.filter.all')}
                     </button>
                 </div>
                 <span className="spacer" />
                 {waiting > 0 && !running && (
-                    <button className="link-button link-button--icon" title="Проверить по текущему коду основной ветки, какие проблемы ещё актуальны" onClick={confirmTriage}>
+                    <button className="link-button link-button--icon" title={t('backlog.toolbar.triageHint')} onClick={confirmTriage}>
                         <Icon id="i-triage" />
-                        Разобрать
+                        {t('backlog.toolbar.triage')}
                     </button>
                 )}
                 <button
                     className="link-button link-button--icon"
                     disabled={empty}
-                    title={
-                        showAll
-                            ? 'Весь бэклог в markdown для разбора: по репозиториям, со сценариями, исправлениями и ссылками на PR'
-                            : 'Ждущие разбора проблемы в markdown: по репозиториям, со сценариями, исправлениями и ссылками на PR'
-                    }
+                    title={showAll ? t('backlog.toolbar.copyAllHint') : t('backlog.toolbar.copyWaitingHint')}
                     onClick={copy}
                 >
                     <Icon id={copied ? 'i-check' : 'i-copy'} />
-                    {copied ? 'Скопировано' : 'Скопировать .md'}
+                    {copied ? t('backlog.toolbar.copied') : t('backlog.toolbar.copy')}
                 </button>
             </div>
             {hasBanners && (
@@ -364,11 +364,11 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                         <div className="banner banner--alert" role="alert">
                             <Icon id="i-warning-fill" className="icon banner__icon" />
                             <div className="banner__body">
-                                <div className="banner__title">Не удалось выполнить команду</div>
+                                <div className="banner__title">{t('backlog.errors.title')}</div>
                                 <div className="banner__text banner__text--clamp selectable">{error}</div>
                             </div>
                             <div className="banner__actions">
-                                <button className="close-button" title="Скрыть" onClick={() => setError(null)}>
+                                <button className="close-button" title={t('common.action.hide')} onClick={() => setError(null)}>
                                     <Icon id="i-close" />
                                 </button>
                             </div>
@@ -379,12 +379,12 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                             <Icon id="i-spinner" />
                             <div className="banner__body">
                                 <div className="banner__text" style={{ color: 'var(--label-2)', fontSize: 'var(--text-callout)', whiteSpace: 'nowrap' }} title={job.activity ?? undefined}>
-                                    {jobTitle(job)} · {middle(job.activity ?? 'запуск…', ACTIVITY_CHARS)}
+                                    {jobTitle(job)} · {middle(job.activity ?? t('backlog.job.starting'), ACTIVITY_CHARS)}
                                 </div>
                             </div>
                             <div className="banner__actions">
                                 <button className="link-button link-button--destructive" onClick={() => api && run(() => api.POST('/backlog/jobs/stop'))}>
-                                    Прервать
+                                    {t('backlog.job.stop')}
                                 </button>
                             </div>
                         </div>
@@ -396,10 +396,10 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                                 <div className="banner__title">
                                     {jobTitle(job)} · {ago(finished)}
                                 </div>
-                                <div className="banner__text banner__text--clamp selectable">{job.state === 'done' ? (job.message ?? '') : (job.error ?? 'задача прервана')}</div>
+                                <div className="banner__text banner__text--clamp selectable">{job.state === 'done' ? (job.message ?? '') : (job.error ?? t('backlog.job.stopped'))}</div>
                             </div>
                             <div className="banner__actions">
-                                <button className="close-button" title="Скрыть" onClick={() => seeJob(finished)}>
+                                <button className="close-button" title={t('common.action.hide')} onClick={() => seeJob(finished)}>
                                     <Icon id="i-close" />
                                 </button>
                             </div>
@@ -409,12 +409,12 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
                         <div className="banner banner--info">
                             <Icon id="i-triage" className="icon banner__icon" />
                             <div className="banner__body">
-                                <div className="banner__title">Похоже, неактуальны: {stale.length}</div>
-                                <div className="banner__text">Модель считает, что проблему исправили, кода больше нет или анализ в записи ошибочен. Причина — в записи. Закрытые записи останутся во «Все» как отклонённые</div>
+                                <div className="banner__title">{t('backlog.stale.title', { count: stale.length })}</div>
+                                <div className="banner__text">{t('backlog.stale.body')}</div>
                             </div>
                             <div className="banner__actions">
                                 <button className="link-button" onClick={closeStale}>
-                                    Закрыть все
+                                    {t('backlog.stale.closeAll')}
                                 </button>
                             </div>
                         </div>
@@ -424,16 +424,16 @@ export const BacklogScreen = ({ api, data, version }: { api: ApiClient | null; d
             {items === null ? null : empty ? (
                 <div className="empty-state">
                     <Icon id={all.length ? 'i-check-circle' : 'i-tray'} className="icon empty-state__icon" />
-                    <div className="empty-state__title">{all.length ? 'Всё разобрано' : 'Бэклог пуст'}</div>
-                    <div className="empty-state__text">Сюда попадают проблемы, которые модели нашли по ходу ревью, но которые были в коде ещё до PR</div>
+                    <div className="empty-state__title">{all.length ? t('backlog.empty.done') : t('backlog.empty.none')}</div>
+                    <div className="empty-state__text">{t('backlog.empty.body')}</div>
                     {scanNote && <div className="empty-state__note">{scanNote}</div>}
                     {/* Сбор из истории предлагается, только когда разбирать нечего: дальше записи приходят из ревью сами */}
                     {waiting === 0 &&
                         (running && job?.kind === 'learn' ? (
                             <Icon id="i-spinner" />
                         ) : (
-                            <button className="button" title="Модель разберёт незакрытые треды во влитых PR из последних 100 и запишет отложенные проблемы. Обычно до доллара" onClick={() => startJob('learn')}>
-                                Собрать из истории PR
+                            <button className="button" title={t('backlog.empty.learnHint')} onClick={() => startJob('learn')}>
+                                {t('backlog.empty.learn')}
                             </button>
                         ))}
                 </div>

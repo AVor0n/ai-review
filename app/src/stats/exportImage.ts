@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { toCanvas } from 'html-to-image';
+import { t } from '../i18n';
 
 // Снимок вкладки целиком, без прокрутки: PNG 2× в текущей теме, ширина поповера, в «Загрузки», затем файл открывается — как ImageExport.swift.
 // Вкладка снимается по частям и склеивается: высокую копию целиком WebKit не рисует, обрезает сверху
@@ -49,7 +50,7 @@ export const exportImage = async (content: HTMLElement, name: string) => {
         restore();
     }
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('Не удалось собрать картинку');
+    if (!blob) throw new Error(t('stats.export.failed'));
     await invoke('save_image', new Uint8Array(await blob.arrayBuffer()), { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
 };
 
@@ -78,6 +79,6 @@ export const exportParts = async (parts: HTMLElement[], name: string, { width, p
         top += image.height / SCALE + gap;
     }
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('Не удалось собрать картинку');
+    if (!blob) throw new Error(t('stats.export.failed'));
     await invoke('save_image', new Uint8Array(await blob.arrayBuffer()), { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
 };

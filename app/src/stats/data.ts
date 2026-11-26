@@ -1,4 +1,5 @@
 // Расчёты вкладки «Статистика» — перенос menubar/StatsData.swift без изменений: те же фильтры, периоды и формулы
+import { t } from '../i18n';
 import type { Config, Lesson, WorkerState } from '../model/types';
 
 export type Verdict = { target: string; verdict: string; reason?: string | null };
@@ -53,16 +54,7 @@ export type StatsFilter = { repo: string; author: string; agent: string; pass: s
 
 export const WORK_KINDS = ['review', 'replies', 'fix', 'rebase', 'arch', 'qa', 'memory', 'backlog'] as const;
 export type WorkKind = (typeof WORK_KINDS)[number];
-export const WORK_TITLES: Record<WorkKind, string> = {
-    review: 'Ревью',
-    replies: 'Ответы в тредах',
-    fix: 'Автофикс',
-    rebase: 'Rebase',
-    arch: 'Архитектура',
-    qa: 'Тестирование',
-    memory: 'Память',
-    backlog: 'Бэклог',
-};
+export const workTitle = (kind: WorkKind) => t(`stats.work.${kind}`);
 
 export const LEVELS = ['P0', 'P1', 'P2', 'P3'];
 export const DISAGREE_REASONS = ['wrong', 'fixed', 'preexisting', 'unlikely'];
@@ -130,7 +122,7 @@ export const statsData = (input: StatsInput, filter: StatsFilter, now = new Date
     // Автора у записей автофикса, тестирования и архитектуры нет — берём автора PR из ревью
     const prAuthors = new Map<string, string>();
     for (const entry of input.stats) if (entry.pr != null && entry.author) prAuthors.set(`${entry.repo}#${entry.pr}`, entry.author);
-    const authorOf = (repo: string, pr: number) => prAuthors.get(`${repo}#${pr}`) ?? 'неизвестно';
+    const authorOf = (repo: string, pr: number) => prAuthors.get(`${repo}#${pr}`) ?? t('stats.unknown');
     // Автофикс и тестирование всегда идут через Claude (fix.mjs, qa.mjs), поэтому модели в их журналах нет
     const fixes = input.fixLog.filter((fix) => matchesWork(fix.repo, authorOf(fix.repo, fix.pr), 'claude') && inPeriod(fix.at));
     const archs = input.archLog.filter((arch) => matchesWork(arch.repo, authorOf(arch.repo, arch.pr), arch.agent) && inPeriod(arch.at));
@@ -265,7 +257,7 @@ export const statsData = (input: StatsInput, filter: StatsFilter, now = new Date
             const lines = new Map<string, Map<string, number>>();
             const found = new Map<string, Record<string, number>>();
             for (const { entry } of entries) {
-                const group = byAuthor ? (entry.author ?? 'неизвестно') : entry.repo;
+                const group = byAuthor ? (entry.author ?? t('stats.unknown')) : entry.repo;
                 if (entry.pr != null && entry.diffLines != null) {
                     const prs = lines.get(group) ?? new Map<string, number>();
                     const key = `${entry.repo}#${entry.pr}`;
@@ -345,7 +337,8 @@ export const statsData = (input: StatsInput, filter: StatsFilter, now = new Date
             for (const spending of spendings) {
                 const day = startOfDay(spending.date).getTime();
                 const groups = sums.get(day) ?? new Map<string, number>();
-                groups.set(WORK_TITLES[spending.kind], (groups.get(WORK_TITLES[spending.kind]) ?? 0) + spending.cost);
+                const title = workTitle(spending.kind);
+                groups.set(title, (groups.get(title) ?? 0) + spending.cost);
                 sums.set(day, groups);
             }
             return flatten(sums);

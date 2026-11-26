@@ -29,6 +29,7 @@ import { checkAlerts, initialMemory, saveMemory } from './alerts';
 import { allows, loadNotifications } from './model/notifications';
 import { isWindows, serviceDown, useService } from './service';
 import { applyTrayIcon, applyTrayMenu } from './trayIcon';
+import { setLangSetting, t, useLang } from './i18n';
 
 type StatsEntry = Parameters<typeof reviewNotice>[0];
 type Command = '/run-now' | '/stop' | '/pause' | '/resume' | '/sync';
@@ -44,6 +45,8 @@ const platform = isWindows() ? 'win' : 'mac';
 
 export const App = () => {
     const { data, memoryBroken, onEvent, refreshSecrets } = useData();
+    // Язык — из config.json; пока сервис не ответил, действует сохранённый в окне выбор. Смена языка перерисовывает всё дерево
+    const lang = useLang();
     const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
     const [now, setNow] = useState(() => new Date());
     // Перенесённые экраны; неперенесённые открывают заглушку поверх них
@@ -126,6 +129,10 @@ export const App = () => {
     if (connection.phase === 'up') healthRef.current = connection.health;
     const offline = connection.phase === 'down';
     const hasData = !!data.status;
+    const configLanguage = data.config.language ?? 'system';
+    useEffect(() => {
+        if (hasData) setLangSetting(configLanguage);
+    }, [hasData, configLanguage]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), TICK_MS);
@@ -140,7 +147,7 @@ export const App = () => {
     const command = useCallback(
         async (path: Command) => {
             const api = apiRef.current;
-            if (!api) return notify({ title: 'PR Reviewer: сервис не запущен', body: serviceDown().text });
+            if (!api) return notify({ title: t('app.service.notRunning'), body: serviceDown().text });
             if (path === '/sync') setSyncing(true);
             const { error } = await api.POST(path);
             if (path === '/sync') setSyncing(false);
@@ -195,8 +202,10 @@ export const App = () => {
     const downSince = connection.phase === 'down' ? connection.since : null;
     useEffect(() => {
         if (downSince === null) return;
-        const { text, command } = serviceDown();
-        const timer = setTimeout(() => notify({ title: 'PR Reviewer: сервис не отвечает', body: `${text}\n${command}` }), Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
+        const timer = setTimeout(() => {
+            const { text, command } = serviceDown();
+            notify({ title: t('app.service.notResponding'), body: `${text}\n${command}` });
+        }, Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
         return () => clearTimeout(timer);
     }, [downSince]);
 
@@ -206,7 +215,7 @@ export const App = () => {
         const tray = trayModel(connection.phase === 'up' ? data : null, prefs, now);
         applyTrayIcon(tray.icon, tray.tooltip);
         applyTrayMenu(tray.menu);
-    }, [connection.phase, hasData, data, prefs, now]);
+    }, [connection.phase, hasData, data, prefs, now, lang]);
 
     // Меню по правому клику: Rust передаёт выбранный пункт
     useEffect(() => {
@@ -246,19 +255,24 @@ export const App = () => {
         review: (repo, pr, agent) => apiRef.current && runAction(() => apiRef.current!.POST('/reviews', { body: { repo, pr, agent } })),
         // Подтверждения — системный диалог с текстами из OverviewView.swift
         fix: async (repo: string, pr: PullRequest, rebase: boolean) => {
-            const conflicts = pr.conflicts === true ? ', будут конфликты — их разрешит Claude, а если вариант неочевиден, rebase отменится' : '';
+            const branches = { source: pr.source, destination: pr.destination };
             const confirmed = await confirm(
                 rebase
-                    ? `Ветка ${pr.source} отстала от ${pr.destination} на ${pr.behind ?? 0} коммит(ов)${conflicts}. После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.`
-                    : `Claude перенесёт ветку ${pr.source} на свежую ${pr.destination}, исправит открытые замечания (${threads(pr).open}), закоммитит, прогонит проверки и, если они прошли, сделает push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.`,
-                { title: rebase ? `Сделать rebase #${pr.id} на ${pr.destination}?` : `Доработать #${pr.id} по замечаниям?`, kind: 'info', okLabel: rebase ? 'Rebase' : 'Доработать', cancelLabel: 'Отмена' },
+                    ? t(pr.conflicts === true ? 'app.confirm.rebase.textConflicts' : 'app.confirm.rebase.text', { ...branches, count: pr.behind ?? 0 })
+                    : t('app.confirm.fix.text', { ...branches, open: threads(pr).open }),
+                {
+                    title: rebase ? t('app.confirm.rebase.title', { pr: pr.id, destination: pr.destination }) : t('app.confirm.fix.title', { pr: pr.id }),
+                    kind: 'info',
+                    okLabel: t(rebase ? 'app.confirm.rebase.ok' : 'app.confirm.fix.ok'),
+                    cancelLabel: t('common.action.cancel'),
+                },
             );
             if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/fixes/{repo}/{pr}', { params: { path: { repo, pr: pr.id } }, body: { rebase } }));
         },
         arch: async (repo: string, pr: PullRequest) => {
             const confirmed = await confirm(
-                `${archAgentName(dataRef.current.config)} оценит решение целиком: цель, альтернативы с ценой переделки, где можно проще, серьёзные риски. Это займёт до часа. Отчёт останется только здесь, в PR ничего не публикуется.`,
-                { title: `Архитектурное ревью #${pr.id}?`, kind: 'info', okLabel: 'Запустить', cancelLabel: 'Отмена' },
+                t('app.confirm.arch.text', { agent: archAgentName(dataRef.current.config) }),
+                { title: t('app.confirm.arch.title', { pr: pr.id }), kind: 'info', okLabel: t('app.confirm.arch.ok'), cancelLabel: t('common.action.cancel') },
             );
             if (confirmed && apiRef.current) runAction(() => apiRef.current!.POST('/arch/{repo}/{pr}', { params: { path: { repo, pr: pr.id } } }));
         },
@@ -289,7 +303,7 @@ export const App = () => {
     const banners = useMemo(() => {
         const list = hasData ? buildBanners(data, prefs, { syncError, memoryBroken }, now) : [];
         return offline ? [serviceDownBanner(serviceDown()), ...list] : list;
-    }, [hasData, data, prefs, syncError, memoryBroken, now, offline]);
+    }, [hasData, data, prefs, syncError, memoryBroken, now, offline, lang]);
 
     // Путь к CLI в WSL — из /health; до первого ответа сервиса — как ставит install.sh
     const cli = (healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer').replace(/^\/(?:home\/[^/]+|root)(?=\/)/, '~');
@@ -306,9 +320,9 @@ export const App = () => {
                 <main className="popover app">
                     <div className="tabs">
                         <div className="segmented" role="tablist">
-                            {TABS.map((item) => (
-                                <button key={item.id} className="segmented__item" role="tab" aria-selected={screen === item.id} onClick={() => setScreen(item.id)}>
-                                    {item.title}
+                            {TABS.map((id) => (
+                                <button key={id} className="segmented__item" role="tab" aria-selected={screen === id} onClick={() => setScreen(id)}>
+                                    {t(`common.tabs.${id}`)}
                                 </button>
                             ))}
                         </div>

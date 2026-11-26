@@ -6,7 +6,8 @@ import { errorText, type ApiClient } from '../api/client';
 import { Icon } from '../components/Icon';
 import { Markdown } from '../components/Markdown';
 import { Steps, stepDuration, type Step } from '../components/Steps';
-import { ago, parse, plural } from '../model/format';
+import { t } from '../i18n';
+import { ago, formatDate, parse } from '../model/format';
 import { middle } from '../model/middle';
 import type { Data } from '../model/types';
 import { fileName, isMedia, isVideo, thumbUrl, viewerQuery } from './media';
@@ -66,20 +67,28 @@ const isWindows = navigator.userAgent.includes('Windows');
 const ACTIVE = ['planning-queued', 'planning', 'run-queued', 'running'];
 const PATH_CHARS = 84;
 const STATUS_ORDER = ['failed', 'unconfirmed', 'blocked', 'passed', 'skipped'];
-const STATUS: Record<string, [string, string, string]> = {
-    passed: ['Прошёл', 'i-check-circle-fill', 'var(--green)'],
-    failed: ['Ошибка приложения', 'i-qa-failed', 'var(--red)'],
-    blocked: ['Не удалось проверить', 'i-qa-blocked', 'var(--orange)'],
-    skipped: ['Пропущен', 'i-minus-circle-fill', 'var(--gray)'],
-    unconfirmed: ['Не подтверждено', 'i-qa-unconfirmed', 'var(--yellow)'],
+type Status = 'passed' | 'failed' | 'blocked' | 'skipped' | 'unconfirmed';
+const STATUS: Record<Status, [string, string]> = {
+    passed: ['i-check-circle-fill', 'var(--green)'],
+    failed: ['i-qa-failed', 'var(--red)'],
+    blocked: ['i-qa-blocked', 'var(--orange)'],
+    skipped: ['i-minus-circle-fill', 'var(--gray)'],
+    unconfirmed: ['i-qa-unconfirmed', 'var(--yellow)'],
 };
-const status = (value: string | null | undefined) => STATUS[value ?? 'unconfirmed'] ?? STATUS.unconfirmed;
-const KIND: Record<string, string> = { bug: 'Исправление ошибки', feature: 'Новая функциональность', refactor: 'Переделка без изменения поведения' };
-const SOURCE: Record<string, [string, string]> = { user: ['ваш', 'tag--accent'], change: ['изменение', ''], regression: ['регрессия', ''] };
-const PRIORITY: Record<string, [string, string]> = { high: ['важный', 'tag--orange'], medium: ['средний', ''] };
-const level = (value: string | null | undefined) => ({ unit: 'юнит', component: 'компонентный' })[value ?? 'e2e'] ?? 'e2e';
-const PLAYWRIGHT: Record<string, string> = { passed: 'прошёл', failed: 'упал', timedOut: 'вышел по таймауту', skipped: 'пропущен' };
-const cases = (count: number) => `${count} ${plural(count, 'кейс', 'кейса', 'кейсов')}`;
+const statusKey = (value: string | null | undefined): Status => (value && value in STATUS ? (value as Status) : 'unconfirmed');
+const status = (value: string | null | undefined): [string, string, string] => {
+    const key = statusKey(value);
+    return [t(`qa.status.${key}`), ...STATUS[key]];
+};
+const kind = (value: string) => (value === 'bug' || value === 'feature' || value === 'refactor' ? t(`qa.kind.${value}`) : t('qa.kind.unknown'));
+const source = (value: string): [string, string] =>
+    value === 'user' ? [t('qa.source.user'), 'tag--accent'] : value === 'change' || value === 'regression' ? [t(`qa.source.${value}`), ''] : [value, ''];
+const priority = (value: string): [string, string] => (value === 'high' ? [t('qa.priority.high'), 'tag--orange'] : value === 'medium' ? [t('qa.priority.medium'), ''] : [t('qa.priority.low'), '']);
+const levelKey = (value: string | null | undefined) => (value === 'unit' || value === 'component' ? value : 'e2e');
+const level = (value: string | null | undefined) => t(`qa.level.${levelKey(value)}`);
+const playwright = (value: string) => (value === 'passed' || value === 'failed' || value === 'timedOut' || value === 'skipped' ? t(`qa.playwright.${value}`) : value);
+const cases = (count: number) => t('qa.cases', { count });
+const money = (value: number) => `$${value.toFixed(2)}`;
 const tone = (color: string) => ({ '--c': color }) as CSSProperties;
 const count = (run: Run, value: string) => run.cases.filter((item) => item.status === value).length;
 // Итог прогона одним цветом: ошибка приложения важнее неподтверждённых и заблокированных кейсов
@@ -88,7 +97,7 @@ const runColor = (run: Run) => (count(run, 'failed') > 0 ? 'var(--red)' : count(
 const sameCommit = (a: string | null | undefined, b: string) => !a || !b || a.startsWith(b) || b.startsWith(a);
 const exactDate = (iso: string | null | undefined) => {
     const date = parse(iso);
-    return date ? new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' }).format(date) : null;
+    return date ? formatDate(date, { dateStyle: 'medium', timeStyle: 'short' }) : null;
 };
 
 const Section = ({ title, footer, children }: { title: string; footer?: string | null; children: ReactNode }) => (
@@ -113,7 +122,7 @@ const Rows = ({ items, divider = 'row-divider row-divider--marker', style }: { i
 const Details = ({ rows }: { rows: [string, string | null | undefined][] }) => {
     const shown = rows.filter(([, value]) => value) as [string, string][];
     return (
-        <Section title="Подробности">
+        <Section title={t('qa.report.details')}>
             <Rows
                 divider="row-divider"
                 items={shown.map(([title, value]) => (
@@ -146,13 +155,13 @@ const ErrorBox = ({ text }: { text: string }) => (
 );
 
 const Tags = ({ item }: { item: Case }) => {
-    const [source, sourceClass] = SOURCE[item.source] ?? [item.source, ''];
-    const [priority, priorityClass] = PRIORITY[item.priority] ?? ['низкий', ''];
+    const [sourceTitle, sourceClass] = source(item.source);
+    const [priorityTitle, priorityClass] = priority(item.priority);
     return (
         <span className="tags">
             <span className="tag tag--indigo">{level(item.level)}</span>
-            <span className={`tag ${sourceClass}`}>{source}</span>
-            <span className={`tag ${priorityClass}`}>{priority}</span>
+            <span className={`tag ${sourceClass}`}>{sourceTitle}</span>
+            <span className={`tag ${priorityClass}`}>{priorityTitle}</span>
         </span>
     );
 };
@@ -180,7 +189,7 @@ const Thumb = ({ api, repo, pr, path, onOpen }: { api: ApiClient; repo: string; 
             {isVideo(path) ? (
                 <span className="thumb__video">
                     <Icon id="i-play-circle-fill" />
-                    Видео
+                    {t('qa.report.video')}
                 </span>
             ) : url ? (
                 <img src={url} alt={fileName(path)} />
@@ -228,7 +237,7 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
     const extraCases = extra.split('\n').map((line) => line.trim()).filter(Boolean);
     const selected = (plan?.cases ?? []).filter((item) => !skipped.has(item.id));
     // Как needsBrowser в qa.mjs: свой кейс человека может оказаться e2e
-    const needsBrowser = extraCases.length > 0 || selected.some((item) => level(item.level) === 'e2e');
+    const needsBrowser = extraCases.length > 0 || selected.some((item) => levelKey(item.level) === 'e2e');
     const onReport = tab === 'report' && hasReport;
 
     const act = async (request: () => Promise<{ error?: unknown }>) => {
@@ -242,9 +251,9 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
     const requestRun = async () => {
         const confirmed = await confirm(
             needsBrowser
-                ? `Займёт 30–60 минут и несколько долларов. Сервис соберёт образ бэкенда в Docker (первая сборка на коммит — ещё несколько минут), поднимет отдельное e2e-окружение и фронтенд из ветки PR, а Claude напишет и прогонит тесты: ${cases(selected.length + extraCases.length)}. ${isWindows ? 'Компьютер' : 'Mac'} будет заметно нагружен. В PR ничего не публикуется.`
-                : `e2e-кейсов нет, поэтому Docker и браузер не понадобятся: Claude напишет и прогонит юнит и компонентные тесты на Vitest — ${cases(selected.length)}. Это быстрее и дешевле прогона с e2e. В PR ничего не публикуется.`,
-            { title: `Запустить прогон #${pr.id}?`, kind: 'info', okLabel: 'Запустить', cancelLabel: 'Отмена' },
+                ? t('qa.confirm.browser', { cases: cases(selected.length + extraCases.length), load: t(isWindows ? 'qa.confirm.loadWindows' : 'qa.confirm.loadMac') })
+                : t('qa.confirm.unit', { cases: cases(selected.length) }),
+            { title: t('qa.confirm.title', { pr: pr.id }), kind: 'info', okLabel: t('qa.confirm.ok'), cancelLabel: t('common.action.cancel') },
         );
         if (confirmed) act(() => api.POST('/qa/{repo}/{pr}/run', { params: { path: { repo, pr: prId } }, body: { skip: [...skipped].sort(), add: extraCases, note } }));
     };
@@ -258,11 +267,11 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
     const copy = async () => {
         const { data: answer, error } = await api.GET('/qa/{repo}/{pr}/markdown', { params: { path: { repo, pr: prId }, query: { plan: !onReport } } });
         const text = (answer as { output?: string } | undefined)?.output;
-        if (error || !text) return setServiceError(error ? errorText(error) : 'Копировать нечего');
+        if (error || !text) return setServiceError(error ? errorText(error) : t('qa.sheet.nothingToCopy'));
         try {
             await navigator.clipboard.writeText(text);
         } catch (failure) {
-            return setServiceError(`Не удалось скопировать в буфер обмена: ${String(failure)}`);
+            return setServiceError(t('qa.sheet.copyFailed', { error: String(failure) }));
         }
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -276,14 +285,14 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
         <span className="report-status">
             <Icon id="i-clock" />
             <span className="report-status__text" style={{ color: 'var(--label-2)' }}>
-                {qa.state === 'run-queued' ? 'Прогон в очереди' : 'План в очереди'}
+                {qa.state === 'run-queued' ? t('qa.state.runQueued') : t('qa.state.planQueued')}
             </span>
         </span>
     ) : working ? (
         <span className="report-status" style={tone('var(--blue)')}>
             <Icon id="i-hourglass" className="icon hourglass" />
             <span className="report-status__text">
-                {(qa.state === 'planning' ? 'Составляется план' : (qa.step ?? 'Идёт прогон')) + elapsed}
+                {(qa.state === 'planning' ? t('qa.state.planning') : (qa.step ?? t('qa.state.running'))) + elapsed}
                 {/* Во время прогона действие видно в ходе прогона под текущим шагом */}
                 {qa.activity && (qa.state === 'planning' || !qa.steps?.length) && (
                     <span className="report-status__activity" title={qa.activity}>
@@ -296,29 +305,29 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
         <span className="report-status" style={tone('var(--accent)')}>
             <Icon id="i-check-circle-fill" />
             <span className="report-status__text" style={{ color: 'var(--label)' }}>
-                План готов: {cases(plan?.cases.length ?? 0)}. Снимите лишние и запустите прогон
+                {t('qa.state.planned', { cases: cases(plan?.cases.length ?? 0) })}
             </span>
         </span>
     ) : qa.state === 'done' && run ? (
         <span className="report-status" style={tone(runColor(run))}>
             <Icon id="i-seal-check-fill" />
             <span className="report-status__text" style={{ color: 'var(--label)' }}>
-                {count(run, 'failed') > 0 ? 'Прогон готов, найдены ошибки' : count(run, 'passed') === run.cases.length ? 'Прогон готов, все кейсы прошли' : 'Прогон готов'}
+                {count(run, 'failed') > 0 ? t('qa.state.doneWithErrors') : count(run, 'passed') === run.cases.length ? t('qa.state.donePassed') : t('qa.state.done')}
             </span>
         </span>
     ) : qa.state === 'plan-failed' || qa.state === 'failed' ? (
         <span className="report-status" style={tone('var(--orange)')}>
             <Icon id="i-warning-fill" />
-            <span className="report-status__text">{qa.state === 'plan-failed' ? 'План не удался' : 'Прогон не удался'}</span>
+            <span className="report-status__text">{qa.state === 'plan-failed' ? t('qa.state.planFailed') : t('qa.state.runFailed')}</span>
         </span>
     ) : null;
 
     const noteSection = (
-        <Section title="На что обратить внимание" footer="Ваши кейсы и пожелания — модель поставит их в плане первыми. План — несколько минут и около доллара. Ничего не публикуется.">
+        <Section title={t('qa.note.title')} footer={t('qa.note.footer')}>
             <div className="card-pad card-pad--end">
-                <textarea className="text-field text-field--multiline" placeholder="Например: проверь, что черновик не теряется при перезагрузке страницы" value={note} onChange={(event) => setNote(event.target.value)} />
+                <textarea className="text-field text-field--multiline" placeholder={t('qa.note.placeholder')} value={note} onChange={(event) => setNote(event.target.value)} />
                 <button className="button" disabled={active} onClick={requestPlan}>
-                    {plan ? 'Составить план заново' : 'Составить план'}
+                    {plan ? t('qa.note.remakePlan') : t('qa.note.makePlan')}
                 </button>
             </div>
         </Section>
@@ -330,21 +339,21 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
             {plan ? (
                 <>
                     {!sameCommit(qa?.planHead, pr.head) && !['planning-queued', 'planning'].includes(qa?.state ?? '') && (
-                        <Banner title="План устарел" text={`Он составлен на коммите ${qa?.planHead ?? ''}, а в PR уже ${pr.head}. Кейсы могли измениться — составьте план заново.`} />
+                        <Banner title={t('qa.plan.staleTitle')} text={t('qa.plan.staleText', { planHead: qa?.planHead ?? '', head: pr.head })} />
                     )}
-                    {!plan.testable && <Banner icon="i-eye-slash" title="Проверять нечего" text="Модель считает, что изменения PR нечем проверить ни тестом, ни в приложении. Прогон можно запустить на своих кейсах." />}
-                    <Section title={`Суть · ${KIND[plan.kind] ?? 'Другое'}`}>
+                    {!plan.testable && <Banner icon="i-eye-slash" title={t('qa.plan.untestableTitle')} text={t('qa.plan.untestableText')} />}
+                    <Section title={t('qa.plan.summary', { kind: kind(plan.kind) })}>
                         <div className="report-paragraph md">
                             <Markdown text={plan.summary} />
                         </div>
                     </Section>
-                    <Section title="Как должно работать">
+                    <Section title={t('qa.plan.expected')}>
                         <div className="report-paragraph md">
                             <Markdown text={plan.expected} />
                         </div>
                     </Section>
                     {plan.risks.length > 0 && (
-                        <Section title={`Опасные места · ${plan.risks.length}`}>
+                        <Section title={t('qa.plan.risks', { count: plan.risks.length })}>
                             <Rows
                                 items={plan.risks.map((risk, index) => (
                                     <div key={index} className="place md">
@@ -369,8 +378,8 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                             />
                         </Section>
                     )}
-                    <Section title={`Кейсы · ${selected.length} из ${plan.cases.length}`} footer={plan.cases.length ? 'Снятые кейсы не проверяются. Нажмите на кейс, чтобы увидеть данные и шаги.' : null}>
-                        {!plan.cases.length && <div className="section__empty">Кейсов нет</div>}
+                    <Section title={t('qa.plan.cases', { selected: selected.length, total: plan.cases.length })} footer={plan.cases.length ? t('qa.plan.casesFooter') : null}>
+                        {!plan.cases.length && <div className="section__empty">{t('qa.plan.noCases')}</div>}
                         <Rows
                             divider="row-divider"
                             style={{ '--divider-inset': '36px' } as CSSProperties}
@@ -403,15 +412,15 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                                             )}
                                             {open && (
                                                 <>
-                                                    {item.target && <Labeled title="Проверяемый файл" path={item.target} />}
+                                                    {item.target && <Labeled title={t('qa.plan.target')} path={item.target} />}
                                                     {item.preconditions && (
-                                                        <Labeled title="Данные">
+                                                        <Labeled title={t('qa.plan.preconditions')}>
                                                             <Markdown text={item.preconditions} />
                                                         </Labeled>
                                                     )}
                                                     {item.steps.length > 0 && (
                                                         <div className="labeled">
-                                                            <span className="labeled__title">Шаги</span>
+                                                            <span className="labeled__title">{t('qa.plan.steps')}</span>
                                                             <ol className="labeled__steps md selectable">
                                                                 {item.steps.map((step, index) => (
                                                                     <li key={index}>
@@ -422,7 +431,7 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                                                         </div>
                                                     )}
                                                     {item.expect && (
-                                                        <Labeled title="Ожидается">
+                                                        <Labeled title={t('qa.plan.expect')}>
                                                             <Markdown text={item.expect} />
                                                         </Labeled>
                                                     )}
@@ -434,13 +443,13 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                             })}
                         />
                     </Section>
-                    <Section title="Свои кейсы" footer="Каждая строка — отдельный кейс. Шаги и проверку модель распишет сама, такие кейсы идут первыми.">
+                    <Section title={t('qa.plan.extraTitle')} footer={t('qa.plan.extraFooter')}>
                         <div className="card-pad">
-                            <textarea className="text-field text-field--multiline" placeholder="Например: черновик открывается из меню «Анализы» после повторного входа" value={extra} onChange={(event) => setExtra(event.target.value)} />
+                            <textarea className="text-field text-field--multiline" placeholder={t('qa.plan.extraPlaceholder')} value={extra} onChange={(event) => setExtra(event.target.value)} />
                         </div>
                     </Section>
                     {plan.notTestable.length > 0 && (
-                        <Section title={`Не проверить · ${plan.notTestable.length}`}>
+                        <Section title={t('qa.plan.notTestable', { count: plan.notTestable.length })}>
                             <Rows
                                 items={plan.notTestable.map((item, index) => (
                                     <div key={index} className="place md">
@@ -462,15 +471,15 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                     )}
                     <Details
                         rows={[
-                            ['Коммит плана', qa?.planHead],
-                            ['Составлен', ['planning-queued', 'planning'].includes(qa?.state ?? '') ? null : exactDate(qa?.finishedAt)],
-                            ['Цена плана', qa?.usage?.costUsd != null ? `$${qa.usage.costUsd.toFixed(2)}` : null],
+                            [t('qa.plan.planHead'), qa?.planHead],
+                            [t('qa.plan.madeAt'), ['planning-queued', 'planning'].includes(qa?.state ?? '') ? null : exactDate(qa?.finishedAt)],
+                            [t('qa.plan.cost'), qa?.usage?.costUsd != null ? money(qa.usage.costUsd) : null],
                         ]}
                     />
                     {noteSection}
                 </>
             ) : ['planning-queued', 'planning'].includes(qa?.state ?? '') ? (
-                <span style={{ fontSize: 'var(--text-body)', color: 'var(--label-2)' }}>Claude читает дифф, описание, комментарии ревью и e2e-тесты репозитория. Обычно несколько минут.</span>
+                <span style={{ fontSize: 'var(--text-body)', color: 'var(--label-2)' }}>{t('qa.plan.planning')}</span>
             ) : (
                 noteSection
             )}
@@ -481,9 +490,9 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
         const repoName = (current.saved?.checkout ?? repo).split('/').pop();
         return (
             <>
-                {current.planHead && !sameCommit(current.planHead, current.head) && <Banner title="План и прогон на разных коммитах" text={`План составлен на ${current.planHead}, а прогон шёл на ${current.head}.`} />}
-                {!sameCommit(current.head, pr.head) && <Banner title="Отчёт устарел" text={`Прогон шёл на коммите ${current.head}, а в PR уже ${pr.head}.`} />}
-                <Section title="Итог">
+                {current.planHead && !sameCommit(current.planHead, current.head) && <Banner title={t('qa.report.commitsDifferTitle')} text={t('qa.report.commitsDifferText', { planHead: current.planHead, head: current.head })} />}
+                {!sameCommit(current.head, pr.head) && <Banner title={t('qa.report.staleTitle')} text={t('qa.report.staleText', { head: current.head, prHead: pr.head })} />}
+                <Section title={t('qa.report.summary')}>
                     <div className="card-pad">
                         {current.summary && (
                             <span className="md selectable">
@@ -491,24 +500,27 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                             </span>
                         )}
                         <div className="status-grid">
-                            {STATUS_ORDER.filter((value) => count(current, value) > 0).map((value) => (
-                                <span key={value} className="status-grid__item" style={tone(STATUS[value][2])}>
-                                    <Icon id={STATUS[value][1]} />
-                                    <span className="status-grid__count">{count(current, value)}</span>
-                                    <span className="status-grid__title">{STATUS[value][0]}</span>
-                                </span>
-                            ))}
+                            {STATUS_ORDER.filter((value) => count(current, value) > 0).map((value) => {
+                                const [title, icon, color] = status(value);
+                                return (
+                                    <span key={value} className="status-grid__item" style={tone(color)}>
+                                        <Icon id={icon} />
+                                        <span className="status-grid__count">{count(current, value)}</span>
+                                        <span className="status-grid__title">{title}</span>
+                                    </span>
+                                );
+                            })}
                         </div>
                     </div>
                 </Section>
                 {current.envNotes && (
-                    <Section title="Окружение">
+                    <Section title={t('qa.report.environment')}>
                         <div className="report-paragraph md">
                             <Markdown text={current.envNotes} />
                         </div>
                     </Section>
                 )}
-                <Section title={`Кейсы · ${current.cases.length}`}>
+                <Section title={t('qa.report.cases', { count: current.cases.length })}>
                     <Rows
                         divider="row-divider"
                         style={{ '--divider-inset': '36px' } as CSSProperties}
@@ -535,9 +547,9 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                                                 {title}
                                             </span>
                                         </div>
-                                        {test && <Labeled title="Тест" path={test} />}
+                                        {test && <Labeled title={t('qa.report.test')} path={test} />}
                                         {item.checked && (
-                                            <Labeled title="Проверено">
+                                            <Labeled title={t('qa.report.checked')}>
                                                 <Markdown text={item.checked} />
                                             </Labeled>
                                         )}
@@ -553,18 +565,21 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                                             </div>
                                         )}
                                         {item.notes && (
-                                            <Labeled title="Заметки">
+                                            <Labeled title={t('qa.report.notes')}>
                                                 <Markdown text={item.notes} />
                                             </Labeled>
                                         )}
                                         {item.status === 'unconfirmed' && (
                                             <span style={{ fontSize: 'var(--text-callout)', color: 'var(--label-2)' }}>
-                                                Модель сообщила «{item.claimed ? status(item.claimed)[0].toLowerCase() : 'нет ответа'}», а итоговый прогон Playwright — «{item.evidence?.status ? (PLAYWRIGHT[item.evidence.status] ?? item.evidence.status) : 'теста нет'}».
+                                                {t('qa.report.unconfirmed', {
+                                                    claimed: item.claimed ? status(item.claimed)[0].toLowerCase() : t('qa.report.noAnswer'),
+                                                    result: item.evidence?.status ? playwright(item.evidence.status) : t('qa.report.noTest'),
+                                                })}
                                             </span>
                                         )}
                                         {item.evidence?.errors.length ? (
                                             <div className="labeled">
-                                                <span className="labeled__title">Ошибки Playwright</span>
+                                                <span className="labeled__title">{t('qa.report.playwrightErrors')}</span>
                                                 <div className="code-box selectable">{item.evidence.errors.join('\n\n')}</div>
                                             </div>
                                         ) : null}
@@ -583,8 +598,8 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                 </Section>
                 {current.tests?.length ? (
                     <Section
-                        title={`Тесты · ${current.tests.length}`}
-                        footer={`Тесты сохраняются в локальную копию ${repo} по местам из стратегии тестирования, без коммита. Занятый файл не перезаписывается: тест ляжет рядом с суффиксом .pr${pr.id}. e2e-тесты написаны на authenticatedTest — для сценариев, меняющих данные, стратегия требует фикстуру test со сбросом БД.`}
+                        title={t('qa.tests.title', { count: current.tests.length })}
+                        footer={t('qa.tests.footer', { repo, pr: pr.id })}
                     >
                         <Rows
                             items={current.tests.map((test, index) => (
@@ -610,33 +625,34 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                                     <Icon id="i-check-circle-fill" className="icon lead-icon lead-icon--small" style={{ '--c': 'var(--green)' } as CSSProperties} />
                                     <span className="save-row__text">
                                         <span className="save-row__title">
-                                            Сохранены {ago(current.saved.at)} в {repoName}
-                                            {current.saved.branch ? ` · ветка ${current.saved.branch}` : ''}
+                                            {current.saved.branch
+                                                ? t('qa.tests.savedOnBranch', { ago: ago(current.saved.at), repo: repoName ?? '', branch: current.saved.branch })
+                                                : t('qa.tests.saved', { ago: ago(current.saved.at), repo: repoName ?? '' })}
                                         </span>
                                         {current.saved.files
                                             .filter((file) => file.path !== file.wanted)
                                             .map((file) => (
                                                 <span key={file.path} className="save-row__note">
-                                                    {file.wanted} уже был — сохранён как {file.path}
+                                                    {t('qa.tests.renamed', { wanted: file.wanted, path: file.path })}
                                                 </span>
                                             ))}
                                         {(current.saved.prBranch ?? current.branch) && current.saved.branch !== (current.saved.prBranch ?? current.branch) && (
-                                            <span className="save-row__warning">Копия на другой ветке, а PR — {current.saved.prBranch ?? current.branch}: тесты написаны под код PR и до переключения могут не пройти.</span>
+                                            <span className="save-row__warning">{t('qa.tests.otherBranch', { branch: current.saved.prBranch ?? current.branch ?? '' })}</span>
                                         )}
                                     </span>
                                 </>
                             ) : (
                                 <span className="save-row__text">
-                                    <span style={{ color: 'var(--label-2)' }}>Ещё не сохранены</span>
+                                    <span style={{ color: 'var(--label-2)' }}>{t('qa.tests.notSaved')}</span>
                                 </span>
                             )}
                             {saving && <Icon id="i-spinner" />}
                             <button className="button" disabled={saving || active} onClick={save}>
-                                {current.saved ? 'Сохранить снова' : `Сохранить в ${repo}`}
+                                {current.saved ? t('qa.tests.saveAgain') : t('qa.tests.save', { repo })}
                             </button>
                             {current.saved && (
                                 <button className="button" onClick={() => invoke('reveal_path', { path: `${current.saved!.checkout}/${current.saved!.files[0]?.path ?? ''}` }).catch(() => {})}>
-                                    Показать
+                                    {t('qa.tests.reveal')}
                                 </button>
                             )}
                         </div>
@@ -644,11 +660,11 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                 ) : null}
                 <Details
                     rows={[
-                        ['Фронтенд', current.head],
-                        ['Бэкенд', current.backend ? `${current.backend.ref.replace('origin/', '')} · ${current.backend.commit}` : null],
-                        ['Снят', exactDate(qa?.finishedAt)],
-                        ['Цена и время', [current.usage?.costUsd != null ? `$${current.usage.costUsd.toFixed(2)}` : null, current.durationSec != null ? stepDuration(current.durationSec) : null].filter(Boolean).join(' · ')],
-                        ['Папка прогона', current.runDir],
+                        [t('qa.report.frontend'), current.head],
+                        [t('qa.report.backend'), current.backend ? `${current.backend.ref.replace('origin/', '')} · ${current.backend.commit}` : null],
+                        [t('qa.report.finishedAt'), exactDate(qa?.finishedAt)],
+                        [t('qa.report.costAndTime'), [current.usage?.costUsd != null ? money(current.usage.costUsd) : null, current.durationSec != null ? stepDuration(current.durationSec) : null].filter(Boolean).join(' · ')],
+                        [t('qa.report.runDir'), current.runDir],
                     ]}
                 />
             </>
@@ -657,38 +673,38 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
 
     const reportTab = qa && (
         <>
-            {qa.steps?.length && (qa.state === 'running' || qa.state === 'failed') ? <Steps title="Ход прогона" steps={qa.steps} active={qa.state === 'running'} failed={qa.state === 'failed'} finishedAt={qa.finishedAt} activity={qa.activity} /> : null}
+            {qa.steps?.length && (qa.state === 'running' || qa.state === 'failed') ? <Steps title={t('qa.report.progress')} steps={qa.steps} active={qa.state === 'running'} failed={qa.state === 'failed'} finishedAt={qa.finishedAt} activity={qa.activity} /> : null}
             {qa.state === 'failed' && qa.error && <ErrorBox text={qa.error} />}
             {run ? (
                 <>
-                    {qa.state !== 'done' && <span className="sheet__note">Ниже — отчёт прошлого прогона</span>}
+                    {qa.state !== 'done' && <span className="sheet__note">{t('qa.report.previous')}</span>}
                     {report(run)}
                 </>
             ) : (
-                qa.state === 'run-queued' && <span style={{ fontSize: 'var(--text-body)', color: 'var(--label-2)' }}>Прогон начнётся, когда освободится очередь тестирования.</span>
+                qa.state === 'run-queued' && <span style={{ fontSize: 'var(--text-body)', color: 'var(--label-2)' }}>{t('qa.report.runQueued')}</span>
             )}
         </>
     );
 
     return (
         <div className="sheet-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()} onKeyDown={(event) => event.key === 'Escape' && onClose()}>
-            <div className="sheet sheet--large sheet--tall" role="dialog" aria-label={`Тестирование #${pr.id}`}>
+            <div className="sheet sheet--large sheet--tall" role="dialog" aria-label={t('qa.sheet.title', { pr: pr.id })}>
                 <div className="sheet__head">
                     <div className="sheet__titles">
-                        <div className="sheet__title">Тестирование #{pr.id}</div>
+                        <div className="sheet__title">{t('qa.sheet.title', { pr: pr.id })}</div>
                         <div className="sheet__subtitle sheet__subtitle--line">{pr.title}</div>
                     </div>
                     {hasReport && plan && (
                         <div className="segmented">
                             <button className="segmented__item" aria-selected={tab === 'plan'} onClick={() => setTab('plan')}>
-                                План
+                                {t('qa.sheet.plan')}
                             </button>
                             <button className="segmented__item" aria-selected={tab === 'report'} onClick={() => setTab('report')}>
-                                Отчёт
+                                {t('qa.sheet.report')}
                             </button>
                         </div>
                     )}
-                    <button className="round-button round-button--close" title="Закрыть" onClick={onClose}>
+                    <button className="round-button round-button--close" title={t('common.action.close')} onClick={onClose}>
                         <Icon id="i-close" />
                     </button>
                 </div>
@@ -697,34 +713,34 @@ export const QaSheet = ({ api, data, repo, prId, onClose }: { api: ApiClient; da
                 <div className="sheet__body">{onReport ? reportTab : planTab}</div>
                 <div className="sheet__footer">
                     <button className="button" onClick={() => openUrl(pr.url).catch(() => {})}>
-                        Открыть PR
+                        {t('qa.sheet.openPr')}
                     </button>
                     <button className="button" disabled={onReport ? !run : !plan} onClick={copy}>
-                        {copied ? 'Скопировано' : onReport ? 'Скопировать отчёт' : 'Скопировать план'}
+                        {copied ? t('qa.sheet.copied') : onReport ? t('qa.sheet.copyReport') : t('qa.sheet.copyPlan')}
                     </button>
                     {onReport && run && (
                         <button className="button" onClick={() => invoke('open_path', { path: run.runDir }).catch(() => {})}>
-                            Открыть папку прогона
+                            {t('qa.sheet.openRunDir')}
                         </button>
                     )}
                     <span className="spacer" />
                     {active ? (
                         <button className="button button--destructive" onClick={() => act(() => api.POST('/qa/{repo}/{pr}/stop', { params: { path: { repo, pr: prId } } }))}>
-                            Прервать
+                            {t('qa.sheet.stop')}
                         </button>
                     ) : onReport ? (
                         <button className="button" disabled={!plan} onClick={() => setTab('plan')}>
-                            Новый прогон…
+                            {t('qa.sheet.newRun')}
                         </button>
                     ) : (
                         plan && (
                             <button
                                 className="button button--prominent"
                                 disabled={!selected.length && !extraCases.length}
-                                title={needsBrowser ? '30–60 минут и несколько долларов: сборка бэкенда в Docker, отдельное e2e-окружение, тесты по выбранным кейсам' : 'Юнит и компонентные тесты на Vitest, без Docker и браузера'}
+                                title={needsBrowser ? t('qa.sheet.startRunBrowserHint') : t('qa.sheet.startRunUnitHint')}
                                 onClick={requestRun}
                             >
-                                Запустить прогон…
+                                {t('qa.sheet.startRun')}
                             </button>
                         )
                     )}

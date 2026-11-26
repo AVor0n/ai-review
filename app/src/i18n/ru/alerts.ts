@@ -1,0 +1,35 @@
+// Системные уведомления и их настройки
+export const alerts = {
+    findings: '{levels} в {repo} #{pr} · {agent}',
+    comments: {
+        one: '{count} комментарий в {repo} #{pr}',
+        few: '{count} комментария в {repo} #{pr}',
+        many: '{count} комментариев в {repo} #{pr}',
+        other: '{count} комментария в {repo} #{pr}',
+    },
+    comment: 'Комментарий в {repo} #{pr}',
+    reply: 'Ответ в {repo} #{pr}',
+    newPr: 'Новый PR {repo} #{pr}',
+    newCommits: 'Новые коммиты в {repo} #{pr}',
+    closed: { title: 'PR {repo} #{pr} закрыт', body: 'Влит или отклонён' },
+    fix: { done: 'Доработка {repo} #{pr}', failed: 'Доработка {repo} #{pr} не удалась', counts: 'Исправлено {fixed}, не исправлено {skipped}' },
+    rebase: { done: 'Rebase {repo} #{pr}', failed: 'Rebase {repo} #{pr} не удался' },
+    runError: 'PR Reviewer: проход завершился с ошибкой',
+    stall: { title: 'Проход ревью завис', body: 'Сервис не отвечает {duration} — похоже, завис git или сеть. Прервать проход можно в «Обзоре».' },
+    review: { title: '{agent} закончил ревью {repo} #{pr}', findings: 'Замечания: {levels}', clean: 'Замечаний нет' },
+    settings: {
+        kinds: {
+            findings: { title: 'Замечания моделей', detail: 'Новые замечания в PR' },
+            comments: { title: 'Комментарии людей', detail: 'Новые треды и ответы команды, кроме ваших' },
+            reviews: { title: 'Ревью завершено', detail: 'Модель прошла PR: сколько замечаний или «чисто»' },
+            updates: { title: 'Обновление PR', detail: 'Новые коммиты, новые и закрытые PR' },
+            fixes: { title: 'Доработка и rebase', detail: 'Итог: запушено, конфликты, упали проверки' },
+            errors: { title: 'Ошибки сервиса', detail: 'Первая ошибка подряд и зависший проход' },
+        },
+        levelAll: 'Все',
+        repoInherit: 'Как для всех',
+        repoOwn: 'Свои · {count} из {total}',
+        muted: 'Выключены',
+        mutedUntil: 'Выключены до {time}',
+    },
+};

@@ -1,5 +1,6 @@
 import { Fragment, useState, type CSSProperties } from 'react';
 import { Icon } from '../components/Icon';
+import { t } from '../i18n';
 import { MUTE_PERIODS } from '../model/prefs';
 import { KINDS, LEVELS, REPO_KINDS, muteSummary, repoSummary, rulesFor, toggleKind, type NotificationRules, type NotificationSettings } from '../model/notifications';
 import { CloseButton, NavRow, SheetFrame, Switch, popupMenu } from './controls';
@@ -52,7 +53,7 @@ export const NotificationsSheet = ({
                     <>
                         <div className="row-divider row-divider--tile-small" />
                         <div className="settings-row" style={{ paddingLeft: 50 }}>
-                            <span className="settings-row__title">Уровень</span>
+                            <span className="settings-row__title">{t('settings.notifications.level')}</span>
                             <div className="segmented" style={{ '--segment-width': '70px' } as CSSProperties}>
                                 {LEVELS.map((level) => (
                                     <button key={level.id} className="segmented__item" aria-selected={rules.level === level.id} disabled={disabled} onClick={() => update({ ...rules, level: level.id })}>
@@ -76,45 +77,45 @@ export const NotificationsSheet = ({
                         <div className="settings-row">
                             <Icon id="i-bell-slash-fill" style={{ color: 'var(--orange)' }} />
                             <span className="settings-row__title" style={{ color: 'var(--orange)' }}>
-                                {platform === 'win' ? 'Windows запретила уведомления PR Reviewer' : 'macOS запретила уведомления PR Reviewer'}
+                                {t(`settings.notifications.denied.${platform}`)}
                             </span>
                             <button className="button" onClick={onOpenSystem}>
-                                {platform === 'win' ? 'Открыть параметры уведомлений' : 'Открыть системные настройки'}
+                                {t(`settings.notifications.openSystem.${platform}`)}
                             </button>
                         </div>
                     </div>
-                    <div className="section__footer">Пока уведомления запрещены, настройки ниже ни на что не влияют.</div>
+                    <div className="section__footer">{t('settings.notifications.deniedFooter')}</div>
                 </div>
             )}
             <div className="section">
                 <div className="section__card">
                     <div className="settings-row">
-                        <span className="settings-row__title">Не беспокоить</span>
+                        <span className="settings-row__title">{t('settings.notifications.mute')}</span>
                         {muted ? (
                             <>
                                 <span className="settings-row__value" style={{ color: 'var(--orange)' }}>
                                     {muteSummary(mutedUntil)}
                                 </span>
                                 <button className="button" onClick={onUnmute}>
-                                    Включить
+                                    {t('settings.notifications.unmute')}
                                 </button>
                             </>
                         ) : (
                             <button className="button" onClick={() => popupMenu(MUTE_PERIODS.map((period) => ({ text: period.title, action: () => onMute(period.hours) })))}>
-                                Выключить…
+                                {t('settings.notifications.muteMenu')}
                             </button>
                         )}
                     </div>
                 </div>
-                <div className="section__footer">События, пропущенные за это время, не придут и после включения. Выключить можно и из меню по правому клику на иконку.</div>
+                <div className="section__footer">{t('settings.notifications.muteFooter')}</div>
             </div>
             <div className="section">
-                <div className="section__header">Для всех репозиториев</div>
+                <div className="section__header">{t('settings.notifications.allHeader')}</div>
                 <div className="section__card">{kindRows(KINDS, settings.all, (all) => onChange({ ...settings, all }))}</div>
-                <div className="section__footer">Нажатие на уведомление открывает PR или тред.</div>
+                <div className="section__footer">{t('settings.notifications.allFooter')}</div>
             </div>
             <div className="section">
-                <div className="section__header">Репозитории</div>
+                <div className="section__header">{t('settings.notifications.reposHeader')}</div>
                 <div className="section__card">
                     {repos.map((slug, index) => (
                         <Fragment key={slug}>
@@ -123,7 +124,7 @@ export const NotificationsSheet = ({
                         </Fragment>
                     ))}
                 </div>
-                <div className="section__footer">Репозиторий может следовать общим настройкам или иметь свои.</div>
+                <div className="section__footer">{t('settings.notifications.reposFooter')}</div>
             </div>
         </>
     );
@@ -133,7 +134,7 @@ export const NotificationsSheet = ({
             <div className="section">
                 <div className="section__card">
                     <div className="settings-row">
-                        <span className="settings-row__title">Как для всех репозиториев</span>
+                        <span className="settings-row__title">{t('settings.notifications.sameAsAll')}</span>
                         {/* Свои правила начинаются с копии общих: выключение переключателя ничего сразу не меняет */}
                         <Switch
                             checked={!own}
@@ -146,28 +147,28 @@ export const NotificationsSheet = ({
                         />
                     </div>
                 </div>
-                <div className="section__footer">{own ? 'Общие настройки на этот репозиторий не действуют.' : 'Сейчас действуют общие настройки. Выключите, чтобы задать свои.'}</div>
+                <div className="section__footer">{own ? t('settings.notifications.ownFooter') : t('settings.notifications.sharedFooter')}</div>
             </div>
             <div className="section">
-                <div className="section__header">События</div>
+                <div className="section__header">{t('settings.notifications.events')}</div>
                 <div className="section__card" style={own ? undefined : { opacity: 0.45 }}>
                     {kindRows(REPO_KINDS, rulesFor(settings, repo), (rules) => onChange({ ...settings, repos: { ...settings.repos, [repo]: rules } }), !own)}
                 </div>
-                <div className="section__footer">Ошибки сервиса не относятся к репозиторию и настраиваются только для всех.</div>
+                <div className="section__footer">{t('settings.notifications.eventsFooter')}</div>
             </div>
         </>
     );
 
     return (
-        <SheetFrame width={560} label={repo ?? 'Уведомления'} onClose={onClose}>
+        <SheetFrame width={560} label={repo ?? t('settings.notifications.title')} onClose={onClose}>
             <div className="sheet__head sheet__head--center">
                 {repo && (
                     <button className="sheet__back" onClick={() => setRepo(null)}>
                         <Icon id="i-chevron-left" />
-                        Уведомления
+                        {t('settings.notifications.title')}
                     </button>
                 )}
-                <span className="sheet__title">{repo ?? 'Уведомления'}</span>
+                <span className="sheet__title">{repo ?? t('settings.notifications.title')}</span>
                 <CloseButton onClose={onClose} />
             </div>
             <div className="sheet__body" style={{ '--sheet-body': '440px' } as CSSProperties}>

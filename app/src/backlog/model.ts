@@ -1,4 +1,5 @@
-import { ago, parse } from '../model/format';
+import { t } from '../i18n';
+import { ago, formatDate, parse } from '../model/format';
 import type { Config } from '../model/types';
 
 // Записи бэклога, задача разбора и сбор из истории — как BacklogItem, BacklogJob, BacklogScan в menubar/Model.swift
@@ -27,21 +28,19 @@ export type BacklogScan = { repos: Record<string, { at?: string | null; found?: 
 
 const LEVELS = ['P0', 'P1', 'P2', 'P3'];
 const STALE = ['fixed', 'gone', 'invalid'];
-const TRIAGE_TITLES: Record<string, string> = { actual: 'актуально', fixed: 'решено', gone: 'удалено', invalid: 'не баг' };
 const TRIAGE_ICONS: Record<string, string> = { fixed: 'i-check-circle', gone: 'i-trash', invalid: 'i-x-circle', actual: 'i-warning-circle' };
-const LIKELIHOOD: Record<string, string> = { rare: 'редкий случай', race: 'гонка или сбой' };
-const SOURCE_KINDS: Record<string, string> = { history: 'из незакрытого треда влитого PR', reply: 'признала старой проблемой замечание в треде', deferred: 'автор PR отложил замечание' };
 
 export const isOpen = (item: BacklogItem) => item.status === 'open';
 export const isStaleVerdict = (triage: BacklogTriage) => STALE.includes(triage.verdict);
 export const isStale = (item: BacklogItem) => isOpen(item) && !!item.triage && isStaleVerdict(item.triage);
-export const triageTitle = (triage: BacklogTriage) => TRIAGE_TITLES[triage.verdict] ?? 'неясно';
+export const triageTitle = ({ verdict }: BacklogTriage) =>
+    t(verdict === 'actual' || verdict === 'fixed' || verdict === 'gone' || verdict === 'invalid' ? `backlog.triage.verdict.${verdict}` : 'backlog.triage.verdict.unknown');
 export const triageIcon = (triage: BacklogTriage) => TRIAGE_ICONS[triage.verdict] ?? 'i-question';
-export const likelihoodTitle = (item: BacklogItem) => (item.likelihood ? (LIKELIHOOD[item.likelihood] ?? null) : null);
-export const jobTitle = (job: BacklogJob) => (job.kind === 'learn' ? 'Сбор из истории PR' : 'Разбор по коду');
-export const sourceKind = (source: BacklogSource) => (source.kind ? SOURCE_KINDS[source.kind] : undefined) ?? 'нашла при ревью';
+export const likelihoodTitle = ({ likelihood }: BacklogItem) => (likelihood === 'rare' || likelihood === 'race' ? t(`backlog.likelihood.${likelihood}`) : null);
+export const jobTitle = (job: BacklogJob) => t(job.kind === 'learn' ? 'backlog.job.learn' : 'backlog.job.triage');
+export const sourceKind = ({ kind }: BacklogSource) => t(kind === 'history' || kind === 'reply' || kind === 'deferred' ? `backlog.source.${kind}` : 'backlog.source.review');
 export const location = (item: BacklogItem) => (item.path ? (item.line != null ? `${item.path}:${item.line}` : item.path) : null);
-export const closeReason = (triage: BacklogTriage) => `Неактуально (${triageTitle(triage)}): ${triage.reason}`;
+export const closeReason = (triage: BacklogTriage) => t('backlog.triage.closeReason', { verdict: triageTitle(triage), reason: triage.reason });
 
 // PR, где запись всплывала, без повторов
 export const prSources = (item: BacklogItem) => item.sources.filter((source, index) => item.sources.findIndex((other) => other.pr === source.pr) === index);
@@ -71,19 +70,18 @@ export const fileUrl = (item: BacklogItem, config: Config) => {
     return `https://bitbucket.org/${repo.workspace}/${repo.slug}/src/${commit}/${path}${item.line != null ? `#lines-${item.line}` : ''}`;
 };
 
-const scanDate = new Intl.DateTimeFormat('ru', { dateStyle: 'medium', timeStyle: 'short' });
-
 // Без хвоста про повторный запуск — правка пользователя в макете
 export const lastScan = (scan: BacklogScan | null | undefined) => {
     const repos = Object.values(scan?.repos ?? {}).filter((repo) => parse(repo.at));
     if (!repos.length) return null;
     const at = new Date(Math.max(...repos.map((repo) => parse(repo.at)!.getTime())));
     const found = repos.reduce((sum, repo) => sum + (repo.found ?? 0), 0);
-    return `Последний разбор истории — ${scanDate.format(at)}, ${found === 0 ? 'ничего не найдено' : `найдено ${found}`}`;
+    const date = formatDate(at, { dateStyle: 'medium', timeStyle: 'short' });
+    return found === 0 ? t('backlog.lastScan.none', { date }) : t('backlog.lastScan.found', { date, count: found });
 };
 
 export const triageHeading = (triage: BacklogTriage, now = new Date()) => {
     const title = triageTitle(triage);
     const commit = triage.commit ? ` · ${triage.branch ?? ''} ${triage.commit.slice(0, 7)}` : '';
-    return `${title[0].toUpperCase()}${title.slice(1)} · разбор по коду · ${ago(triage.at, now)}${commit}`;
+    return t('backlog.triage.heading', { verdict: `${title[0].toUpperCase()}${title.slice(1)}`, ago: ago(triage.at, now), commit });
 };

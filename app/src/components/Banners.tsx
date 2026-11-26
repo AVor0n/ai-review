@@ -1,5 +1,6 @@
 import { moreMessages, type Banner, type BannerAction } from '../model/banners';
 import { Icon, InlineCode } from './Icon';
+import { t } from '../i18n';
 
 // Свёрнутым виден только первый баннер, остальные — под строкой «Ещё N сообщений»
 export const Banners = ({
@@ -47,7 +48,7 @@ export const Banners = ({
             ))}
             {items.length > 1 && (
                 <button className="banner-more" onClick={onToggle}>
-                    {expanded ? 'Свернуть' : moreMessages(items.length - 1)}
+                    {expanded ? t('overview.banners.collapse') : moreMessages(items.length - 1)}
                     <Icon id={expanded ? 'i-chevron-up' : 'i-chevron-down'} />
                 </button>
             )}

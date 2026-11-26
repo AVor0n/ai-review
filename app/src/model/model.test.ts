@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { banners, moreMessages } from './banners';
 import { availability, canTest, headline, isTaskBranch, qaConfigured, reviewState, tokens, unreviewedPrs, workerStall } from './derive';
-import { ago, plural, resetShort, shortRepoName } from './format';
+import { ago, resetShort, shortRepoName } from './format';
 import { defaultPrefs, muteUntil } from './prefs';
 import { capsules, fixAction, modelHint, sortedPrs, threadsCounter } from './row';
 import { trayModel, type MenuEntry } from './tray';
 import { emptyData, type Data, type PullRequest, type Status } from './types';
+import { setLang } from '../i18n';
 
 const NOW = new Date(2026, 10, 26, 14, 0);
 const texts = (menu: MenuEntry[]) => menu.flatMap((entry) => (entry.kind === 'separator' ? [] : [entry.text]));
@@ -68,7 +69,7 @@ describe('даты и числа', () => {
         expect(moreMessages(1)).toBe('Ещё 1 сообщение');
         expect(moreMessages(2)).toBe('Ещё 2 сообщения');
         expect(moreMessages(11)).toBe('Ещё 11 сообщений');
-        expect(plural(22, 'кейс', 'кейса', 'кейсов')).toBe('кейса');
+        expect(moreMessages(22)).toBe('Ещё 22 сообщения');
     });
 });
 
@@ -189,6 +190,33 @@ describe('трей', () => {
         const items = texts(trayModel(data(), prefs, NOW).menu);
         expect(items).toContain('Уведомления: выключены до 16:00');
         expect(items).toContain('Выключить на другое время');
+    });
+});
+
+describe('английский', () => {
+    it('меню трея, подсказки строки PR и шапка', () => {
+        setLang('en');
+        try {
+            const prefs = { ...defaultPrefs(), mutedUntil: muteUntil(2, NOW) };
+            expect(texts(trayModel(data(), prefs, NOW).menu)).toEqual([
+                'Next pass in 12 min',
+                'Check now',
+                'Turn off background review',
+                'Notifications: muted until 16:00',
+                'Unmute notifications',
+                'Mute for a different time',
+                'Quit PR Reviewer',
+            ]);
+            expect(trayModel(data(), defaultPrefs(), NOW).tooltip).toBe('PR Reviewer: idle\nPRs not reviewed on the current commit: 1');
+            expect(modelHint('Cursor', 'done', { kind: 'manual' }, null)).toBe('Cursor: up to date. Click to check again. This model doesn’t run in the background');
+            expect(fixAction(data(), 'frontend', pr({ behind: 1 })).hint).toBe('1 commit behind target: rebase, checks and push');
+            expect(fixAction(data(), 'frontend', pr({ behind: 3 })).hint).toBe('3 commits behind target: rebase, checks and push');
+            expect(threadsCounter(data(), 'frontend', pr({ draft: true }), NOW).hint).toBe('Draft: background review skips drafts. Click a model icon to run it');
+            expect(headline(data(), NOW)).toBe('Idle · next check in 12 min');
+            expect(moreMessages(2)).toBe('2 more messages');
+        } finally {
+            setLang('ru');
+        }
     });
 });
 

@@ -1,4 +1,5 @@
 import createClient, { type Middleware } from 'openapi-fetch';
+import { t } from '../i18n';
 import type { components, paths } from './schema';
 
 // Клиент и типы — из schema/api.openapi.json (npm run gen:api). Руками маршруты и ответы не описываем
@@ -21,5 +22,5 @@ export const createApi = (token: string, port = DEFAULT_PORT) => {
 };
 
 // Ошибка API — понятный текст по-русски в поле error
-export const errorText = (error: unknown, fallback = 'Сервис не ответил') =>
+export const errorText = (error: unknown, fallback = t('app.service.noAnswer')) =>
     error && typeof error === 'object' && 'error' in error && typeof error.error === 'string' ? error.error : fallback;
