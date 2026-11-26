@@ -1678,9 +1678,21 @@
   color: var(--label-2);
 }
 
+/* Длинный источник (несколько авторов) переносится, а время уходит на следующую строку целиком, а не столбиком */
+.lesson__meta {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
 .lesson__meta .link-button {
   font-size: inherit;
   font-weight: var(--weight-regular);
+  white-space: normal;
+  text-align: start;
+}
+
+.lesson__meta > span:last-child {
+  white-space: nowrap;
 }
 
 .lesson__usage--idle {
