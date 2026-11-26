@@ -887,3 +887,502 @@
 .command .icon-button {
   font-size: 13px;
 }
+
+/* ---------- Статистика (StatsView, StatsComponents) ---------- */
+/* Цвет точки, полосы или серии задаётся переменной --c на элементе: style="--c: var(--level-p0)" */
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.stats-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding-top: var(--space-6);
+  font-size: var(--text-title2);
+  font-weight: var(--weight-bold);
+}
+
+/* Сегменты в заголовке карточки: заголовок капслоком, сегменты обычным регистром */
+.section__header .segmented {
+  margin-left: auto;
+  text-transform: none;
+  font-weight: var(--weight-regular);
+  color: var(--label);
+}
+
+.segmented--dimension .segmented__item {
+  width: 90px;
+}
+
+.section__header-note {
+  margin-left: auto;
+  text-transform: none;
+}
+
+.cards-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: var(--space-10);
+}
+
+.dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  background: var(--c, var(--gray));
+  border-radius: 50%;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-14);
+  font-size: var(--text-subhead);
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--label-2);
+}
+
+.legend__count {
+  font-variant-numeric: tabular-nums;
+  color: var(--label);
+}
+
+.legend--card {
+  padding: 0 var(--space-12) var(--space-10);
+}
+
+/* Строка с долей от целого (ShareRow) */
+.share-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 9px var(--space-12);
+}
+
+.share-row__label {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  width: 250px;
+  min-width: 0;
+}
+
+.share-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.share-row__title {
+  overflow: hidden;
+  font-size: var(--text-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.share-row__detail {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.bar {
+  flex: 1;
+  height: 8px;
+  overflow: hidden;
+  background: var(--track);
+  border-radius: var(--radius-capsule);
+}
+
+/* Ширина заливки — style="--share: 42%"; у нулевой доли заливки нет совсем, у остальных не меньше 4 px */
+.bar__fill {
+  width: var(--share, 0%);
+  min-width: 4px;
+  height: 100%;
+  background: var(--c, var(--gray));
+  border-radius: var(--radius-capsule);
+}
+
+.share-row__value {
+  flex: none;
+  width: 90px;
+  font-size: var(--text-callout);
+  font-variant-numeric: tabular-nums;
+  color: var(--label-2);
+  text-align: right;
+}
+
+/* Судьба замечаний (FateRow): сложенная полоса без обводок, между частями 2 px фона */
+.fate-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-10) var(--space-12);
+}
+
+.fate-row__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.fate-row__head .model-mark {
+  --model-mark: 12px;
+}
+
+.fate-row__name {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.fate-row__note {
+  margin-left: auto;
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.fate-row__total {
+  font-size: var(--text-callout);
+  color: var(--label-2);
+}
+
+.stack {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: var(--radius-capsule);
+}
+
+/* Доля части — style="--part: 37"; flex-grow делит ширину за вычетом зазоров */
+.stack__part {
+  flex: var(--part) 1 0;
+  min-width: 3px;
+  background: var(--c);
+}
+
+/* Замечаний на 1000 строк (DensityRow) */
+.density-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-8) var(--space-12);
+}
+
+.density-row--low {
+  opacity: 0.5;
+}
+
+.density-row__label {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 210px;
+}
+
+.density-row__name {
+  overflow: hidden;
+  font-size: var(--text-body);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.density-row__meta {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+/* Отрезки уровней: ширина — доля от самой плотной строки, style="--w: 18%" */
+.density-row__bars {
+  position: relative;
+  display: flex;
+  flex: 1;
+  gap: 2px;
+  height: 12px;
+}
+
+.density-row__bar {
+  position: relative;
+  flex: none;
+  width: var(--w);
+  min-width: 3px;
+  background: var(--c);
+  border-radius: 2px;
+}
+
+.density-row__bars--hover .density-row__bar:not(.is-hover) {
+  opacity: 0.4;
+}
+
+.density-row__value {
+  flex: none;
+  width: 40px;
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Строка «подпись — значение» в маленьких карточках режимов (StatLine) */
+.stat-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px var(--space-12);
+  font-size: var(--text-body);
+}
+
+.stat-line__title {
+  flex: 1;
+}
+
+.stat-line--colored .stat-line__title {
+  color: var(--label-2);
+}
+
+.stat-line__value {
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-line--colored .stat-line__value {
+  font-weight: var(--weight-regular);
+}
+
+.card-note {
+  padding: 0 var(--space-12) var(--space-8);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+/* Сравнение моделей: колонка модели 150 px */
+.compare__head,
+.compare__row {
+  display: flex;
+  align-items: baseline;
+  padding: var(--space-8) var(--space-12);
+}
+
+.compare__head {
+  align-items: center;
+  padding-block: 9px;
+}
+
+.compare__title {
+  flex: 1;
+  font-size: var(--text-body);
+}
+
+.compare__col {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-2);
+  width: 150px;
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare__head .compare__col {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-6);
+  font-weight: var(--weight-semibold);
+}
+
+.compare__head .model-mark {
+  --model-mark: 12px;
+}
+
+.compare__group {
+  padding: var(--space-10) var(--space-12) var(--space-4);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  color: var(--label-2);
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+}
+
+.compare__levels {
+  display: flex;
+  gap: var(--space-6);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+}
+
+.compare__levels span {
+  color: var(--c);
+}
+
+/* Графики: столбцы по дням и по неделям. Рисует SVG приложения, цвета и подписи — отсюда */
+.chart {
+  position: relative;
+  padding: var(--space-12);
+}
+
+.chart--weeks {
+  padding-top: calc(var(--space-12) + var(--space-8));
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.chart__grid {
+  stroke: var(--separator);
+  stroke-width: 0.5;
+}
+
+/* Вертикальные линии дат — пунктиром до подписи, как в Swift Charts */
+.chart__grid--x {
+  stroke-dasharray: 2 2;
+}
+
+.chart__axis-label {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  fill: var(--label-2);
+}
+
+.chart__bar {
+  fill: var(--c);
+  transition: opacity var(--duration-fast) var(--ease);
+}
+
+.chart--selected .chart__bar:not(.is-selected),
+.chart--selected .chart__value:not(.is-selected) {
+  opacity: 0.35;
+}
+
+.chart__value {
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  fill: var(--label-2);
+}
+
+.chart__cursor {
+  stroke: var(--label-3);
+  stroke-width: 1;
+}
+
+.chart__rule {
+  stroke: var(--label-2);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.6;
+}
+
+.chart__rule-label {
+  font-size: var(--text-caption);
+  font-weight: var(--weight-medium);
+  fill: var(--label-2);
+}
+
+.chart .legend {
+  margin-top: var(--space-8);
+}
+
+.chart__empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  font-size: var(--text-body);
+  color: var(--label-2);
+}
+
+/* Подсказка дня и уровня: карточка с тенью поверх графика */
+.chart-tooltip {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 140px;
+  padding: var(--space-8);
+  font-size: var(--text-subhead);
+  background: var(--card);
+  border-radius: var(--radius-control);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12), 0 0 0 0.5px var(--separator);
+  pointer-events: none;
+}
+
+.chart-tooltip__title {
+  font-weight: var(--weight-semibold);
+}
+
+.chart-tooltip__note {
+  color: var(--label-2);
+}
+
+.chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.chart-tooltip__name {
+  flex: 1;
+  padding-right: var(--space-12);
+  color: var(--label-2);
+}
+
+.chart-tooltip__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.level-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 6px 9px;
+  white-space: nowrap;
+  background: var(--card);
+  border-radius: var(--radius-control);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15), 0 0 0 0.5px var(--separator);
+  pointer-events: none;
+}
+
+.level-tooltip__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-callout);
+  font-weight: var(--weight-semibold);
+}
+
+.level-tooltip__level,
+.level-tooltip__note {
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-regular);
+  color: var(--label-2);
+}
+
+.level-tooltip__note {
+  padding-left: 13px;
+}
+
+.stats-footnote {
+  padding: 0 var(--space-12);
+  font-size: var(--text-subhead);
+  line-height: var(--line-text);
+  color: var(--label-2);
+}
