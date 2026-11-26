@@ -74,6 +74,8 @@
 </ol>
 Больше ничего не меняется, тексты слово в слово. Заглушка «Настройки» из первой поставки убирается.</div>
 
+<div class="note"><b>Изменение 26.11 (#52), одобрено пользователем 26.11.</b> Вкладки «Журнал» нет, в поповере четыре сегмента. В «Дополнительно» последней строкой — «Журнал» с числом ошибок за сутки, она открывает лист журнала. Макет листа — <a href="2026-11-26-tauri-log.html">2026-11-26-tauri-log.html</a>.</div>
+
 <h2>1. Вкладка целиком</h2>
 <p class="lead">Вся вкладка без прокрутки. В поповере 600 она прокручивается, сверху «Общие».</p>
 <div class="scene scene--mac">
@@ -146,7 +148,6 @@
         <button class="segmented__item" role="tab">Обзор</button>
         <button class="segmented__item" role="tab">Бэклог</button>
         <button class="segmented__item" role="tab">Статистика</button>
-        <button class="segmented__item" role="tab">Журнал</button>
         <button class="segmented__item" role="tab" aria-selected="true">Настройки</button>
       </div>
     </div>
@@ -238,6 +239,8 @@
           <button class="settings-row settings-row--nav" title="Сроки токенов Bitbucket и моделей; за 14 дней до истечения в обзоре появится предупреждение"><span class="settings-row__title">Токены</span><span class="settings-row__value" style="color: var(--orange)">Bitbucket: 5 дн.</span><svg class="icon settings-row__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></button>
           <div class="row-divider"></div>
           <button class="settings-row settings-row--nav"><span class="settings-row__title">config.json</span><svg class="icon settings-row__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></button>
+          <div class="row-divider"></div>
+          <button class="settings-row settings-row--nav" title="Журнал сервиса: последние 300 записей"><span class="settings-row__title">Журнал</span><span class="settings-row__value" style="color: var(--orange)">2 ошибки за сутки</span><svg class="icon settings-row__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg></button>
         </div>
         <div class="section__footer">Шаблон веток касается только фонового ревью.</div>
       </div>

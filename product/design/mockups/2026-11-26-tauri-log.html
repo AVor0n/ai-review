@@ -15,7 +15,7 @@
   h3 { font-size: 14px; margin: 28px 0 10px; color: #3a3a3c; }
   p, li { font-size: 14px; line-height: 1.5; }
   .lead { color: #48484a; max-width: 760px; }
-  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; } .status--ok { background: #dff5e3; color: #1d7a34; }
   .note { background: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; max-width: 760px; }
   .note b { font-weight: 600; }
   .page > p code, .caption code, .note code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
@@ -25,66 +25,67 @@
   .scene--mac { background: linear-gradient(160deg, #a7c4e8, #d9c6e8 60%, #f0d9c4); }
   .scene--mac.dark { background: linear-gradient(160deg, #1d2b45, #3a2d4d 60%, #4a3428); }
   .scene--win { background: linear-gradient(160deg, #9fc3e9, #c9dcf0); }
-  .popover--short { height: 300px !important; }
+  .popover--sheet { height: var(--popover-height) !important; }
+  .solo { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin: 10px 0 6px; padding: 20px 0; border-radius: 12px; background: #d1d1d6; }
+  .solo > .app { background: none; }
+  .solo .sheet { box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.12); }
+  .solo .sheet--tall { height: 300px; width: 440px; }
 </style>
 </head>
 <body>
 <div class="page">
 
 <h1>Журнал в приложении Tauri</h1>
-<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задача B-30, экран 8 из 8</p>
-<p class="lead">Вкладка «Журнал» переносится из SwiftUI без изменений: переключатель «Все записи / Ошибки», «Открыть файл» и последние 300 записей журнала сервиса. Свежие сверху. У каждой записи — время и текст моноширинным, у ошибок — оранжевый треугольник и подложка. Длинные записи свёрнуты до двух строк и раскрываются шевроном. Вёрстка — HTML/CSS на <code>product/design/web</code>.</p>
-<div class="note"><b>Что меняется по сравнению с SwiftUI.</b> (1) Журнал приходит из API сервиса, а не читается из файла: на Windows файл лежит в WSL. (2) «Открыть файл» на Mac открывает <code>~/Library/Logs/pr-reviewer/worker.log</code>, как раньше. На Windows — <code>~/.local/state/pr-reviewer/worker.log</code> из WSL по пути <code>\\wsl.localhost\…</code> в программе по умолчанию. (3) Иконки — Phosphor. Больше ничего не меняется. Заглушка «Журнал» из первой поставки и кнопки «Журнал» в баннерах ведут сюда.</div>
+<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задачи #43 и #52. Первая версия — отдельная вкладка, одобрена 26.11. Эта — раздел «Настроек» по решению пользователя (Q49).</p>
+<p class="lead">Отдельной вкладки «Журнал» больше нет: в поповере четыре сегмента. Журнал открывается строкой «Журнал» в «Настройках», в разделе «Дополнительно», последней. Строка открывает лист поверх поповера, как остальные листы настроек. Содержимое листа — то же, что в одобренной вкладке: «Все записи / Ошибки», «Открыть файл», 300 записей, ошибки с оранжевой подложкой, раскрытие длинных записей.</p>
+<div class="note"><b>Что меняется по сравнению с одобренной вкладкой.</b> (1) Сегменты поповера: «Обзор, Бэклог, Статистика, Настройки». (2) В «Дополнительно» новая строка «Журнал» после config.json. Справа число ошибок за последние сутки оранжевым: «2 ошибки за сутки». Если ошибок нет — без значения. Это новое: так ошибка видна, не открывая журнал. Не нужно — уберу, строка останется просто со стрелкой. (3) Журнал — лист 660 px на всю высоту поповера. Переключатель и «Открыть файл» стоят в листе под заголовком. (4) Кнопки «Журнал» в баннерах поповера открывают вкладку «Настройки» и сразу лист журнала, как раньше «Проверить правила» открывал память.</div>
 
-<h2>1. Все записи</h2>
-<p class="lead">Третья запись раскрыта: многострочная ошибка с выводом команды.</p>
+<h2>1. Строка в «Настройках»</h2>
+<p class="lead">Нижняя часть вкладки «Настройки»: раздел «Дополнительно».</p>
 <div class="scene scene--mac">
-  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log"></div>
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="settings" data-scroll-end></div>
 </div>
-<p class="caption">Шеврон есть только у записей длиннее 140 символов или многострочных. Подсказка — «Показать целиком» / «Свернуть». Текст выделяется. Подсказка у «Открыть файл» — путь к файлу.</p>
 
-<h2>2. Только ошибки, тёмная тема</h2>
+<h2>2. Лист журнала</h2>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="settings" data-sheet="log"></div>
+</div>
+<p class="caption">Шеврон есть только у записей длиннее 140 символов или многострочных. Подсказка — «Показать целиком» / «Свернуть». Текст выделяется. Подсказка у «Открыть файл» — путь к файлу. Закрывается крестиком или кликом по затемнению, как другие листы.</p>
+
+<h3>Только ошибки, тёмная тема</h3>
 <div class="scene scene--mac dark">
-  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="log-errors"></div>
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="settings" data-sheet="log-errors"></div>
 </div>
 
-<h2>3. Пустые состояния</h2>
-<div class="scene scene--mac">
-  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log-empty" data-short></div>
-  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log-no-errors" data-short></div>
+<h3>Пустые состояния</h3>
+<div class="solo">
+  <div class="app" data-theme="light" data-solo="log-empty"></div>
+  <div class="app" data-theme="light" data-solo="log-no-errors"></div>
 </div>
 
-<h2>4. Windows</h2>
+<h2>3. Windows</h2>
 <div class="scene scene--win">
-  <div class="popover-frame popover-frame--win" data-theme="light" data-template="log"></div>
+  <div class="popover-frame popover-frame--win" data-theme="light" data-template="settings" data-sheet="log"></div>
 </div>
 
 </div>
 
-<!-- ======================= Шаблоны ======================= -->
+<!-- ======================= Шаблоны листа ======================= -->
 
-<template id="tpl-log-tabs">
-  <div class="tabs">
-    <div class="segmented" role="tablist">
-      <button class="segmented__item" role="tab">Обзор</button>
-      <button class="segmented__item" role="tab">Бэклог</button>
-      <button class="segmented__item" role="tab">Статистика</button>
-      <button class="segmented__item" role="tab" aria-selected="true">Журнал</button>
-      <button class="segmented__item" role="tab">Настройки</button>
-    </div>
-  </div>
+<template id="tpl-log-head">
+  <div class="sheet__head"><span class="sheet__titles"><span class="sheet__title">Журнал</span></span><button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button></div>
 </template>
 
-<template id="tpl-log-toolbar">
-  <div class="toolbar">
+<template id="tpl-log-bar">
+  <div class="sheet__bar">
     <div class="segmented" style="--segment-width: 100px"><button class="segmented__item" aria-selected="true">Все записи</button><button class="segmented__item">Ошибки</button></div>
     <span class="spacer"></span>
     <button class="link-button link-button--icon" title="~/Library/Logs/pr-reviewer/worker.log"><svg class="icon"><use href="../web/icons.svg#i-open-external"/></svg>Открыть файл</button>
   </div>
 </template>
 
-<template id="tpl-log-toolbar-errors">
-  <div class="toolbar">
+<template id="tpl-log-bar-errors">
+  <div class="sheet__bar">
     <div class="segmented" style="--segment-width: 100px"><button class="segmented__item">Все записи</button><button class="segmented__item" aria-selected="true">Ошибки</button></div>
     <span class="spacer"></span>
     <button class="link-button link-button--icon" title="~/Library/Logs/pr-reviewer/worker.log"><svg class="icon"><use href="../web/icons.svg#i-open-external"/></svg>Открыть файл</button>
@@ -109,7 +110,7 @@ Tests: 1 failed, 208 passed, 209 total</span></div><button class="log-row__toggl
 </template>
 
 <template id="tpl-log-list">
-  <div class="scroll"><div class="section__card">
+  <div class="section__card">
     <slot data-tpl="tpl-row-plain-1"></slot>
     <div class="row-divider row-divider--log"></div>
     <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 14:05:10</span><span class="log-row__message">Фоновая проверка раз в 15 мин</span></div></div>
@@ -123,48 +124,39 @@ Tests: 1 failed, 208 passed, 209 total</span></div><button class="log-row__toggl
     <slot data-tpl="tpl-row-error-collapsed"></slot>
     <div class="row-divider row-divider--log"></div>
     <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 10:02:44</span><span class="log-row__message">API слушает 127.0.0.1:8765</span></div></div>
+  </div>
+</template>
+
+
+<template id="tpl-sheet-log">
+  <slot data-tpl="tpl-log-head"></slot>
+  <slot data-tpl="tpl-log-bar"></slot>
+  <div class="sheet__body"><slot data-tpl="tpl-log-list"></slot></div>
+</template>
+
+<template id="tpl-sheet-log-errors">
+  <slot data-tpl="tpl-log-head"></slot>
+  <slot data-tpl="tpl-log-bar-errors"></slot>
+  <div class="sheet__body"><div class="section__card">
+    <slot data-tpl="tpl-row-error-collapsed"></slot>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:58:40</span><span class="log-row__message">frontend#2826: доработка — проверки не прошли
+$ npm test</span></div><button class="log-row__toggle" title="Показать целиком"><svg class="icon"><use href="../web/icons.svg#i-chevron-down"/></svg></button></div>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">25 нояб. 22:14:09</span><span class="log-row__message">Bitbucket: 503 Service Unavailable при чтении PR android — повтор через минуту</span></div></div>
   </div></div>
 </template>
 
-<template id="tpl-log">
-  <div class="popover app">
-    <slot data-tpl="tpl-log-tabs"></slot>
-    <div class="screen"><slot data-tpl="tpl-log-toolbar"></slot><slot data-tpl="tpl-log-list"></slot></div>
-  </div>
+<template id="tpl-sheet-log-empty">
+  <slot data-tpl="tpl-log-head"></slot>
+  <slot data-tpl="tpl-log-bar"></slot>
+  <div class="sheet__body"><div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-file-text"/></svg><div class="empty-state__title">Лог пуст</div></div></div>
 </template>
 
-<template id="tpl-log-errors">
-  <div class="popover app">
-    <slot data-tpl="tpl-log-tabs"></slot>
-    <div class="screen"><slot data-tpl="tpl-log-toolbar-errors"></slot>
-      <div class="scroll"><div class="section__card">
-        <slot data-tpl="tpl-row-error-collapsed"></slot>
-        <div class="row-divider row-divider--log"></div>
-        <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:58:40</span><span class="log-row__message">frontend#2826: доработка — проверки не прошли
-$ npm test</span></div><button class="log-row__toggle" title="Показать целиком"><svg class="icon"><use href="../web/icons.svg#i-chevron-down"/></svg></button></div>
-        <div class="row-divider row-divider--log"></div>
-        <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">25 нояб. 22:14:09</span><span class="log-row__message">Bitbucket: 503 Service Unavailable при чтении PR android — повтор через минуту</span></div></div>
-      </div></div>
-    </div>
-  </div>
-</template>
-
-<template id="tpl-log-empty">
-  <div class="popover app">
-    <slot data-tpl="tpl-log-tabs"></slot>
-    <div class="screen"><slot data-tpl="tpl-log-toolbar"></slot>
-      <div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-file-text"/></svg><div class="empty-state__title">Лог пуст</div></div>
-    </div>
-  </div>
-</template>
-
-<template id="tpl-log-no-errors">
-  <div class="popover app">
-    <slot data-tpl="tpl-log-tabs"></slot>
-    <div class="screen"><slot data-tpl="tpl-log-toolbar-errors"></slot>
-      <div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-check-circle"/></svg><div class="empty-state__title">Ошибок нет</div></div>
-    </div>
-  </div>
+<template id="tpl-sheet-log-no-errors">
+  <slot data-tpl="tpl-log-head"></slot>
+  <slot data-tpl="tpl-log-bar-errors"></slot>
+  <div class="sheet__body"><div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-check-circle"/></svg><div class="empty-state__title">Ошибок нет</div></div></div>
 </template>
 
 <svg width="0" height="0" style="position:absolute">
@@ -172,7 +164,7 @@ $ npm test</span></div><button class="log-row__toggle" title="Показать �
 </svg>
 
 <script>
-  // Страница собирает поповеры из шаблонов, чтобы разметка была в одном месте. В приложении шаблонов нет
+  // Вкладка «Настройки» берётся из макета настроек: шаблоны оттуда, чтобы разметка была в одном месте
   function stamp(root) {
     root.querySelectorAll('slot[data-tpl]').forEach(slot => {
       const content = document.getElementById(slot.dataset.tpl).content.cloneNode(true);
@@ -181,12 +173,31 @@ $ npm test</span></div><button class="log-row__toggle" title="Показать �
     });
     return root;
   }
-  document.querySelectorAll('[data-template]').forEach(frame => {
-    const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
-    if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
-    if (frame.hasAttribute('data-short')) content.querySelector('.popover').classList.add('popover--short');
-    frame.appendChild(content);
+  const sheet = (name, cls) => {
+    const box = document.createElement('div');
+    box.className = 'sheet sheet--wide sheet--tall';
+    box.appendChild(stamp(document.getElementById('tpl-sheet-' + name).content.cloneNode(true)));
+    return box;
+  };
+  fetch('2026-11-26-tauri-settings.html').then(r => r.text()).then(html => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('template').forEach(t => { if (!document.getElementById(t.id)) document.body.appendChild(document.importNode(t, true)); });
+    document.querySelectorAll('[data-template]').forEach(frame => {
+      const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
+      if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
+      const pop = content.querySelector('.popover');
+      if (frame.dataset.sheet) {
+        pop.classList.add('popover--sheet');
+        const backdrop = document.createElement('div');
+        backdrop.className = 'sheet-backdrop';
+        backdrop.appendChild(sheet(frame.dataset.sheet));
+        pop.appendChild(backdrop);
+      }
+      frame.appendChild(content);
+      if (frame.hasAttribute('data-scroll-end')) { const sc = frame.querySelector('.scroll'); sc.scrollTop = sc.scrollHeight; }
+    });
   });
+  document.querySelectorAll('.solo [data-solo]').forEach(box => box.appendChild(sheet(box.dataset.solo)));
 </script>
 </body>
 </html>
