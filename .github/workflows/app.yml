@@ -70,8 +70,12 @@ jobs:
             - name: Зависимости
               working-directory: app
               run: npm ci
+            # Коммит для строки сборки в «Настройках» — снаружи. Иначе vite.config.ts смотрит git status, а на Windows-машине
+            # с core.autocrlf npm run gen:api перезаписывает src/api/schema.d.ts с LF, и сборка помечается «правки не закоммичены» (#71)
             - name: Сборка
               working-directory: app
+              env:
+                  PR_REVIEWER_BUILD_COMMIT: ${{ github.sha }}
               run: npx tauri build ${{ matrix.args }}
             # Без подписи бандла macOS называет скачанное приложение повреждённым; подпись ad-hoc — из tauri.conf.json
             - name: Подпись приложения в .dmg
