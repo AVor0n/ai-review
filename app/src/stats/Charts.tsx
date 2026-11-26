@@ -3,7 +3,7 @@ import { SELECTION_RULES_DATE, startOfDay, weekClosed, weekOf, weekShare, type D
 import { dayFull, dayShort } from './format';
 import { t } from '../i18n';
 
-// Графики — своё SVG по классам .chart* из product/design/web/components.css, размеры — как в макете
+// Графики — своё SVG по классам .chart* из agents/design/web/components.css, размеры — как в макете
 // 2026-11-26-tauri-stats.html: ширина области 724 (карточка 748 минус поля .chart)
 const WIDTH = 724;
 const AXIS = 34;

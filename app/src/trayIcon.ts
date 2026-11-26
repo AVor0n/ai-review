@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
-import icons from '../../product/design/web/icons.svg?raw';
-import claude from '../../product/design/web/logos/claude-spark.svg?raw';
-import cursor from '../../product/design/web/logos/cursor-cube.svg?raw';
-import codex from '../../product/design/web/logos/openai-blossom.svg?raw';
+import icons from '../../agents/design/web/icons.svg?raw';
+import claude from '../../agents/design/web/logos/claude-spark.svg?raw';
+import cursor from '../../agents/design/web/logos/cursor-cube.svg?raw';
+import codex from '../../agents/design/web/logos/openai-blossom.svg?raw';
 import { t } from './i18n';
 import type { MenuEntry, TrayIcon } from './model/tray';
 

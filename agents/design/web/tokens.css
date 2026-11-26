@@ -1,0 +1,255 @@
+/*
+ * PR Reviewer — токены веб-интерфейса (приложение Tauri, macOS и Windows).
+ * Перенос menubar/Theme.swift и правил iOS-стиля (agents/design/hig.md, раздел 0a).
+ * Размеры в px равны pt SwiftUI: поповер 780×600 и на Mac, и на Windows.
+ *
+ * Тема: по умолчанию системная (prefers-color-scheme). Атрибут data-theme="light" | "dark"
+ * на <html> задаёт тему явно — для настройки «Тема» и для страниц-макетов.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Поверхности: сгруппированный фон iOS и карточки секций поверх него */
+  --bg: #f2f2f7;                       /* Theme.background */
+  --card: #ffffff;                     /* Theme.card */
+  --card-nested: #f2f2f7;              /* вложенное в карточку (tertiarySystemGroupedBackground) */
+  --track: rgba(118, 118, 128, 0.12);  /* Theme.track — дорожка сегментов, фильтры, кнопка-камера */
+  --thumb: #ffffff;                    /* Theme.thumb — бегунок сегментов */
+  --separator: rgba(0, 0, 0, 0.1);     /* Theme.separator */
+  --hover: rgba(0, 0, 0, 0.035);       /* Theme.hover — строка под курсором */
+
+  /* Текст: значения labelColor macOS, как у .primary / .secondary / .tertiary в окне SwiftUI */
+  --label: rgba(0, 0, 0, 0.85);
+  --label-2: rgba(0, 0, 0, 0.5);
+  --label-3: rgba(0, 0, 0, 0.26);
+  --on-tint: #ffffff;                  /* текст и глифы на цветной заливке */
+
+  /* Системные цвета */
+  --accent: #007aff;                   /* Color.accentColor; системный акцент не подхватываем */
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --yellow: #ffcc00;
+  --green: #34c759;
+  --blue: #007aff;
+  --gray: #8e8e93;
+  --purple: #af52de;                   /* разбор памяти */
+  --indigo: #5856d6;                   /* уровень кейса QA */
+
+  /* Подсветка JSON в редакторе config.json: чистый жёлтый на белом нечитаем, поэтому янтарный */
+  --code-number: #2a78d6;
+  --code-boolean: #b07800;
+
+  /* Модели (AgentMark.color) */
+  --model-claude: #d97857;
+  --model-codex: #5c5c5c;              /* графитовый: чистый чёрный рядом с Claude слишком тяжёлый */
+  --model-cursor: #3399b8;
+
+  /* Графики (ChartColors): порядок слотов различим при дальтонизме, цвет закрепляется за сущностью */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-7: #4a3aa7;
+  --chart-8: #e34948;
+  --level-p0: #d03b3b;
+  --level-p1: #ec835a;
+  --level-p2: #fab219;
+  --level-p3: #b4b2ab;
+  --fate-addressed: #0ca30c;
+  --fate-dismissed: #ec835a;
+  --fate-waiting: #2a78d6;
+
+  /* Доли заливки для тонированных фонов: color-mix(in srgb, <цвет> <доля>, transparent) */
+  --tint-tag: 14%;                     /* Tag, капсула «только вручную» */
+  --tint-banner: 10%;                  /* баннеры: красный, оранжевый, акцентный */
+  --tint-banner-strong: 12%;           /* баннеры: жёлтый и капсула лимита */
+
+  /* Шрифты: системные. На Mac — SF Pro, на Windows — Segoe UI Variable */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+
+  /* Размеры текста: пропорции iOS при плотности macOS (hig.md, 0a). Меньше 10 px не бывает */
+  --text-large-title: 26px;            /* число в плитке */
+  --text-title2: 17px;                 /* заголовок раздела статистики */
+  --text-title3: 15px;
+  --text-body: 13px;                   /* основной текст строк */
+  --text-callout: 12px;                /* статус, кнопки-ссылки, сегменты, заголовок баннера */
+  --text-subhead: 11px;                /* мета строки PR, текст баннера, заголовок секции, тег */
+  --text-caption: 10px;                /* счётчик в сегменте, тег — минимум */
+  --line-tight: 1.25;
+  --line-text: 1.35;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Отступы */
+  --space-2: 2px;
+  --space-3: 3px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-14: 14px;
+  --space-16: 16px;
+  --space-18: 18px;
+  --space-28: 28px;
+  --screen-inset: 16px;                /* поля экрана: секции, баннеры */
+  --status-inset: 28px;                /* поля строки статуса: выровнена по тексту карточек */
+  --section-gap: 18px;                 /* между секциями */
+  --row-pad-x: 12px;
+  --row-pad-y: 8px;
+  --row-divider-inset: 64px;           /* разделитель строки PR начинается после значков моделей */
+
+  /* Радиусы: скругления continuous в CSS не повторить, круговые близки на этих размерах */
+  --radius-card: 10px;                 /* секция, баннер, плитка */
+  --radius-control: 8px;               /* дорожка сегментов, фильтр, кнопка-камера */
+  --radius-thumb: 6px;                 /* бегунок сегментов */
+  --radius-capsule: 999px;
+  --radius-popover-mac: 12px;
+  --radius-popover-win: 8px;           /* как у всплывающих панелей Windows 11 */
+
+  /* Тени */
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-popover: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+
+  /* Размеры элементов */
+  --popover-width: 780px;
+  --popover-height: 600px;
+  --popover-arrow: 10px;               /* высота стрелки поповера на Mac */
+  --hit-icon: 20px;                    /* минимум зоны клика иконки-кнопки */
+  --hit-row-action: 22px;              /* кнопки доработки, архитектуры, QA в строке */
+  --model-mark: 15px;
+  --model-badge: 10px;
+  --segment-height: 24px;
+  --segment-width: 110px;
+  --status-dot: 7px;
+
+  /* Движение */
+  --duration-fast: 150ms;              /* .easeOut(duration: 0.15): сегменты, раскрытие секций и баннеров */
+  --ease: ease-out;
+  --spin-period: 2s;                   /* оборот значка модели во время ревью */
+  --dim-opacity: 0.45;                 /* черновик, устаревший отчёт */
+  --disabled-opacity: 0.35;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121214;                     /* светлее чистого чёрного iOS: в поповере на Mac чёрный выглядит провалом */
+    --card: #1c1c1e;
+    --card-nested: #2c2c2e;
+    --track: rgba(118, 118, 128, 0.24);
+    --thumb: #636366;
+    --separator: rgba(255, 255, 255, 0.1);
+    --hover: rgba(255, 255, 255, 0.05);
+    --label: rgba(255, 255, 255, 0.85);
+    --label-2: rgba(255, 255, 255, 0.55);
+    --label-3: rgba(255, 255, 255, 0.25);
+    --accent: #0a84ff;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --yellow: #ffd60a;
+    --green: #30d158;
+    --blue: #0a84ff;
+    --gray: #98989d;
+    --purple: #bf5af2;
+    --indigo: #5e5ce6;
+    --code-number: #5a9ef0;
+    --code-boolean: #e8c15a;
+    --model-codex: #cccccc;
+    --chart-1: #3987e5;
+    --chart-2: #d95926;
+    --chart-3: #199e70;
+    --chart-4: #c98500;
+    --chart-5: #d55181;
+    --chart-7: #9085e9;
+    --chart-8: #e66767;
+    --level-p3: #6b6a65;
+    --fate-waiting: #3987e5;
+    --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Тот же набор для явной тёмной темы. Меняя одну ветку, меняйте и другую */
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121214;
+  --card: #1c1c1e;
+  --card-nested: #2c2c2e;
+  --track: rgba(118, 118, 128, 0.24);
+  --thumb: #636366;
+  --separator: rgba(255, 255, 255, 0.1);
+  --hover: rgba(255, 255, 255, 0.05);
+  --label: rgba(255, 255, 255, 0.85);
+  --label-2: rgba(255, 255, 255, 0.55);
+  --label-3: rgba(255, 255, 255, 0.25);
+  --accent: #0a84ff;
+  --red: #ff453a;
+  --orange: #ff9f0a;
+  --yellow: #ffd60a;
+  --green: #30d158;
+  --blue: #0a84ff;
+  --gray: #98989d;
+  --purple: #bf5af2;
+  --indigo: #5e5ce6;
+  --code-number: #5a9ef0;
+  --code-boolean: #e8c15a;
+  --model-codex: #cccccc;
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-7: #9085e9;
+  --chart-8: #e66767;
+  --level-p3: #6b6a65;
+  --fate-waiting: #3987e5;
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-popover: 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Явная светлая тема внутри тёмной страницы — для макетов, где темы стоят рядом */
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --card-nested: #f2f2f7;
+  --track: rgba(118, 118, 128, 0.12);
+  --thumb: #ffffff;
+  --separator: rgba(0, 0, 0, 0.1);
+  --hover: rgba(0, 0, 0, 0.035);
+  --label: rgba(0, 0, 0, 0.85);
+  --label-2: rgba(0, 0, 0, 0.5);
+  --label-3: rgba(0, 0, 0, 0.26);
+  --accent: #007aff;
+  --red: #ff3b30;
+  --orange: #ff9500;
+  --yellow: #ffcc00;
+  --green: #34c759;
+  --blue: #007aff;
+  --gray: #8e8e93;
+  --purple: #af52de;
+  --indigo: #5856d6;
+  --code-number: #2a78d6;
+  --code-boolean: #b07800;
+  --model-codex: #5c5c5c;
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-7: #4a3aa7;
+  --chart-8: #e34948;
+  --level-p3: #b4b2ab;
+  --fate-waiting: #2a78d6;
+  --shadow-thumb: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-popover: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+}

@@ -15,7 +15,7 @@ const git = (args: string) => {
 const commit = process.env.PR_REVIEWER_BUILD_COMMIT;
 const build = { commit: commit ?? git('rev-parse HEAD'), date: new Date().toISOString(), dirty: commit ? false : git('status --porcelain -- .') !== '' };
 
-// Порт и папка — как ждёт tauri.conf.json. Стили берутся из дизайн-системы product/design/web — она вне app/
+// Порт и папка — как ждёт tauri.conf.json. Стили берутся из дизайн-системы agents/design/web — она вне app/
 export default defineConfig({
     plugins: [react()],
     clearScreen: false,

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Толщина значков</title>
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #1d1d1f; }
+  .page { max-width: 1500px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 40px 0 6px; }
+  p { font-size: 14px; line-height: 1.5; max-width: 900px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; }
+  .caption { font-size: 13px; color: #48484a; margin: 8px 0 0; max-width: 900px; }
+  code { font-family: ui-monospace, monospace; font-size: 12px; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+  .tabs button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; border-radius: 8px; background: #fff; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: #007aff; color: #fff; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pair h3 { font-size: 15px; margin: 0 0 6px; }
+  .frame { position: relative; height: 720px; overflow: hidden; border-radius: 12px; background: #fff; }
+  iframe { position: absolute; top: 0; left: 0; width: 1000px; height: calc(900px / var(--k, 1)); border: 0; transform: scale(var(--k, 1)) translateX(calc(-1px * var(--x, 0))); transform-origin: 0 0; }
+  /* Таблица всех значков: каждый вписан в одинаковый квадрат, чтобы сравнивать толщину и форму, а не размер */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+  .cell { background: #fff; border-radius: 10px; padding: 10px 12px; display: grid; grid-template-columns: repeat(2, 56px) 1fr; gap: 10px; align-items: center; }
+  .cell__box { width: 56px; height: 56px; display: grid; place-items: center; background: #f2f2f7; border-radius: 8px; }
+  .cell__box svg, .cell__box img { width: 40px; height: 40px; object-fit: contain; }
+  .cell__box .missing { font-size: 10px; color: #8e8e93; text-align: center; }
+  .cell__name { font-size: 12px; line-height: 1.35; color: #3a3a3c; word-break: break-word; }
+  .cell__name code { font-size: 11px; color: #8e8e93; }
+  .cell__vote { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: #3a3a3c; border-top: 1px solid #e5e5ea; padding-top: 8px; }
+  .cell__vote label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+  .cell__note { grid-column: 1 / -1; font: inherit; font-size: 12px; padding: 6px 8px; border: 1px solid #d1d1d6; border-radius: 6px; resize: vertical; min-height: 30px; display: none; }
+  .cell--fix .cell__note { display: block; }
+  .cell--ok { box-shadow: inset 0 0 0 2px #34c759; }
+  .cell--keep { box-shadow: inset 0 0 0 2px #8e8e93; }
+  .cell--fix { box-shadow: inset 0 0 0 2px #ff9500; }
+  .votebar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; background: #e5e5ea; padding: 10px 0; font-size: 13px; }
+  .votebar button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; border-radius: 8px; background: #007aff; color: #fff; cursor: pointer; }
+  .votebar button.secondary { background: #fff; color: #1d1d1f; }
+  .votebar__count b { font-weight: 600; }
+  .legend { display: grid; grid-template-columns: repeat(2, 56px) 1fr; gap: 10px; font-size: 11px; color: #6e6e73; padding: 0 12px 6px; max-width: 300px; }
+  .legend span { text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Значки: обычная линия и свои значки</h1>
+<p><span class="status" style="background:#dff5e3;color:#1d7a34">одобрено 27.11.2026</span> 27.11.2026 · дизайнер · по ответам пользователя</p>
+<p><b>Итог, одобрено пользователем 27.11.2026.</b> Набор перенесён в <code>agents/design/web/icons.svg</code>: 47 значков — обычная линия Phosphor; 18 — жирная (плюс, минус, многоточие, значки заголовков статистики и служебные); 26 — свои. Мозг остался Phosphor с обычной линией: свой вариант не вышел похожим, а значок Apple брать нельзя по лицензии. <b>Ход работы.</b> По твоим ответам собран предложенный набор: 52 значка — обычная линия Phosphor, плюс, минус и многоточие — жирная, 27 — свои. Пузыри (обычный, с галочкой, с восклицательным знаком, с плюсом, с человеком, с текстом, перечёркнутый) построены на геометрии значков трея. Остальные свои значки нарисованы с нуля в духе SF Symbols: с картинок Apple не обводились, чтобы не нарушать их лицензию. Справа на экранах и в третьем столбце таблицы — этот набор.</p>
+<p>Сейчас во всём приложении значки Phosphor с жирной линией (bold): при 16 px линия около 1,5 px. У SF Symbols в старом окне — около 1 px. У Phosphor есть вес с обычной линией (regular): при 16 px это ровно 1 px. Здесь та же страница макета дважды: слева текущие значки, справа — обычная линия. Залитые значки (fill) одинаковы в обоих вариантах. Меняется только спрайт <code>agents/design/web/icons.svg</code>: имена значков, классы и кегли остаются, код приложения править не нужно. Свои составные значки (пузырь с галочкой, восклицательный знак в пузыре) для обычной линии перерисованы тоньше. Значки трея уже свои и здесь не участвуют.</p>
+
+<h2>На экранах</h2>
+<div class="tabs" id="tabs"></div>
+<div class="pair">
+  <div><h3>Было: жирная линия</h3><div class="frame"><iframe id="before"></iframe></div></div>
+  <div><h3>Стало</h3><div class="frame"><iframe id="after"></iframe></div></div>
+</div>
+
+<h2>Все значки</h2>
+<p>Каждый значок вписан в одинаковый квадрат: так видна разница в толщине и форме, а не в размере. При согласовании рядом был и SF Symbol того же места в старом окне. Его картинки в репозиторий не кладём (лицензия Apple), поэтому здесь только «было» и «стало». Под каждым значком — SF Symbol, который он заменяет.</p>
+<p>Оцени третий столбец: <b>ок</b> — берём; <b>поправить</b> — в поле напиши, что не так. Под именем серым — твой комментарий из первого круга. Ответы сохраняются в этом браузере сами. Когда закончишь, нажми «Скопировать ответы» и вставь текст в чат или просто скажи мне, если отвечал во встроенном браузере.</p>
+<div class="votebar"><span class="votebar__count" id="count"></span><button id="copy">Скопировать ответы</button><button class="secondary" id="all-ok">Отметить «ок» всем без ответа</button><span id="copied" style="color:#1d7a34"></span></div>
+<label style="font-size:13px;display:flex;gap:6px;align-items:center;margin:0 0 8px"><input type="checkbox" id="only-fix" checked>Только на доработке</label>
+<div class="legend"><span>было</span><span>стало</span><span></span></div>
+<div class="grid" id="grid"></div>
+</div>
+<script>
+  const pages = [
+    ['Обзор', '2026-11-25-tauri-popover.html'], ['Статистика', '2026-11-26-tauri-stats.html'], ['Память', '2026-11-26-tauri-memory.html'],
+    ['Архитектура', '2026-11-26-tauri-arch.html'], ['Доработка', '2026-11-26-tauri-fix.html'], ['Тестирование', '2026-11-26-tauri-qa.html'],
+    ['Бэклог', '2026-11-26-tauri-backlog.html'], ['Настройки', '2026-11-26-tauri-settings.html'], ['Журнал', '2026-11-26-tauri-log.html'],
+  ];
+  // Набор уже перенесён в web/icons.svg; «было» — копия набора до переноса
+  const REGULAR = '../web/icons.svg';
+  const BEFORE = '2026-11-27-icon-weight/icons-before.svg';
+  // Одобренные значки из сравнения убраны по просьбе пользователя; остались только те, что ещё на доработке
+  const PENDING = [];
+  const ROUND1 = {"i-play": "Закрасить треугольник", "i-stop": "Закрасить квадрат", "i-pause-fill": "Сделать больше похожей на мак версию", "i-bubble": "Как в мак версии скругления и прочее. Уже делали для трея нормальную иконку", "i-arch-fill": "колон должно быть 4, а не 3", "i-brain": "Пока не очень похоже на маковскую версию. Пробуем ещё", "i-key-fill": "Сделать как мак иконка", "i-hourglass": "Сделать более детальной", "i-tray": "мак версия лучше", "i-copy": "мак версия лучше", "i-bubble-slash": "Для трея красивше делали. Можем переиспользовать?", "i-stats-review": "Для трея лучше версия была", "i-stats-compare": "мак версия лучше", "i-trash": "как на мак", "i-bolt": "Сделать как на мак", "i-scissors": "На мак прикольнее", "i-qa-unconfirmed": "как на мак", "i-bug-fill": "как на мак", "i-check": "как на мак, угол более резкий", "i-triage": "Можно другую иконку подобрать, либо как на мак перерисовать", "i-bell-slash-fill": "на мак лучше", "i-bubble-text-fill": "Для трея лучше делали", "i-bubble-check": "для трея лучше делали", "i-bubble-check-fill": "Для трея лучше делали", "i-bubble-warning": "Для трея лучше делали", "i-bubble-warning-fill": "Для трея лучше делали", "i-bubble-plus-fill": "Для трея лучше делали"};
+  const before = document.getElementById('before'), after = document.getElementById('after'), tabs = document.getElementById('tabs');
+  // Рамка показывает только поповер или лист первой сцены, увеличенный на всю ширину колонки: тонкую линию иначе не разглядеть
+  const scrollToScene = (frame) => {
+    const doc = frame.contentDocument, win = frame.contentWindow;
+    const target = doc.querySelector('.scene .popover, .scene .sheet') || doc.querySelector('.scene');
+    if (!target) return;
+    const box = target.getBoundingClientRect();
+    const host = frame.parentElement;
+    const k = host.clientWidth / (box.width + 16);
+    host.style.setProperty('--k', k);
+    // Высота рамки — по поповеру, чтобы соседние сцены страницы не попадали в кадр
+    host.style.height = Math.min(900, (box.height + 16) * k) + 'px';
+    host.style.setProperty('--x', box.left + win.scrollX - 8);
+    win.scrollTo(0, box.top + win.scrollY - 8);
+  };
+  addEventListener('resize', () => [before, after].forEach(scrollToScene));
+  // Сцены дорисовываются скриптом страницы, поэтому значки подменяются и при каждом изменении разметки
+  const swapIcons = (doc, sprite) => doc.querySelectorAll('use').forEach((use) => {
+    const href = use.getAttribute('href') || '';
+    if (href.includes('web/icons.svg#') && !href.includes('#i-tray-')) use.setAttribute('href', sprite + href.slice(href.indexOf('#')));
+  });
+  const waitScene = (frame, swap, sprite) => {
+    const doc = frame.contentDocument;
+    if (swap) { swapIcons(doc, sprite); new MutationObserver(() => swapIcons(doc, sprite)).observe(doc.body, { childList: true, subtree: true }); }
+    let n = 0;
+    const t = setInterval(() => { if (doc.querySelector('.scene .popover, .scene .sheet') || ++n > 30) { clearInterval(t); [0, 600, 1500, 3000].forEach((ms) => setTimeout(() => scrollToScene(frame), ms)); } }, 100);
+  };
+  before.addEventListener('load', () => waitScene(before, true, BEFORE));
+  after.addEventListener('load', () => waitScene(after, false));
+  const open = (i) => { before.src = pages[i][1]; after.src = pages[i][1]; [...tabs.children].forEach((b, j) => b.setAttribute('aria-selected', i === j)); };
+  pages.forEach(([title], i) => { const b = document.createElement('button'); b.textContent = title; b.onclick = () => open(i); tabs.appendChild(b); });
+  open(0);
+
+  // Таблица: глиф вписывается в квадрат по своей видимой части (getBBox), как картинка SF, обрезанная по краю
+  (async () => {
+    const text = await (await fetch(BEFORE, { cache: 'reload' })).text();
+    const sprite = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const regular = new DOMParser().parseFromString(await (await fetch(REGULAR, { cache: 'reload' })).text(), 'image/svg+xml');
+    const probe = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    probe.style.cssText = 'position:absolute;left:-9999px;width:256px;height:256px';
+    document.body.appendChild(probe);
+    const glyph = (doc, id) => {
+      const symbol = doc.getElementById(id);
+      if (!symbol) return null;
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.innerHTML = symbol.innerHTML;
+      probe.replaceChildren(g);
+      const b = g.getBBox();
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      // getBBox не учитывает толщину линии: без запаса у значков с обводкой обрезаются края
+      const pad = Math.max(0, ...[...symbol.innerHTML.matchAll(/stroke-width="([\d.]+)"/g)].filter((m) => !/stroke="#000"/.test(symbol.innerHTML.slice(Math.max(0, m.index - 200), m.index))).map((m) => Number(m[1]) / 2));
+      svg.setAttribute('viewBox', `${b.x - pad} ${b.y - pad} ${b.width + 2 * pad} ${b.height + 2 * pad}`);
+      svg.setAttribute('fill', 'currentColor');
+      svg.innerHTML = symbol.innerHTML;
+      return svg;
+    };
+    const grid = document.getElementById('grid');
+    for (const symbol of sprite.querySelectorAll('symbol')) {
+      const id = symbol.id;
+      if (id.startsWith('i-tray-') || id.startsWith('i-badge-') || id === 'i-spinner') continue;
+      const sf = (symbol.innerHTML.match(/<!--\s*([^,—<]+?)(?:[,—]|\s*-->)/) || [])[1]?.trim() ?? '';
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      for (const doc of [sprite, regular]) {
+        const box = document.createElement('div'); box.className = 'cell__box';
+        const svg = glyph(doc, id);
+        if (svg) box.appendChild(svg);
+        cell.appendChild(box);
+      }
+      const name = document.createElement('div'); name.className = 'cell__name';
+      name.innerHTML = `${sf || '—'}<br><code>${id}</code>${ROUND1[id] ? `<br><span style="color:#8e8e93">${ROUND1[id]}</span>` : ''}`;
+      if (PENDING.includes(id)) cell.dataset.fixed = '1';
+      cell.appendChild(name);
+      const vote = document.createElement('div'); vote.className = 'cell__vote';
+      for (const [value, label] of CHOICES) {
+        vote.insertAdjacentHTML('beforeend', `<label><input type="radio" name="${id}" value="${value}"${votes[id]?.choice === value ? ' checked' : ''}>${label}</label>`);
+      }
+      const note = document.createElement('textarea'); note.className = 'cell__note'; note.rows = 2;
+      note.placeholder = 'Что поправить';
+      note.value = votes[id]?.note ?? '';
+      vote.addEventListener('change', (e) => { votes[id] = { ...votes[id], choice: e.target.value }; mark(cell, id); save(); if (e.target.value === 'fix') note.focus(); });
+      note.addEventListener('input', () => { votes[id] = { ...votes[id], note: note.value }; save(); });
+      cell.append(vote, note);
+      cell.dataset.id = id; cell.dataset.sf = sf;
+      mark(cell, id);
+      grid.appendChild(cell);
+    }
+    probe.remove();
+    count();
+    const filter = () => document.querySelectorAll('.cell').forEach((cell) => { cell.style.display = document.getElementById('only-fix').checked && !cell.dataset.fixed ? 'none' : ''; });
+    document.getElementById('only-fix').onchange = () => { filter(); count(); }; filter(); count();
+  })();
+
+  // Ответы: в localStorage этого браузера; дизайнер читает их со страницы или из вставленного текста
+  const KEY = 'icon-weight-votes-3';
+  const CHOICES = [['ok', 'ок'], ['fix', 'поправить']];
+  let votes = {};
+  try { votes = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { votes = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(votes)); } catch {} count(); };
+  const mark = (cell, id) => { cell.classList.remove('cell--ok', 'cell--keep', 'cell--fix'); if (votes[id]?.choice) cell.classList.add(`cell--${votes[id].choice}`); };
+  const count = () => {
+    const cells = [...document.querySelectorAll('.cell')].filter((cell) => cell.style.display !== 'none');
+    const by = (c) => cells.filter((cell) => votes[cell.dataset.id]?.choice === c).length;
+    document.getElementById('count').innerHTML = `Ответов <b>${cells.length - cells.filter((cell) => !votes[cell.dataset.id]?.choice).length}</b> из ${cells.length}: ок ${by('ok')}, поправить ${by('fix')}`;
+  };
+  const report = () => {
+    const cells = [...document.querySelectorAll('.cell')].filter((cell) => cell.style.display !== 'none');
+    const line = (cell) => `- ${cell.dataset.id}${cell.dataset.sf ? ` (${cell.dataset.sf})` : ''}${votes[cell.dataset.id]?.note ? ': ' + votes[cell.dataset.id].note.replace(/\s+/g, ' ') : ''}`;
+    const group = (c, title) => { const list = cells.filter((cell) => votes[cell.dataset.id]?.choice === c); return list.length ? [`${title} (${list.length}):`, ...list.map(line)].join('\n') : ''; };
+    const none = cells.filter((cell) => !votes[cell.dataset.id]?.choice);
+    return ['Значки, второй круг', group('fix', 'Поправить'), group('ok', 'Ок'), none.length ? `Без ответа (${none.length}): ${none.map((cell) => cell.dataset.id).join(', ')}` : ''].filter(Boolean).join('\n\n');
+  };
+  window.iconWeightReport = report;
+  document.getElementById('copy').onclick = async () => {
+    try { await navigator.clipboard.writeText(report()); document.getElementById('copied').textContent = 'Скопировано'; }
+    catch { prompt('Скопируй ответы', report()); }
+  };
+  document.getElementById('all-ok').onclick = () => {
+    document.querySelectorAll('.cell').forEach((cell) => { const id = cell.dataset.id; if (cell.style.display === 'none') return; if (!votes[id]?.choice) { votes[id] = { ...votes[id], choice: 'ok' }; cell.querySelector('input[value="ok"]').checked = true; mark(cell, id); } });
+    save();
+  };
+</script>
+</body>
+</html>

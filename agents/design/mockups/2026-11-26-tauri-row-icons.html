@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Значки строки PR</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 40px 0 6px; }
+  p { font-size: 14px; line-height: 1.5; }
+  .lead { color: #48484a; max-width: 760px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; }
+  .caption { font-size: 13px; color: #48484a; margin: 6px 0 0; max-width: 760px; }
+  table { border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; font-size: 13px; width: 100%; }
+  th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e5ea; vertical-align: middle; }
+  th { font-weight: 600; background: #f7f7f9; }
+  td.icons { white-space: nowrap; }
+  td.icons svg { width: 15px; height: 15px; margin-right: 14px; vertical-align: middle; }
+  td.icons svg.big { width: 40px; height: 40px; }
+  .green { color: #34c759; } .red { color: #ff3b30; } .orange { color: #ff9500; } .gray { color: #8e8e93; } .yellow { color: #ffcc00; }
+  code { font-family: var(--font-mono); font-size: 12px; }
+  .rows { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .rows .app { padding: 16px; border-radius: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Значки строки PR</h1>
+<p><span class="status">на согласовании</span> 26.11.2026 · дизайнер · #55</p>
+<p class="lead">Замечание пользователя: в Tauri значки тредов стали круглыми облачками, а в SwiftUI они прямоугольные — «прямоугольные лучше, верни как было». Заодно сверил остальные значки строки PR и всего спрайта, где был тот же пузырь. В Phosphor есть прямоугольный пузырь <code>chat</code> с хвостиком слева внизу, как у SF Symbols. Все пузыри теперь собраны из него. Значок rebase снова — ветвящиеся стрелки, как <code>arrow.triangle.branch</code>, а не схема веток git.</p>
+
+<h2>Что меняется</h2>
+<table>
+  <tr><th>Где</th><th>SF Symbol в SwiftUI</th><th>Было в Tauri</th><th>Стало</th></tr>
+  <tr><td>Треды есть, не все закрыты</td><td><code>bubble.left</code></td><td class="icons gray"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble"/></svg></td><td class="icons gray"><svg><use href="../web/icons.svg#i-bubble"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble"/></svg></td></tr>
+  <tr><td>Все треды закрыты</td><td><code>checkmark.bubble</code></td><td class="icons green"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-check"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-check"/></svg></td><td class="icons green"><svg><use href="../web/icons.svg#i-bubble-check"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble-check"/></svg></td></tr>
+  <tr><td>Замечаний нет, все модели прошли</td><td><code>checkmark.bubble.fill</code></td><td class="icons green"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-check-fill"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-check-fill"/></svg></td><td class="icons green"><svg><use href="../web/icons.svg#i-bubble-check-fill"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble-check-fill"/></svg></td></tr>
+  <tr><td>Rebase в строке PR</td><td><code>arrow.triangle.branch</code></td><td class="icons gray"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-rebase"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-rebase"/></svg></td><td class="icons gray"><svg><use href="../web/icons.svg#i-rebase"/></svg><svg class="big"><use href="../web/icons.svg#i-rebase"/></svg></td></tr>
+  <tr><td>Значок в трее: ошибка прохода</td><td><code>exclamationmark.bubble</code></td><td class="icons red"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-warning"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-warning"/></svg></td><td class="icons red"><svg><use href="../web/icons.svg#i-bubble-warning"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble-warning"/></svg></td></tr>
+  <tr><td>Значок в трее: сервис не отвечает</td><td>— (новый)</td><td class="icons gray"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-slash"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-slash"/></svg></td><td class="icons gray"><svg><use href="../web/icons.svg#i-bubble-slash"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble-slash"/></svg></td></tr>
+  <tr><td>Доработка: новые замечания</td><td><code>plus.bubble.fill</code></td><td class="icons orange"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-plus-fill"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-plus-fill"/></svg></td><td class="icons orange"><svg><use href="../web/icons.svg#i-bubble-plus-fill"/></svg><svg class="big"><use href="../web/icons.svg#i-bubble-plus-fill"/></svg></td></tr>
+  <tr><td>Уведомления: замечания и комментарии</td><td><code>exclamationmark.bubble.fill</code>, <code>person.bubble.fill</code></td><td class="icons red"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-warning-fill"/></svg><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-bubble-text-fill"/></svg></td><td class="icons red"><svg><use href="../web/icons.svg#i-bubble-warning-fill"/></svg><svg><use href="../web/icons.svg#i-bubble-text-fill"/></svg></td></tr>
+  <tr><td>Вердикт «Стоит обсудить»</td><td><code>bubble.left.and.bubble.right.fill</code></td><td class="icons yellow"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-verdict-discuss"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-verdict-discuss"/></svg></td><td class="icons yellow"><svg><use href="../web/icons.svg#i-verdict-discuss"/></svg><svg class="big"><use href="../web/icons.svg#i-verdict-discuss"/></svg></td></tr>
+  <tr><td>Склеено разбором памяти</td><td><code>arrow.triangle.merge</code></td><td class="icons gray"><svg><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-merge"/></svg><svg class="big"><use href="2026-11-26-tauri-row-icons/icons-before.svg#i-merge"/></svg></td><td class="icons gray"><svg><use href="../web/icons.svg#i-merge"/></svg><svg class="big"><use href="../web/icons.svg#i-merge"/></svg></td></tr>
+</table>
+<p class="caption">Остальные значки строки PR сверил: волшебная палочка доработки, колонна архитектуры, колба QA, часы очереди, треугольник ошибки и галочка в круге. По форме они близки к SF Symbols, их не трогаю. Классы и разметка не меняются, только спрайт <code>agents/design/web/icons.svg</code>: в приложении значки поменяются сами.</p>
+
+<h2>В строке PR</h2>
+<div class="rows">
+  <div class="app" data-theme="light">
+    <div class="section__card">
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads threads--clean"><svg class="icon"><use href="../web/icons.svg#i-bubble-check-fill"/></svg></span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button></div>
+      <div class="row-divider"></div>
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads threads--resolved"><svg class="icon"><use href="../web/icons.svg#i-bubble-check"/></svg>2/2</span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button></div>
+      <div class="row-divider"></div>
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads"><svg class="icon"><use href="../web/icons.svg#i-bubble"/></svg>1/3</span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-fix"/></svg></button></div>
+    </div>
+  </div>
+  <div class="app" data-theme="dark">
+    <div class="section__card">
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads threads--clean"><svg class="icon"><use href="../web/icons.svg#i-bubble-check-fill"/></svg></span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button></div>
+      <div class="row-divider"></div>
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads threads--resolved"><svg class="icon"><use href="../web/icons.svg#i-bubble-check"/></svg>2/2</span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button></div>
+      <div class="row-divider"></div>
+      <div class="settings-row" style="justify-content: flex-end; gap: 18px"><span class="threads"><svg class="icon"><use href="../web/icons.svg#i-bubble"/></svg>1/3</span><button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-fix"/></svg></button></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</body>
+</html>

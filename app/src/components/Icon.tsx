@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import icons from '../../../product/design/web/icons.svg?raw';
+import icons from '../../../agents/design/web/icons.svg?raw';
 
 // Иконки спрайта дизайн-системы рисуются прямо в разметке: так их видит и снимок вкладки картинкой —
 // внешние ссылки <use href="icons.svg#…"> в картинку не попадают. i-spinner — класс spinner, он сам вращается

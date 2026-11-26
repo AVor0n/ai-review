@@ -4,7 +4,7 @@
 
 Background code review of open Bitbucket pull requests by three models — Claude, Codex and Cursor — with a tray app for macOS and Windows.
 
-![The "Overview" popover: pull requests by repository, model status and review results](product/design/screenshots/overview-light.en.png)
+![The "Overview" popover: pull requests by repository, model status and review results](agents/design/screenshots/overview-light.en.png)
 <sub>Mockup with made-up data</sub>
 
 > This is the author's personal tool, published as a showcase: the code, the architecture, and how the product was built by a team of AI agents. No support or compatibility between versions is promised. It works with **Bitbucket Cloud only**; GitHub is not supported. The interface and most of the project documents are in Russian.
@@ -22,7 +22,7 @@ Besides review:
 
 Everything is controlled from the tray app (a popover at the icon); the CLI can do the same: `bin/pr-reviewer help`.
 
-![The "Stats" tab: reviewer comments per day and the fate of findings](product/design/screenshots/stats-light.en.png)
+![The "Stats" tab: reviewer comments per day and the fate of findings](agents/design/screenshots/stats-light.en.png)
 <sub>Mockup with made-up data</sub>
 
 ## How it works
@@ -42,17 +42,17 @@ Tray app (Tauri 2: Rust + React, app/)
 
 - **Service** (`src/`) — the worker goes over open PRs, calls the models through their CLIs and posts the findings itself: models only read code and return JSON by the schemas in `schema/`. Fixing, architecture review, testing, memory, backlog and statistics live here too. Data is JSON/JSONL files in the data folder.
 - **API** (`src/api.mjs`, `schema/api.openapi.json`) — the app's only door to the service: data reads, actions through the same CLI, a change stream over SSE.
-- **App** (`app/`) — a tray icon and a popover on macOS and Windows. The client and types are generated from the OpenAPI schema. Styles and icons come from the design system in `product/design/web/`.
+- **App** (`app/`) — a tray icon and a popover on macOS and Windows. The client and types are generated from the OpenAPI schema. Styles and icons come from the design system in `agents/design/web/`.
 - On Windows the service runs in WSL2 and the app in Windows itself; WSL forwards `localhost` between them.
 
 ## How it was built
 
 The product was built by a team of Claude Code sessions led by the author: PM, dev, designer and qa. The author set goals and made decisions; the roles worked in separate sessions and messaged each other directly. Everything they left is in the repository:
 
-- [`product/backlog.md`](product/backlog.md) — the team's rules: roles, message routes, the board, how a task goes from idea to check. The tasks themselves are on the [GitHub board](https://github.com/users/AVor0n/projects/10) and in issues; early history is in [`product/archive/`](product/archive/).
-- [`product/specs/`](product/specs/) — PM specifications. Questions to the author are numbered across the whole project (Q1, Q2, …) with the decisions next to them.
-- [`product/design/`](product/design/) — HTML mockups, screen specifications and the design system [`web/`](product/design/web/) the app takes its styles and icons from.
-- [`product/bugs/`](product/bugs/) — qa reports: what was checked, how, what was found and what the author decided.
+- [`agents/backlog.md`](agents/backlog.md) — the team's rules: roles, message routes, the board, how a task goes from idea to check. The tasks themselves are on the [GitHub board](https://github.com/users/AVor0n/projects/10) and in issues; early history is in [`agents/archive/`](agents/archive/).
+- [`agents/specs/`](agents/specs/) — PM specifications. Questions to the author are numbered across the whole project (Q1, Q2, …) with the decisions next to them.
+- [`agents/design/`](agents/design/) — HTML mockups, screen specifications and the design system [`web/`](agents/design/web/) the app takes its styles and icons from.
+- [`agents/bugs/`](agents/bugs/) — qa reports: what was checked, how, what was found and what the author decided.
 - The git history — commits by the roles with a `Co-Authored-By: Claude` line.
 
 ## Requirements
@@ -101,7 +101,7 @@ The product was built by a team of Claude Code sessions led by the author: PM, d
 
 ## Updating
 
-Changes in `src/` and `schema/` apply at once. Changes in `app/` and `product/design/web/` (the app's styles and icons) apply after rebuilding the app:
+Changes in `src/` and `schema/` apply at once. Changes in `app/` and `agents/design/web/` (the app's styles and icons) apply after rebuilding the app:
 
 ```bash
 ./install.sh --app-only
@@ -204,7 +204,7 @@ For the tray app the service keeps an HTTP API on `127.0.0.1:8765` (port — `ap
 
 ## Tray app
 
-The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon with a popover: "Overview" (PRs by repository, banners, run, pause, model limits), "Backlog", "Statistics", "Settings" with the log, report sheets (fixing, architecture review, testing, memory). A right-click menu, system notifications — clicking opens the PR or thread. The app works only through the local API: the client and types are generated from `schema/api.openapi.json` (`npm run gen:api` in `app/`). Styles and icons come from `product/design/web`.
+The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon with a popover: "Overview" (PRs by repository, banners, run, pause, model limits), "Backlog", "Statistics", "Settings" with the log, report sheets (fixing, architecture review, testing, memory). A right-click menu, system notifications — clicking opens the PR or thread. The app works only through the local API: the client and types are generated from `schema/api.openapi.json` (`npm run gen:api` in `app/`). Styles and icons come from `agents/design/web`.
 
 **macOS** — installed by `./install.sh` (see "Installation"), rebuilt with `./install.sh --app-only`.
 

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Компоненты веб-интерфейса</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-каталога: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1040px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 44px 0 8px; }
+  p { font-size: 14px; line-height: 1.5; color: #48484a; max-width: 780px; }
+  .page > p code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .pane { padding: 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .pane__label { font-size: 11px; font-weight: 600; color: var(--label-2); text-transform: uppercase; }
+  .line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cap { font-size: 11px; color: var(--label-2); min-width: 110px; }
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+  .swatch { font-size: 10px; color: var(--label-2); }
+  .swatch__chip { height: 34px; border-radius: 8px; margin-bottom: 4px; box-shadow: inset 0 0 0 .5px var(--separator); }
+  .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+  .icon-cell { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--label-2); padding: 6px 8px; background: var(--card); border-radius: 8px; }
+  .icon-cell .icon { font-size: 16px; color: var(--label); }
+  .icon-cell b { font-weight: 600; color: var(--label); display: block; }
+  .type-row { display: flex; align-items: baseline; gap: 12px; }
+  .type-row .cap { min-width: 150px; }
+  .scale { display: flex; align-items: flex-end; gap: 10px; }
+  .scale div { background: var(--accent); opacity: .5; border-radius: 2px; }
+  .card-demo { background: var(--card); border-radius: var(--radius-card); }
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Компоненты веб-интерфейса</h1>
+<p>Справочник для приложения Tauri: токены <code>agents/design/web/tokens.css</code>, компоненты <code>components.css</code>, иконки <code>icons.svg</code>, знаки моделей <code>logos/</code>. Слева светлая тема, справа тёмная. Поповер целиком — на странице <a href="2026-11-25-tauri-popover.html">2026-11-25-tauri-popover.html</a>.</p>
+
+<h2>Цвета</h2>
+<div class="pair" data-pair="tpl-colors"></div>
+
+<h2>Типографика</h2>
+<p>Шрифт системный: SF Pro на Mac, Segoe UI Variable на Windows. Размеры в px равны pt окна SwiftUI. Меньше 10 px текста нет. Цифры в счётчиках — <code>.num</code> (tabular-nums).</p>
+<div class="pair" data-pair="tpl-type"></div>
+
+<h2>Отступы и радиусы</h2>
+<div class="pair" data-pair="tpl-space"></div>
+
+<h2>Иконки</h2>
+<p>Phosphor Icons 2.1.1 (MIT), вес bold — по толщине как SF Symbols medium при 13–14 px; для заливок — fill. Пузыри с галочкой и с «!» собраны из пузыря Phosphor. Справа от имени — какой SF Symbol иконка заменяет.</p>
+<div class="icons" id="icons" data-theme="light"></div>
+
+<h2>Сегменты, кнопки, статус</h2>
+<div class="pair" data-pair="tpl-controls"></div>
+
+<h2>Значки моделей</h2>
+<p>Состояние кнопки — <code>data-state</code>: none, queued, stale, done, running. Бейдж — лимит или «только вручную»; в очереди и во время ревью бейджа нет, знак крутится.</p>
+<div class="pair" data-pair="tpl-models"></div>
+
+<h2>Строка PR: счётчик тредов, теги, действия</h2>
+<div class="pair" data-pair="tpl-row-parts"></div>
+
+<h2>Баннеры</h2>
+<div class="pair" data-pair="tpl-banners"></div>
+
+<h2>Секция, плитки, фильтры, пустое состояние</h2>
+<div class="pair" data-pair="tpl-misc"></div>
+</div>
+
+<template id="tpl-colors">
+  <div class="swatches" data-swatches="bg card card-nested track thumb separator hover label label-2 label-3 accent red orange yellow green blue gray model-claude model-codex model-cursor chart-1 chart-2 chart-3 chart-4 chart-5 chart-6 chart-7 chart-8 level-p0 level-p1 level-p2 level-p3"></div>
+</template>
+
+<template id="tpl-type">
+  <div class="type-row"><span class="cap">26 · large-title · плитка</span><span style="font-size:var(--text-large-title);font-weight:600">83%</span></div>
+  <div class="type-row"><span class="cap">17 · title2 · раздел</span><span style="font-size:var(--text-title2);font-weight:700">Качество кода</span></div>
+  <div class="type-row"><span class="cap">13 · body · строка</span><span style="font-size:var(--text-body)">Экспорт заказа в PDF</span></div>
+  <div class="type-row"><span class="cap">12 · callout · статус</span><span style="font-size:var(--text-callout);color:var(--label-2)">Ожидание · следующая проверка через 12 мин</span></div>
+  <div class="type-row"><span class="cap">12 · semibold · баннер</span><span style="font-size:var(--text-callout);font-weight:600">Сервис не запущен</span></div>
+  <div class="type-row"><span class="cap">11 · subhead · мета</span><span style="font-size:var(--text-subhead);color:var(--label-2)">Вера Л. · PROJ-1234 → develop</span></div>
+  <div class="type-row"><span class="cap">11 · medium · секция</span><span style="font-size:var(--text-subhead);font-weight:500;color:var(--label-2);text-transform:uppercase">frontend</span></div>
+  <div class="type-row"><span class="cap">10 · caption · тег</span><span style="font-size:var(--text-caption);font-weight:600;color:var(--label-2)">Untracked</span></div>
+  <div class="type-row"><span class="cap">11 · mono · команда</span><span style="font-family:var(--font-mono);font-size:11px">yarn ts-check</span></div>
+</template>
+
+<template id="tpl-space">
+  <div class="line"><span class="cap">отступы</span><div class="scale"><div style="width:2px;height:2px"></div><div style="width:4px;height:4px"></div><div style="width:6px;height:6px"></div><div style="width:8px;height:8px"></div><div style="width:10px;height:10px"></div><div style="width:12px;height:12px"></div><div style="width:16px;height:16px"></div><div style="width:18px;height:18px"></div><div style="width:28px;height:28px"></div></div></div>
+  <div class="line"><span class="cap">2 4 6 8 10 12 16 18 28</span><span style="font-size:11px;color:var(--label-2)">поля экрана 16 · строка статуса 28 · между секциями 18 · строка 8×12</span></div>
+  <div class="line"><span class="cap">радиусы</span>
+    <div class="card-demo" style="width:56px;height:36px;border-radius:var(--radius-card)"></div>
+    <div class="card-demo" style="width:56px;height:36px;border-radius:var(--radius-control);background:var(--track)"></div>
+    <div class="card-demo" style="width:56px;height:24px;border-radius:var(--radius-thumb)"></div>
+    <div class="card-demo" style="width:56px;height:20px;border-radius:var(--radius-capsule)"></div></div>
+  <div class="line"><span class="cap">10 · 8 · 6 · капсула</span><span style="font-size:11px;color:var(--label-2)">поповер: Mac 12, Windows 8</span></div>
+</template>
+
+<template id="tpl-controls">
+  <div class="segmented"><button class="segmented__item" aria-selected="true">Обзор</button><button class="segmented__item">Бэклог<span class="segmented__count">3</span></button><button class="segmented__item">Статистика</button></div>
+  <div class="line"><div class="segmented segmented--compact"><button class="segmented__item">7 дн.</button><button class="segmented__item" aria-selected="true">30 дн.</button><button class="segmented__item">90 дн.</button></div><button class="square-button" title="Сохранить всю статистику картинкой в «Загрузки»"><svg class="icon"><use href="../web/icons.svg#i-camera"/></svg></button></div>
+  <div class="line"><button class="link-button">Обновить…</button><button class="link-button link-button--destructive">Прервать</button><button class="button">Подключить…</button><button class="button button--prominent">Запустить</button></div>
+  <div class="line"><button class="icon-button"><svg class="icon"><use href="../web/icons.svg#i-play"/></svg></button><button class="icon-button"><svg class="icon"><use href="../web/icons.svg#i-stop"/></svg></button><button class="icon-button"><svg class="icon"><use href="../web/icons.svg#i-refresh"/></svg></button><svg class="spinner"><use href="../web/icons.svg#i-spinner"/></svg><button class="close-button"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button></div>
+  <div class="card-demo" style="background:var(--bg)">
+    <div class="status-bar" style="--status-inset:12px"><span class="status-dot"></span><span class="status-text">Ожидание · следующая проверка через 12 мин</span><span class="spacer"></span><button class="icon-button"><svg class="icon"><use href="../web/icons.svg#i-play"/></svg></button></div>
+    <div class="status-bar" style="--status-inset:12px"><span class="status-dot status-dot--running"></span><span class="status-text">Идёт ревью frontend #2828 · Claude</span><span class="spacer"></span><button class="icon-button"><svg class="icon"><use href="../web/icons.svg#i-stop"/></svg></button></div>
+    <div class="status-bar" style="--status-inset:12px"><span class="status-dot status-dot--paused"></span><span class="status-text">Фоновое ревью выключено</span><button class="link-button">Включить</button></div>
+    <div class="status-bar" style="--status-inset:12px"><span class="status-dot status-dot--offline"></span><span class="status-text">Сервис не отвечает</span></div>
+  </div>
+</template>
+
+<template id="tpl-models">
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">none · queued · stale · done · running</span>
+    <span class="model-button model--claude" data-state="none"><span class="model-mark"></span></span>
+    <span class="model-button model--claude" data-state="queued"><span class="model-mark"></span></span>
+    <span class="model-button model--claude" data-state="stale"><span class="model-mark"></span></span>
+    <span class="model-button model--claude" data-state="done"><span class="model-mark"></span></span>
+    <span class="model-button model--claude" data-state="running"><span class="model-mark"></span></span>
+  </div>
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">Codex: лимит</span>
+    <span class="model-button model--codex" data-state="none"><span class="model-mark"></span><span class="model-badge model-badge--limit"><svg class="icon"><use href="../web/icons.svg#i-badge-hourglass"/></svg></span></span>
+    <span class="model-button model--codex" data-state="stale"><span class="model-mark"></span><span class="model-badge model-badge--limit"><svg class="icon"><use href="../web/icons.svg#i-badge-hourglass"/></svg></span></span>
+    <span class="model-button model--codex" data-state="done"><span class="model-mark"></span><span class="model-badge model-badge--limit"><svg class="icon"><use href="../web/icons.svg#i-badge-hourglass"/></svg></span></span>
+  </div>
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">Cursor: вручную</span>
+    <span class="model-button model--cursor" data-state="none"><span class="model-mark"></span><span class="model-badge model-badge--manual"><svg class="icon"><use href="../web/icons.svg#i-badge-pause"/></svg></span></span>
+    <span class="model-button model--cursor" data-state="stale"><span class="model-mark"></span><span class="model-badge model-badge--manual"><svg class="icon"><use href="../web/icons.svg#i-badge-pause"/></svg></span></span>
+    <span class="model-button model--cursor" data-state="done"><span class="model-mark"></span><span class="model-badge model-badge--manual"><svg class="icon"><use href="../web/icons.svg#i-badge-pause"/></svg></span></span>
+  </div>
+  <div class="line">
+    <button class="capsule capsule--limit model--codex"><span class="model-button"><span class="model-mark"></span><span class="model-badge model-badge--limit"><svg class="icon"><use href="../web/icons.svg#i-badge-hourglass"/></svg></span></span>Codex: лимит до 14:30</button>
+    <button class="capsule model--cursor"><span class="model-button"><span class="model-mark"></span><span class="model-badge model-badge--manual"><svg class="icon"><use href="../web/icons.svg#i-badge-pause"/></svg></span></span>Cursor: только вручную</button>
+  </div>
+</template>
+
+<template id="tpl-row-parts">
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">треды</span>
+    <span class="threads threads--none"><svg class="icon"><use href="../web/icons.svg#i-bubble"/></svg><span>0</span></span>
+    <span class="threads"><svg class="icon"><use href="../web/icons.svg#i-bubble"/></svg><span>3</span></span>
+    <span class="threads"><svg class="icon"><use href="../web/icons.svg#i-bubble"/></svg><span>1/3</span></span>
+    <span class="threads threads--resolved"><svg class="icon"><use href="../web/icons.svg#i-bubble-check"/></svg><span>3/3</span></span>
+    <span class="threads threads--clean"><svg class="icon"><use href="../web/icons.svg#i-bubble-check-fill"/></svg></span>
+  </div>
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">теги</span>
+    <span class="tag tag--red">P0</span><span class="tag tag--orange">P1 +2</span><span class="tag">Draft</span><span class="tag">Untracked</span>
+  </div>
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">доработка</span>
+    <button class="row-action" disabled><svg class="icon"><use href="../web/icons.svg#i-fix"/></svg></button>
+    <button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-fix"/></svg></button>
+    <button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button>
+    <button class="row-action row-action--orange"><svg class="icon"><use href="../web/icons.svg#i-rebase"/></svg></button>
+    <button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-clock"/></svg></button>
+    <button class="row-action"><svg class="spinner"><use href="../web/icons.svg#i-spinner"/></svg></button>
+    <button class="row-action row-action--green"><svg class="icon"><use href="../web/icons.svg#i-check-circle"/></svg></button>
+    <button class="row-action row-action--yellow"><svg class="icon"><use href="../web/icons.svg#i-check-circle"/></svg></button>
+    <button class="row-action row-action--orange"><svg class="icon"><use href="../web/icons.svg#i-warning"/></svg></button>
+  </div>
+  <div class="line card-demo" style="padding:8px 12px">
+    <span class="cap">архитектура</span>
+    <button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-arch"/></svg></button>
+    <button class="row-action row-action--green"><svg class="icon"><use href="../web/icons.svg#i-arch-fill"/></svg></button>
+    <button class="row-action row-action--yellow"><svg class="icon"><use href="../web/icons.svg#i-arch-fill"/></svg></button>
+    <button class="row-action row-action--orange"><svg class="icon"><use href="../web/icons.svg#i-arch-fill"/></svg></button>
+    <button class="row-action row-action--green row-action--stale"><svg class="icon"><use href="../web/icons.svg#i-arch-fill"/></svg></button>
+    <span class="cap" style="min-width:0;margin-left:8px">тестирование</span>
+    <button class="row-action"><svg class="icon"><use href="../web/icons.svg#i-qa"/></svg></button>
+    <button class="row-action row-action--accent"><svg class="icon"><use href="../web/icons.svg#i-qa"/></svg></button>
+    <button class="row-action row-action--green"><svg class="icon"><use href="../web/icons.svg#i-qa"/></svg></button>
+    <button class="row-action row-action--red"><svg class="icon"><use href="../web/icons.svg#i-qa"/></svg></button>
+  </div>
+</template>
+
+<template id="tpl-banners">
+  <div class="banners" style="padding:0;--screen-inset:0">
+    <div class="banner banner--alert"><svg class="icon banner__icon"><use href="../web/icons.svg#i-hourglass"/></svg><div class="banner__body"><div class="banner__title">Проход ревью не продвигается 25 мин</div><div class="banner__text">Похоже, завис git или сеть. «Прервать» остановит этот проход.</div></div><div class="banner__actions"><button class="link-button">Журнал</button><button class="link-button link-button--destructive">Прервать</button></div></div>
+    <div class="banner banner--critical"><svg class="icon banner__icon"><use href="../web/icons.svg#i-power"/></svg><div class="banner__body"><div class="banner__title">Сервис не запущен</div><div class="banner__text">Нет ответа от 127.0.0.1:8765.</div><div class="banner__command">launchctl kickstart -k gui/$(id -u)/com.avoronin.pr-reviewer.api</div></div><div class="banner__actions"><button class="link-button">Скопировать команду</button></div></div>
+    <div class="banner banner--warning"><svg class="icon banner__icon"><use href="../web/icons.svg#i-brain"/></svg><div class="banner__body"><div class="banner__title">Память frontend почти заполнена: 52 из 60</div><div class="banner__text">Скоро новые правила начнут вытеснять наименее полезные.</div></div><div class="banner__actions"><button class="link-button">Проверить правила</button></div></div>
+    <div class="banner banner--info"><svg class="icon banner__icon"><use href="../web/icons.svg#i-brain"/></svg><div class="banner__body"><div class="banner__title">Новые правила в памяти backend: 2</div><div class="banner__text banner__text--clamp">Миграции пишутся обратимыми: у каждой есть down</div></div><div class="banner__actions"><button class="link-button">Посмотреть</button><button class="close-button"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button></div></div>
+    <div class="banner banner--alert"><svg class="icon banner__icon"><use href="../web/icons.svg#i-warning-fill"/></svg><div class="banner__body"><div class="banner__title">Последний запуск завершился с ошибкой</div><div class="banner__text banner__text--clamp selectable">git fetch: Could not resolve host: bitbucket.org</div></div><div class="banner__actions"><button class="link-button">Журнал</button></div></div>
+  </div>
+</template>
+
+<template id="tpl-misc">
+  <section class="section section--expanded">
+    <div class="section__header"><svg class="icon section__chevron"><use href="../web/icons.svg#i-chevron-right"/></svg><span>frontend</span><span>· 2</span><span class="spacer"></span><span class="section__plain">обновлено 2 минуты назад</span></div>
+    <div class="section__card"><div class="section__empty">Открытых PR нет</div></div>
+    <div class="section__footer">Сноска под карточкой — законченное предложение обычным регистром.</div>
+  </section>
+  <div class="kpi-row"><div class="kpi"><div class="kpi__title">Замечаний</div><div class="kpi__value">148</div><div class="kpi__detail">за 30 дн.</div></div><div class="kpi"><div class="kpi__title">Исправлено</div><div class="kpi__value">63%</div><div class="kpi__detail">71 из 113 закрытых</div></div></div>
+  <div class="line">
+    <button class="filter"><svg class="icon"><use href="../web/icons.svg#i-repo"/></svg>Все репозитории<svg class="icon filter__chevron"><use href="../web/icons.svg#i-chevron-down"/></svg></button>
+    <button class="filter filter--active"><svg class="icon"><use href="../web/icons.svg#i-model"/></svg>Claude<svg class="icon filter__chevron"><use href="../web/icons.svg#i-chevron-down"/></svg></button>
+  </div>
+  <div class="card-demo" style="background:var(--bg);display:flex;height:200px"><div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-tray"/></svg><div class="empty-state__title">Нет репозиториев</div><div class="empty-state__text">Подключите репозиторий, чтобы видеть его PR</div><button class="button">Подключить…</button></div></div>
+</template>
+
+<script>
+  // Страница раскладывает каждый шаблон в две колонки: светлая и тёмная тема
+  document.querySelectorAll('[data-pair]').forEach(pair => {
+    for (const theme of ['light', 'dark']) {
+      const pane = document.createElement('div');
+      pane.className = 'pane app';
+      pane.dataset.theme = theme;
+      pane.innerHTML = `<div class="pane__label">${theme === 'light' ? 'Светлая' : 'Тёмная'}</div>`;
+      pane.appendChild(document.getElementById(pair.dataset.pair).content.cloneNode(true));
+      pair.appendChild(pane);
+    }
+  });
+  document.querySelectorAll('[data-swatches]').forEach(box => {
+    for (const name of box.dataset.swatches.split(' ')) {
+      box.insertAdjacentHTML('beforeend', `<div class="swatch"><div class="swatch__chip" style="background:var(--${name})"></div>--${name}</div>`);
+    }
+  });
+  fetch('../web/icons.svg').then(r => r.text()).then(text => {
+    const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+    const box = document.getElementById('icons');
+    for (const symbol of doc.querySelectorAll('symbol')) {
+      const id = symbol.id;
+      const note = [...symbol.childNodes].find(n => n.nodeType === 8)?.textContent.trim() ?? '';
+      const cls = id === 'i-spinner' ? 'spinner' : 'icon';
+      box.insertAdjacentHTML('beforeend', `<div class="icon-cell"><svg class="${cls}"><use href="../web/icons.svg#${id}"/></svg><span><b>${id.slice(2)}</b>${note}</span></div>`);
+    }
+  });
+</script>
+</body>
+</html>

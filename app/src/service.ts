@@ -71,7 +71,7 @@ export const useService = (onChange: Listener) => {
 
 export const isWindows = () => navigator.userAgent.includes('Windows');
 
-// Тексты и команды — из макета (product/design/mockups/2026-11-25-tauri-popover.html, «сервис не отвечает»)
+// Тексты и команды — из макета (agents/design/mockups/2026-11-25-tauri-popover.html, «сервис не отвечает»)
 export const serviceDown = () =>
     isWindows()
         ? {

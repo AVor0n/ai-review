@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Доработка Tauri</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 48px 0 6px; }
+  h3 { font-size: 14px; margin: 28px 0 10px; color: #3a3a3c; }
+  p, li { font-size: 14px; line-height: 1.5; }
+  .lead { color: #48484a; max-width: 760px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; }
+  .note { background: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; max-width: 760px; }
+  .note b { font-weight: 600; }
+  .page > p code, .caption code, .note code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+  .caption { font-size: 13px; color: #48484a; margin: 6px 0 0; max-width: 760px; }
+
+  .scene { position: relative; border-radius: 12px; margin: 10px 0 6px; padding: 24px 0; display: flex; justify-content: center; }
+  .scene--mac { background: linear-gradient(160deg, #a7c4e8, #d9c6e8 60%, #f0d9c4); }
+  .scene--mac.dark { background: linear-gradient(160deg, #1d2b45, #3a2d4d 60%, #4a3428); }
+  .scene--win { background: linear-gradient(160deg, #9fc3e9, #c9dcf0); }
+  .popover--sheet { height: var(--popover-height) !important; }
+
+  .solo { display: flex; justify-content: center; margin: 10px 0 6px; padding: 20px 0; border-radius: 12px; background: #d1d1d6; }
+  .solo > .app { background: none; }
+  .solo .sheet { box-shadow: 0 0 0 .5px rgba(0,0,0,.1), 0 8px 24px rgba(0,0,0,.12); }
+  .solo .sheet--tall { height: 568px; }
+  .solo--short .sheet--tall { height: 330px; }
+
+  .alerts { display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; }
+  .alert { width: 280px; padding: 20px 16px 16px; border-radius: 12px; background: rgba(236,236,236,.98); text-align: center; font-size: 13px; color: #000;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 16px 40px rgba(0,0,0,.25); }
+  .alert b { display: block; margin-bottom: 6px; }
+  .alert p { font-size: 11px; line-height: 1.35; margin: 0 0 14px; }
+  .alert__buttons { display: flex; gap: 8px; }
+  .alert__buttons span { flex: 1; height: 24px; display: grid; place-items: center; border-radius: 6px; background: rgba(0,0,0,.08); }
+  .alert__buttons .default { background: #007aff; color: #fff; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Доработка и rebase в приложении Tauri</h1>
+<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задача B-30, экран 4 из 8</p>
+<p class="lead">Лист отчёта доработки переносится из SwiftUI без изменений. В нём строка статуса, ход работы по шагам со временем, новые замечания после доработки, «Исправлено», «Не исправлено», подробности и вывод команд. Внизу «Открыть PR» и «Запустить снова» или «Прервать». Тот же лист показывает rebase. Вёрстка — HTML/CSS на <code>agents/design/web</code>, лист — общий компонент, как у памяти и архитектуры.</p>
+<div class="note"><b>Что меняется по сравнению с SwiftUI.</b> (1) Лист открывается поверх поповера на «Обзоре», как лист архитектуры. (2) Высота: в SwiftUI лист 620 × (380 + шапка + кнопки) и вылезал бы за поповер. Здесь он 620 и занимает всю высоту поповера, содержимое прокручивается внутри. (3) Подтверждение запуска — системный диалог, сделано в B-30. (4) Иконки — Phosphor. Больше ничего не меняется, тексты слово в слово.</div>
+
+<h2>1. Доработка готова</h2>
+<p class="lead">Клик по зелёной галочке в строке PR.</p>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="overview" data-sheet="done"></div>
+</div>
+<p class="caption">«Запустить снова» неактивна, пока в PR нет открытых замечаний. У rebase — пока ветка не отстала от базы.</p>
+
+<h2>2. После доработки появились новые замечания</h2>
+<p class="lead">Галочка в строке PR жёлтая. В статусе жёлтый только значок: жёлтый текст на светлом фоне не читается. Новые замечания стоят первыми: ради них лист чаще всего и открывают.</p>
+<div class="scene scene--mac dark">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="overview" data-sheet="new-threads"></div>
+</div>
+<p class="caption">Квадрат со стрелкой справа открывает тред в Bitbucket. Строка «автор · файл» моноширинным, середина длинного пути заменяется многоточием.</p>
+
+<h2>3. Идёт, в очереди, не удалось</h2>
+<h3>Идёт доработка</h3>
+<div class="solo solo--short" data-theme="light"><div class="app" data-sheet="running"></div></div>
+<p class="caption">Время текущего шага идёт каждую секунду, у него вместо галочки крутится индикатор, под названием — последнее действие модели или проверки. Часы в статусе переворачиваются.</p>
+
+<h3>Проверки не прошли</h3>
+<div class="solo" data-theme="light"><div class="app" data-sheet="failed"></div></div>
+<p class="caption">У последнего шага оранжевый крестик. Сообщение сервиса — в статусе, вывод проверок — в «Выводе команд» моноширинным, текст выделяется.</p>
+
+<h3>В очереди</h3>
+<div class="solo solo--short" data-theme="light"><div class="app" data-sheet="queued"></div></div>
+
+<h2>4. Rebase</h2>
+<p class="lead">Тот же лист: заголовок «Rebase #N», шаги без правок Claude, если не было конфликтов.</p>
+<div class="solo" data-theme="light"><div class="app" data-sheet="rebase"></div></div>
+
+<h3>Подтверждения запуска</h3>
+<div class="solo" style="padding:40px 0"><div class="alerts">
+  <div class="alert"><b>Доработка #2828?</b><p>Claude перенесёт ветку PROJ-1234-order-pdf на свежую develop, исправит открытые замечания (4), закоммитит, прогонит проверки и, если они прошли, сделает push --force-with-lease. Работа идёт в отдельной копии и может занять до часа. Перед изменениями создаётся резервная ветка.</p><div class="alert__buttons"><span>Отмена</span><span class="default">Запустить</span></div></div>
+  <div class="alert"><b>Rebase #2058?</b><p>Ветка feature/discounts-migration отстала от develop на 6 коммит(ов), будут конфликты — их разрешит Claude, а если вариант неочевиден, rebase отменится. После rebase прогоняются проверки и делается push --force-with-lease. Работа идёт в отдельной копии, перед изменениями создаётся резервная ветка.</p><div class="alert__buttons"><span>Отмена</span><span class="default">Запустить</span></div></div>
+</div></div>
+<p class="caption">Системные диалоги, уже сделаны в B-30. Здесь — для полноты: «Запустить снова» в листе закрывает лист и открывает тот же диалог.</p>
+
+<h2>5. Windows</h2>
+<div class="scene scene--win">
+  <div class="popover-frame popover-frame--win" data-theme="light" data-template="overview" data-sheet="done"></div>
+</div>
+
+</div>
+
+<!-- ======================= Шаблоны листа ======================= -->
+
+<template id="tpl-fix-head">
+  <div class="sheet__head">
+    <div class="sheet__titles">
+      <div class="sheet__title">Доработка #2828</div>
+      <div class="sheet__subtitle sheet__subtitle--line">Экспорт заказа в PDF</div>
+    </div>
+    <button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button>
+  </div>
+</template>
+
+<template id="tpl-fix-footer">
+  <div class="sheet__footer"><button class="button">Открыть PR</button><span class="spacer"></span><button class="button">Запустить снова</button></div>
+</template>
+
+<template id="tpl-steps-done">
+  <div class="section">
+    <div class="section__header">Ход доработки</div>
+    <div class="section__card">
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Готовлю ветку</span></div><span class="step__time">8 с</span></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Rebase на develop</span></div><span class="step__time">3 с</span></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Зависимости</span></div><span class="step__time">41 с</span></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Claude правит замечания</span></div><span class="step__time">9 мин 12 с</span></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Проверки</span></div><span class="step__time">3 мин 50 с</span></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Push</span></div><span class="step__time">2 с</span></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-fix-items">
+  <div class="section">
+    <div class="section__header">Исправлено · 3</div>
+    <div class="section__card">
+      <div class="place md"><span class="place__marker" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="place__body"><span class="place__location">src/orders/export/OrderPdf.tsx:77</span><span>Фото загружаются с <code>crossOrigin="anonymous"</code>, а для чужих доменов подставляется заглушка</span></div></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="place md"><span class="place__marker" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="place__body"><span class="place__location">src/orders/export/loadFonts.ts:12</span><span>Шрифт встраивается через <code>addFont</code>, ручная загрузка удалена</span></div></div>
+      <div class="row-divider row-divider--marker"></div>
+      <div class="place md"><span class="place__marker" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="place__body"><span class="place__location">src/orders/OrderCard.tsx:118</span><span>Кнопка «Скачать PDF» неактивна, пока заказ не загружен</span></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section__header">Не исправлено · 1</div>
+    <div class="section__card">
+      <div class="place md"><span class="place__marker" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-minus-circle-fill"/></svg></span><div class="place__body"><span class="place__location">src/orders/export/OrderPdf.tsx:41</span><span>Разбивка больших заказов на страницы меняет вёрстку экспорта — нужно решение автора</span></div></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-fix-details">
+  <div class="section">
+    <div class="section__header">Подробности</div>
+    <div class="section__card">
+      <div class="detail-row"><span class="detail-row__title">Rebase</span><span class="detail-row__value">без конфликтов</span></div>
+      <div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Проверки</span><span class="detail-row__value">проходят: lint, typecheck, test</span></div>
+      <div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Резервная ветка</span><span class="detail-row__value">backup/PROJ-1234-order-pdf-20261126-1042</span></div>
+      <div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Заметки</span><span class="detail-row__value">Заглушка для фото из чужих доменов — тот же серый силуэт, что в карточке без фото</span></div>
+      <div class="row-divider"></div>
+      <div class="detail-row"><span class="detail-row__title">Цена и время</span><span class="detail-row__value">$0.92 · 14 мин 5 с</span></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-sheet-done">
+  <slot data-tpl="tpl-fix-head"></slot>
+  <span class="report-status" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-seal-check-fill"/></svg><span class="report-status__text">Запушено в PROJ-1234-order-pdf</span></span>
+  <div class="sheet__body"><slot data-tpl="tpl-steps-done"></slot><slot data-tpl="tpl-fix-items"></slot><slot data-tpl="tpl-fix-details"></slot></div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><span class="spacer"></span><button class="button" disabled>Запустить снова</button></div>
+</template>
+
+<template id="tpl-sheet-new-threads">
+  <slot data-tpl="tpl-fix-head"></slot>
+  <span class="report-status" style="--c: var(--yellow)"><svg class="icon"><use href="../web/icons.svg#i-seal-check-fill"/></svg><span class="report-status__text" style="color: var(--label)">Запушено в PROJ-1234-order-pdf. После доработки появились новые замечания</span></span>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Новые после доработки · 2</div>
+      <div class="section__card">
+        <div class="place md"><span class="place__marker" style="--c: var(--yellow)"><svg class="icon"><use href="../web/icons.svg#i-bubble-plus-fill"/></svg></span><div class="place__body"><span class="place__location">Кирилл Н. · src/orders/export/OrderPdf.tsx</span><span>Заглушку лучше брать из <code>assets/placeholders</code>, там уже есть силуэт под тёмную тему</span></div><button class="icon-button place__trail" title="Открыть тред в Bitbucket"><svg class="icon"><use href="../web/icons.svg#i-open-thread"/></svg></button></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="place md"><span class="place__marker" style="--c: var(--yellow)"><svg class="icon"><use href="../web/icons.svg#i-bubble-plus-fill"/></svg></span><div class="place__body"><span class="place__location">Claude · src/orders/OrderCard.tsx</span><span>Пока кнопка неактивна, у неё нет подсказки, почему — стоит написать «Заказ ещё загружается»</span></div><button class="icon-button place__trail" title="Открыть тред в Bitbucket"><svg class="icon"><use href="../web/icons.svg#i-open-thread"/></svg></button></div>
+      </div>
+    </div>
+    <slot data-tpl="tpl-steps-done"></slot><slot data-tpl="tpl-fix-items"></slot><slot data-tpl="tpl-fix-details"></slot>
+  </div>
+  <slot data-tpl="tpl-fix-footer"></slot>
+</template>
+
+<template id="tpl-sheet-running">
+  <slot data-tpl="tpl-fix-head"></slot>
+  <span class="report-status" style="--c: var(--blue)"><svg class="icon hourglass"><use href="../web/icons.svg#i-hourglass"/></svg><span class="report-status__text">Claude правит замечания</span></span>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Ход доработки</div>
+      <div class="section__card">
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Готовлю ветку</span></div><span class="step__time">8 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Rebase на develop</span></div><span class="step__time">3 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Зависимости</span></div><span class="step__time">41 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step step--current"><span class="step__mark"><svg class="spinner"><use href="../web/icons.svg#i-spinner"/></svg></span><div class="step__body"><span class="step__title">Claude правит замечания</span><span class="step__activity">Edit src/orders/export/OrderPdf.tsx</span></div><span class="step__time">4 мин 37 с</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><span class="spacer"></span><button class="button button--destructive">Прервать</button></div>
+</template>
+
+<template id="tpl-sheet-failed">
+  <slot data-tpl="tpl-fix-head"></slot>
+  <span class="report-status" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg><span class="report-status__text">падают: test. Пуш не выполнялся, правки сохранены в локальной ветке pr-reviewer-fix/PROJ-1234-order-pdf-20261126-1042</span></span>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Ход доработки</div>
+      <div class="section__card">
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Claude правит замечания</span></div><span class="step__time">9 мин 12 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Проверки</span></div><span class="step__time">3 мин 50 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Claude чинит проверки</span></div><span class="step__time">2 мин 4 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark" style="--c: var(--orange)"><svg class="icon"><use href="../web/icons.svg#i-x-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Повторные проверки</span></div><span class="step__time">3 мин 41 с</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">Вывод команд</div>
+      <div class="section__card"><div class="output">$ npm test
+ FAIL  src/orders/export/OrderPdf.test.tsx
+  ● OrderPdf › подставляет заглушку для фото с чужого домена
+    expect(received).toBe(expected)
+    Expected: "/assets/placeholders/product.svg"
+    Received: "/assets/product-silhouette.svg"
+Tests: 1 failed, 212 passed, 213 total</div></div>
+    </div>
+  </div>
+  <slot data-tpl="tpl-fix-footer"></slot>
+</template>
+
+<template id="tpl-sheet-queued">
+  <slot data-tpl="tpl-fix-head"></slot>
+  <span class="report-status"><svg class="icon"><use href="../web/icons.svg#i-clock"/></svg><span class="report-status__text" style="color: var(--label-2)">В очереди</span></span>
+  <div class="sheet__body"></div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><span class="spacer"></span><button class="button button--destructive">Прервать</button></div>
+</template>
+
+<template id="tpl-sheet-rebase">
+  <div class="sheet__head">
+    <div class="sheet__titles">
+      <div class="sheet__title">Rebase #2058</div>
+      <div class="sheet__subtitle sheet__subtitle--line">Миграция таблицы скидок</div>
+    </div>
+    <button class="round-button round-button--close" title="Закрыть"><svg class="icon"><use href="../web/icons.svg#i-close"/></svg></button>
+  </div>
+  <span class="report-status" style="--c: var(--green)"><svg class="icon"><use href="../web/icons.svg#i-seal-check-fill"/></svg><span class="report-status__text">Запушено в feature/discounts-migration</span></span>
+  <div class="sheet__body">
+    <div class="section">
+      <div class="section__header">Ход доработки</div>
+      <div class="section__card">
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Готовлю ветку</span></div><span class="step__time">6 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Rebase на develop</span></div><span class="step__time">2 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Claude разрешает конфликты, раунд 1</span></div><span class="step__time">3 мин 18 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Проверки</span></div><span class="step__time">2 мин 40 с</span></div>
+        <div class="row-divider row-divider--marker"></div>
+        <div class="step"><span class="step__mark"><svg class="icon"><use href="../web/icons.svg#i-check-circle-fill"/></svg></span><div class="step__body"><span class="step__title">Push</span></div><span class="step__time">2 с</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section__header">Подробности</div>
+      <div class="section__card">
+        <div class="detail-row"><span class="detail-row__title">Rebase</span><span class="detail-row__value">конфликты в migrations/0042_discounts.sql разрешены</span></div>
+        <div class="row-divider"></div>
+        <div class="detail-row"><span class="detail-row__title">Проверки</span><span class="detail-row__value">проходят: lint, test</span></div>
+        <div class="row-divider"></div>
+        <div class="detail-row"><span class="detail-row__title">Резервная ветка</span><span class="detail-row__value">backup/feature/discounts-migration-20261126-0915</span></div>
+        <div class="row-divider"></div>
+        <div class="detail-row"><span class="detail-row__title">Цена и время</span><span class="detail-row__value">$0.31 · 6 мин 8 с</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="sheet__footer"><button class="button">Открыть PR</button><span class="spacer"></span><button class="button" disabled>Запустить снова</button></div>
+</template>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="arrow" viewBox="0 0 24 11"><path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor"/></symbol>
+</svg>
+
+<script>
+  // Фон под листом — обзор из макета поповера: шаблоны берутся оттуда, чтобы разметка была в одном месте
+  function stamp(root) {
+    root.querySelectorAll('slot[data-tpl]').forEach(slot => {
+      const content = document.getElementById(slot.dataset.tpl).content.cloneNode(true);
+      stamp(content);
+      slot.replaceWith(content);
+    });
+    return root;
+  }
+  const sheet = name => {
+    const box = document.createElement('div');
+    box.className = 'sheet sheet--medium sheet--tall';
+    box.appendChild(stamp(document.getElementById('tpl-sheet-' + name).content.cloneNode(true)));
+    return box;
+  };
+  fetch('2026-11-25-tauri-popover.html').then(r => r.text()).then(html => {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('template').forEach(t => { if (!document.getElementById(t.id)) document.body.appendChild(document.importNode(t, true)); });
+    document.querySelectorAll('[data-template]').forEach(frame => {
+      const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
+      if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
+      const pop = content.querySelector('.popover');
+      pop.classList.add('popover--sheet');
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sheet-backdrop';
+      backdrop.appendChild(sheet(frame.dataset.sheet));
+      pop.appendChild(backdrop);
+      frame.appendChild(content);
+    });
+  });
+  document.querySelectorAll('.solo [data-sheet]').forEach(box => box.appendChild(sheet(box.dataset.sheet)));
+</script>
+</body>
+</html>

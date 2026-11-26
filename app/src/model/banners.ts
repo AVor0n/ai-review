@@ -1,5 +1,5 @@
 // Баннеры обзора по важности — как banners в OverviewView.swift. Цвет — по SwiftUI:
-// красный — critical, оранжевый — alert, жёлтый — warning, акцентный — info (product/design/web/components.css)
+// красный — critical, оранжевый — alert, жёлтый — warning, акцентный — info (agents/design/web/components.css)
 import { memoryLimit, tokens, workerStall, isRunning, type TokenInfo } from './derive';
 import { clock, minutesText, parse, shortDate } from './format';
 import type { Prefs } from './prefs';

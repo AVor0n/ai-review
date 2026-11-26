@@ -5,8 +5,8 @@ Licensed under the MIT License, see LICENSE.
 This project includes third-party material:
 
 Phosphor Icons 2.1.1 (https://phosphoricons.com)
-Used in: product/design/web/icons.svg,
-         product/design/mockups/2026-11-26-tauri-row-icons/icons-before.svg
+Used in: agents/design/web/icons.svg,
+         agents/design/mockups/2026-11-26-tauri-row-icons/icons-before.svg
 
   MIT License
 
@@ -32,7 +32,7 @@ Used in: product/design/web/icons.svg,
 
 Trademarks
 
-The Anthropic (Claude), OpenAI and Cursor logos in product/design/logos/ and
-product/design/web/logos/ are trademarks of their respective owners. They are
+The Anthropic (Claude), OpenAI and Cursor logos in agents/design/logos/ and
+agents/design/web/logos/ are trademarks of their respective owners. They are
 used only to show which model CLI a review runs on and are not covered by this
 project's license.

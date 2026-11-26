@@ -308,7 +308,7 @@ export const App = () => {
     // Путь к CLI в WSL — из /health; до первого ответа сервиса — как ставит install.sh
     const cli = (healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer').replace(/^\/(?:home\/[^/]+|root)(?=\/)/, '~');
 
-    // Рамка — классы дизайн-системы (product/design/web/components.css): на Mac стрелка к значку, на Windows без неё
+    // Рамка — классы дизайн-системы (agents/design/web/components.css): на Mac стрелка к значку, на Windows без неё
     return (
         <div className={`window-frame window-frame--${platform}`}>
             <div className={`popover-frame popover-frame--${platform}`}>

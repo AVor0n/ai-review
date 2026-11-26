@@ -55,7 +55,7 @@ use tauri::{
 const TRAY_ID: &str = "main";
 const WINDOW: &str = "main";
 
-// Окно прозрачное и шире поповера: поля под тень, которую рисует CSS (product/design/web/components.css).
+// Окно прозрачное и шире поповера: поля под тень, которую рисует CSS (agents/design/web/components.css).
 // Размеры — в логических пикселях, как --popover-width/--popover-height и поля .window-frame в styles.css
 const POPOVER_WIDTH: f64 = 780.0;
 const POPOVER_HEIGHT: f64 = 600.0;
@@ -131,7 +131,7 @@ fn taskbar_dark() -> bool {
     cfg!(target_os = "windows") && !light_taskbar()
 }
 
-// Кадры значка рисует вебвью (product/design/web: иконки и знаки моделей). Несколько кадров — анимация:
+// Кадры значка рисует вебвью (agents/design/web: иконки и знаки моделей). Несколько кадров — анимация:
 // вращение знака модели или мигание; max_ticks — сколько смен кадра, после них горит первый кадр
 // Картинка и признак шаблона — одним вызовом: в tray-icon 0.25 на macOS set_icon сбрасывает шаблон,
 // и значок «ожидание» оставался чёрным на тёмной строке меню вместо цвета системы

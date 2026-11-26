@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Размеры значков</title>
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: -apple-system, BlinkMacSystemFont, sans-serif; color: #1d1d1f; }
+  .page { max-width: 1500px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p { font-size: 14px; line-height: 1.5; max-width: 900px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+  .tabs button { font: inherit; font-size: 13px; padding: 5px 12px; border: 0; border-radius: 8px; background: #fff; cursor: pointer; }
+  .tabs button[aria-selected="true"] { background: #007aff; color: #fff; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pair h2 { font-size: 15px; margin: 0 0 6px; }
+  .frame { position: relative; height: 640px; overflow: hidden; border-radius: 12px; background: #fff; }
+  iframe { position: absolute; top: 0; left: 0; width: 1000px; height: calc(640px / var(--k, 1)); border: 0; transform: scale(var(--k, 1)); transform-origin: 0 0; }
+  code { font-family: ui-monospace, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+<h1>Размеры значков: было и стало</h1>
+<p><span class="status" style="background:#dff5e3;color:#1d7a34">одобрено 27.11.2026</span> 27.11.2026 · дизайнер · после #56</p>
+<p>Значки Phosphor занимают 65–85 % своего квадрата, а SF Symbols на том же кегле выходят крупнее, поэтому во всём приложении значки были мельче, чем в SwiftUI. Я замерил SF Symbol каждого места в старом окне и подобрал кегль так, чтобы видимый значок совпал. Первый замер брал картинку SF Symbol вместе с прозрачными полями и вышел крупным. Теперь считается только видимая часть глифа. Слева — как сейчас в main, в «Настройках» это уже размеры из #56. Справа — после правки: значки «Настроек» из #56 тоже стали немного меньше. Иконки те же, меняется только размер. Правка — один блок в конце <code>agents/design/web/components.css</code>, приложение подхватит его само.</p>
+<div class="tabs" id="tabs"></div>
+<div class="pair">
+  <div><h2>Было</h2><div class="frame"><iframe id="before"></iframe></div></div>
+  <div><h2>Стало</h2><div class="frame"><iframe id="after"></iframe></div></div>
+</div>
+</div>
+<script>
+  // Одна и та же страница макета в двух рамках; в «Было» подменяется таблица стилей на копию до правки
+  const pages = [
+    ['Поповер', '2026-11-25-tauri-popover.html'], ['Статистика', '2026-11-26-tauri-stats.html'], ['Память', '2026-11-26-tauri-memory.html'],
+    ['Архитектура', '2026-11-26-tauri-arch.html'], ['Доработка', '2026-11-26-tauri-fix.html'], ['Тестирование', '2026-11-26-tauri-qa.html'],
+    ['Бэклог', '2026-11-26-tauri-backlog.html'], ['Настройки', '2026-11-26-tauri-settings.html'], ['Журнал', '2026-11-26-tauri-log.html'],
+  ];
+  const before = document.getElementById('before'), after = document.getElementById('after'), tabs = document.getElementById('tabs');
+  // Страница макета шириной 1000 вписывается в колонку масштабом
+  const fit = () => document.querySelectorAll('.frame').forEach(f => f.style.setProperty('--k', f.clientWidth / 1000));
+  addEventListener('resize', fit); fit();
+  // Сцены дорисовываются скриптом страницы, поэтому ждём, пока поповер появится
+  const waitScene = frame => { let n = 0; const t = setInterval(() => { const d = frame.contentDocument; const pop = d && d.querySelector('.scene .popover, .scene .sheet'); if (pop || ++n > 30) { clearInterval(t); scrollToScene(frame); setTimeout(() => scrollToScene(frame), 600); } }, 100); };
+  const scrollToScene = frame => { const scene = frame.contentDocument.querySelector('.scene'); if (scene) frame.contentWindow.scrollTo(0, scene.getBoundingClientRect().top + frame.contentWindow.scrollY - 10); };
+  before.addEventListener('load', () => {
+    const link = before.contentDocument.querySelector('link[href$="components.css"]');
+    if (link) link.href = '2026-11-27-tauri-icon-sizes/components-before.css';
+    waitScene(before);
+  });
+  after.addEventListener('load', () => waitScene(after));
+  const open = (i) => {
+    before.src = pages[i][1]; after.src = pages[i][1];
+    [...tabs.children].forEach((b, j) => b.setAttribute('aria-selected', i === j));
+  };
+  pages.forEach(([title], i) => { const b = document.createElement('button'); b.textContent = title; b.onclick = () => open(i); tabs.appendChild(b); });
+  open(0);
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // Строка PR и капсулы шапки: иконки, цвета и подсказки — как AgentReviewButton, AvailabilityCapsule,
-// FixButton, ArchButton и QaButton в SwiftUI. Цвет — модификатор класса из product/design/web/components.css
+// FixButton, ArchButton и QaButton в SwiftUI. Цвет — модификатор класса из agents/design/web/components.css
 import {
     agentIds,
     agentName,
