@@ -11,7 +11,8 @@ export const TABS = [
 export type TabId = (typeof TABS)[number]['id'];
 
 export type StubTarget =
-    | { kind: 'tab'; tab: Exclude<TabId, 'overview'> }
+    // «Обзор» и «Статистика» уже перенесены
+    | { kind: 'tab'; tab: Exclude<TabId, 'overview' | 'stats'> }
     | { kind: 'connect' }
     | { kind: 'token'; id: string; title: string; lifetimeDays: number | null }
     | { kind: 'memory'; slug: string }
@@ -51,7 +52,6 @@ const content = (target: StubTarget, cli: string, logDir: string): Omit<Stub, 't
                         { text: `${cli} backlog filed <id>`, note: 'итог разбора: задача заведена; drop <id> — отклонено' },
                     ],
                 };
-            if (target.tab === 'stats') return { tab: 'stats', title: 'Статистика', commands: [{ text: `${cli} stats`, note: 'сравнение моделей' }] };
             if (target.tab === 'log') return { tab: 'log', title: 'Журнал', commands: logCommands(cli, logDir) };
             return { tab: 'settings', title: 'Настройки', commands: settingsCommands(cli) };
         case 'connect':

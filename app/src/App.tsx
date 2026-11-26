@@ -6,6 +6,7 @@ import { errorText, type ApiClient, type Schemas } from './api/client';
 import type { ChangeEvent } from './api/events';
 import { Overview, type OverviewHandlers } from './components/Overview';
 import { Stub } from './components/Stub';
+import { StatsScreen } from './stats/StatsScreen';
 import { useData } from './data';
 import { banners as buildBanners, serviceDownBanner, type Banner, type BannerAction } from './model/banners';
 import { archAgentName, threads } from './model/derive';
@@ -35,6 +36,9 @@ export const App = () => {
     const [prefs, setPrefs] = useState<Prefs>(loadPrefs);
     const [now, setNow] = useState(() => new Date());
     const [stub, setStub] = useState<StubTarget | null>(null);
+    // Перенесённые экраны; неперенесённые открывают заглушку поверх них
+    const [screen, setScreen] = useState<'overview' | 'stats'>('overview');
+    const [statsVersion, setStatsVersion] = useState(0);
     const [bannersExpanded, setBannersExpanded] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
@@ -55,6 +59,7 @@ export const App = () => {
     const onChange = useCallback(
         async (event: ChangeEvent, api: ApiClient) => {
             await onEvent(api, event);
+            if (['stats', 'fixes', 'arch', 'qa', 'backlog', 'memory'].includes(event.type)) setStatsVersion((value) => value + 1);
             if (event.type !== 'stats') return;
             // since включает границу: запись с тем же временем уже показана
             const since = seenStatsAt.current;
@@ -111,6 +116,7 @@ export const App = () => {
         const unlisten = listen<{ arrowX: number }>('popover-shown', ({ payload }) => {
             document.documentElement.style.setProperty('--arrow-x', `${payload.arrowX}px`);
             setStub(null);
+            setScreen('overview');
             setBannersExpanded(false);
             setNow(new Date());
             if (apiRef.current) refreshSecrets(apiRef.current);
@@ -222,7 +228,7 @@ export const App = () => {
     // Пути CLI и журнала в WSL — из /health; до первого ответа сервиса — как ставит install.sh
     const env: CliEnv = { cli: healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer', logDir: healthRef.current?.logDir ?? '~/.local/state/pr-reviewer' };
     const shownStub = stub ? stubContent(stub, platform, env) : null;
-    const tab: TabId = shownStub?.tab ?? 'overview';
+    const tab: TabId = shownStub?.tab ?? screen;
 
     // Рамка — классы дизайн-системы (product/design/web/components.css): на Mac стрелка к значку, на Windows без неё
     return (
@@ -237,7 +243,12 @@ export const App = () => {
                     <div className="tabs">
                         <div className="segmented" role="tablist">
                             {TABS.map((item) => (
-                                <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => setStub(item.id === 'overview' ? null : { kind: 'tab', tab: item.id })}>
+                                <button key={item.id} className="segmented__item" role="tab" aria-selected={tab === item.id} onClick={() => {
+                                        if (item.id === 'overview' || item.id === 'stats') {
+                                            setScreen(item.id);
+                                            setStub(null);
+                                        } else setStub({ kind: 'tab', tab: item.id });
+                                    }}>
                                     {item.title}
                                 </button>
                             ))}
@@ -245,6 +256,8 @@ export const App = () => {
                     </div>
                     {shownStub ? (
                         <Stub stub={shownStub} onCopy={copy} />
+                    ) : screen === 'stats' ? (
+                        <StatsScreen api={connection.phase === 'up' ? connection.api : null} data={data} version={statsVersion} />
                     ) : (
                         <Overview state={{ offline, data: hasData ? data : null, banners, bannersExpanded, collapsed: prefs.collapsedRepos, syncing, now }} on={handlers} />
                     )}

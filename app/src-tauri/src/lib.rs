@@ -182,6 +182,21 @@ fn set_tray_menu(app: AppHandle, items: Vec<MenuEntry>) -> Result<(), String> {
     tray.set_menu(Some(menu)).map_err(|error| error.to_string())
 }
 
+// Картинка вкладки (камера статистики): PNG приходит телом запроса, имя — заголовком. Файл — в «Загрузки», затем открывается
+#[tauri::command]
+fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else { return Err("нет картинки".into()) };
+    let name = request.headers().get("x-file-name").and_then(|value| value.to_str().ok()).unwrap_or("pr-reviewer.png");
+    // Имя задаёт вебвью, но в путь попадает только простое имя файла
+    if name.is_empty() || !name.chars().all(|char| char.is_ascii_alphanumeric() || "-_.".contains(char)) || name.starts_with('.') {
+        return Err("недопустимое имя файла".into());
+    }
+    let path = dirs::download_dir().ok_or("не найдена папка «Загрузки»")?.join(name);
+    std::fs::write(&path, bytes).map_err(|error| format!("не удалось сохранить картинку: {error}"))?;
+    tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|error| error.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
 #[derive(Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct PopoverPlacement {
@@ -296,7 +311,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu])
+        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
