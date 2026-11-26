@@ -1,22 +1,9 @@
 import { invoke } from '@tauri-apps/api/core';
-import { toPng } from 'html-to-image';
-import icons from '../../../product/design/web/icons.svg?raw';
+import { toCanvas } from 'html-to-image';
 
 // Снимок вкладки целиком, без прокрутки: PNG 2× в текущей теме, ширина поповера, в «Загрузки», затем файл открывается — как ImageExport.swift.
-// Копия содержимого рисуется вне экрана на всю высоту; иконки спрайта встраиваются в копию: внешние ссылки <use> в картинку не попадают
-const sprite = new DOMParser().parseFromString(icons, 'image/svg+xml');
-
-const inlineIcons = (root: HTMLElement) => {
-    for (const use of root.querySelectorAll('use')) {
-        const id = (use.getAttribute('href') ?? '').split('#')[1];
-        const symbol = id ? sprite.getElementById(id) : null;
-        const svg = use.closest('svg');
-        if (!symbol || !svg) continue;
-        svg.setAttribute('viewBox', symbol.getAttribute('viewBox') ?? '');
-        svg.innerHTML = symbol.innerHTML;
-        if (symbol.getAttribute('fill')) svg.setAttribute('fill', symbol.getAttribute('fill')!);
-    }
-};
+// Вкладка снимается по частям и склеивается: высокую копию целиком WebKit не рисует, обрезает сверху
+const SCALE = 2;
 
 const stamp = () => {
     const now = new Date();
@@ -24,19 +11,44 @@ const stamp = () => {
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`;
 };
 
-export const exportImage = async (content: HTMLElement, name: string) => {
-    const holder = document.createElement('div');
-    holder.className = 'app';
-    holder.style.cssText = 'position: fixed; left: -100000px; top: 0; width: var(--popover-width); padding-top: var(--space-16)';
-    const copy = content.cloneNode(true) as HTMLElement;
-    inlineIcons(copy);
-    holder.append(copy);
-    document.body.append(holder);
-    try {
-        const url = await toPng(holder, { pixelRatio: 2, backgroundColor: getComputedStyle(holder).backgroundColor });
-        const bytes = Uint8Array.from(atob(url.split(',')[1]), (char) => char.charCodeAt(0));
-        await invoke('save_image', bytes, { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
-    } finally {
-        holder.remove();
+// Цвет графиков задан переменной --c: в копии для снимка она не раскрывается, поэтому на время снимка — готовые цвета
+const freezeSvgColors = (root: HTMLElement) => {
+    const elements = [...root.querySelectorAll<SVGElement>('svg *')];
+    const saved = elements.map((element) => element.getAttribute('style'));
+    for (const element of elements) {
+        const style = getComputedStyle(element);
+        element.style.fill = style.fill;
+        element.style.stroke = style.stroke;
     }
+    return () => elements.forEach((element, index) => (saved[index] === null ? element.removeAttribute('style') : element.setAttribute('style', saved[index]!)));
+};
+
+export const exportImage = async (content: HTMLElement, name: string) => {
+    const root = getComputedStyle(document.documentElement);
+    const top = parseFloat(root.getPropertyValue('--space-16')) || 0;
+    const width = parseFloat(root.getPropertyValue('--popover-width')) || content.offsetWidth;
+    const area = content.getBoundingClientRect();
+    const left = (width - area.width) / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = width * SCALE;
+    canvas.height = (content.scrollHeight + top + left) * SCALE;
+    const context = canvas.getContext('2d')!;
+    context.fillStyle = getComputedStyle(content.closest('.app') ?? content).backgroundColor;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const restore = freezeSvgColors(content);
+    try {
+        for (const part of [...content.children] as HTMLElement[]) {
+            const box = part.getBoundingClientRect();
+            const options = { pixelRatio: SCALE, width: box.width, height: box.height };
+            // WebKit отдаёт первый снимок без картинок (знаки моделей ещё грузятся), поэтому такие части снимаем дважды
+            if (part.querySelector('.model-mark')) await toCanvas(part, options);
+            const image = await toCanvas(part, options);
+            context.drawImage(image, (left + box.left - area.left) * SCALE, (top + box.top - area.top) * SCALE);
+        }
+    } finally {
+        restore();
+    }
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Не удалось собрать картинку');
+    await invoke('save_image', new Uint8Array(await blob.arrayBuffer()), { headers: { 'x-file-name': `${name}-${stamp()}.png` } });
 };

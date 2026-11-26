@@ -56,7 +56,8 @@ export const useData = () => {
     );
 
     const onEvent = useCallback(
-        (api: ApiClient, event: ChangeEvent) => load(api, event.type === 'connected' ? ['config', ...Object.keys(LOADERS).filter((type) => type !== 'config')] : [event.type]),
+        // Память читается вместе с конфигом: отдельный загрузчик при подключении видел бы ещё пустой список репозиториев
+        (api: ApiClient, event: ChangeEvent) => load(api, event.type === 'connected' ? Object.keys(LOADERS).filter((type) => type !== 'memory') : [event.type]),
         [load],
     );
 
