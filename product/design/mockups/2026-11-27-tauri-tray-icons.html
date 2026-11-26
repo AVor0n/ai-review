@@ -19,9 +19,6 @@
   th { font-weight: 600; background: #f7f7f9; }
   td.big { width: 160px; }
   .glyph { display: block; width: 144px; height: 144px; background: #f2f2f7; border-radius: 8px; }
-  .sf { display: block; width: 144px; height: 144px; background: #f2f2f7; border-radius: 8px; position: relative; }
-  .sf i { position: absolute; inset: 0; background: currentColor; -webkit-mask: var(--src) center / 144px 144px no-repeat; mask: var(--src) center / 144px 144px no-repeat; }
-  .none { display: grid; place-items: center; width: 144px; height: 144px; background: #f2f2f7; border-radius: 8px; color: #8e8e93; font-size: 12px; text-align: center; }
   .note { font-size: 12px; color: #6e6e73; }
   /* Строка меню Mac: высота 24, значки в поле 18 pt, число справа от значка */
   .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -31,9 +28,7 @@
   .bar__label { opacity: .6; }
   .bar__items { display: flex; align-items: center; gap: 14px; height: 24px; }
   .bar__item { display: flex; align-items: center; gap: 2px; font: 500 13px -apple-system, sans-serif; }
-  .bar__item canvas, .bar__item .mini { width: 18px; height: 18px; }
-  .mini { position: relative; }
-  .mini i { position: absolute; inset: 0; background: currentColor; -webkit-mask: var(--src) center / 18px 18px no-repeat; mask: var(--src) center / 18px 18px no-repeat; }
+  .bar__item canvas { width: 18px; height: 18px; }
   /* Панель задач Windows: значок 16 px при 100 %, 20 при 125 %, 24 при 150 %; справа увеличено по пикселям */
   .task { display: grid; grid-template-columns: 1fr; gap: 16px; }
   .task__box { border-radius: 10px; padding: 14px 16px; font-size: 12px; }
@@ -49,11 +44,11 @@
 
 <h1>Значки трея</h1>
 <p><span class="status" style="background:#dff5e3;color:#1d7a34">одобрено 27.11.2026</span> 27.11.2026 · дизайнер · по запросу пользователя</p>
-<p>Замечание пользователя: значки трея стали угловатыми и грубыми, линии толстые, а хочется красивых значков и на Mac, и на Windows. Дело не в Retina: трей сейчас берёт общие значки Phosphor из строк PR, а у них жирная линия и острые углы. Для трея рисую отдельный набор <code>i-tray-*</code> на сетке 18 pt — это поле значка в строке меню. Толщина линии у значков трея — параметр. На Mac 1 pt, как у SF Symbols: замер по старому окну дал 1,03 pt, у нынешних значков 1,5. На Windows 1,15: при 16 px линия тоньше пикселя бледнеет. Пропорции, скругления и положение деталей сняты с SF Symbols старого окна наложением: пузырь, хвостик, галочка, многоточие, круг паузы и треугольник совпадают с ними с точностью до десятых долей пункта. В «идёт проверка» возвращается многоточие. Значки строк PR не меняются.</p>
+<p>Замечание пользователя: значки трея стали угловатыми и грубыми, линии толстые, а хочется красивых значков и на Mac, и на Windows. Дело не в Retina: трей сейчас берёт общие значки Phosphor из строк PR, а у них жирная линия и острые углы. Для трея рисую отдельный набор <code>i-tray-*</code> на сетке 18 pt — это поле значка в строке меню. Толщина линии у значков трея — параметр. На Mac 1 pt, как у SF Symbols: замер по старому окну дал 1,03 pt, у нынешних значков 1,5. На Windows 1,15: при 16 px линия тоньше пикселя бледнеет. Пропорции, скругления и положение деталей сняты с SF Symbols старого окна наложением: пузырь, хвостик, галочка, многоточие, круг паузы и треугольник совпадают с ними с точностью до десятых долей пункта. В «идёт проверка» возвращается многоточие. Значки строк PR не меняются. Рендеров SF Symbols на странице нет: лицензия Apple не разрешает их распространять, сравнение делалось локально.</p>
 
-<h2>Крупно: SwiftUI, сейчас и новые</h2>
+<h2>Крупно: сейчас и новые</h2>
 <table id="big">
-  <tr><th>Состояние</th><th>SwiftUI (SF Symbol)</th><th>Сейчас</th><th>Новый, Mac</th></tr>
+  <tr><th>Состояние</th><th>Сейчас</th><th>Новый, Mac</th></tr>
 </table>
 <p class="caption">Увеличено в 4 раза от картинки 36 px, которую трей отдаёт строке меню Mac. «Сейчас» нарисовано, как в коде: глиф 16 в поле 18. Новые значки уже содержат поля, поэтому рисуются на всё поле 18. Линия здесь — 1 pt, вариант для Mac.</p>
 
@@ -107,22 +102,11 @@
       context.fillRect(0, 0, size, size);
       return canvas;
     };
-    const sfBox = (state, theme, cls) => {
-      const box = document.createElement('span');
-      box.className = cls;
-      box.style.color = colorOf(state, theme);
-      box.style.setProperty('--src', `url("2026-11-27-tauri-tray-icons/${state.sf}.png")`);
-      box.appendChild(document.createElement('i'));
-      return box;
-    };
 
     const table = document.getElementById('big');
     for (const state of STATES) {
       const row = table.insertRow();
-      row.insertCell().innerHTML = `${state.title}<br><span class="note">${state.sf ?? 'нового'} · ${state.next}</span>`;
-      const sf = row.insertCell(); sf.className = 'big';
-      if (state.sf) sf.appendChild(sfBox(state, 'light', 'sf'));
-      else sf.innerHTML = '<span class="none">в SwiftUI<br>не было</span>';
+      row.insertCell().innerHTML = `${state.title}<br><span class="note">${state.sf ? `как ${state.sf}` : 'новый'} · ${state.next}</span>`;
       for (const [id, fraction] of [[state.now, 16 / 18], [state.next, 1]]) {
         const cell = row.insertCell(); cell.className = 'big';
         const canvas = await draw(id, 144, fraction, colorOf(state, 'light'));
@@ -135,19 +119,14 @@
     for (const theme of ['light', 'dark']) {
       const bar = document.createElement('div');
       bar.className = `bar bar--${theme}`;
-      for (const [label, kind] of [['SwiftUI', 'sf'], ['Сейчас', 'now'], ['Новые', 'next']]) {
+      for (const [label, kind] of [['Сейчас', 'now'], ['Новые', 'next']]) {
         bar.insertAdjacentHTML('beforeend', `<span class="bar__label">${label}</span>`);
         const items = document.createElement('div');
         items.className = 'bar__items';
         for (const state of STATES) {
           const item = document.createElement('span');
           item.className = 'bar__item';
-          if (kind === 'sf') {
-            if (!state.sf) continue;
-            item.appendChild(sfBox(state, theme, 'mini'));
-          } else {
-            item.appendChild(await draw(state[kind], 36, kind === 'now' ? 16 / 18 : 1, colorOf(state, theme), 18));
-          }
+          item.appendChild(await draw(state[kind], 36, kind === 'now' ? 16 / 18 : 1, colorOf(state, theme), 18));
           if (state.count) item.insertAdjacentText('beforeend', state.count);
           items.appendChild(item);
         }

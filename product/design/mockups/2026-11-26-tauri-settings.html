@@ -172,7 +172,7 @@
         <div class="section__card">
           <div class="settings-row">
             <span class="icon-tile"><svg class="icon"><use href="../web/icons.svg#i-repo-fill"/></svg></span>
-            <span class="settings-row__text"><span>workspace/frontend</span><span class="settings-row__sub">git@bitbucket.org:workspace/frontend.git</span></span>
+            <span class="settings-row__text"><span>acme/frontend</span><span class="settings-row__sub">git@bitbucket.org:acme/frontend.git</span></span>
             <button class="memory-chip memory-chip--marked" style="--c: var(--red)" title="Память повреждена: Unexpected token } in JSON at position 18342"><svg class="icon"><use href="../web/icons.svg#i-brain"/></svg>67</button>
             <button class="icon-button" title="Ещё"><svg class="icon"><use href="../web/icons.svg#i-more"/></svg></button>
             <input type="checkbox" class="switch" checked title="Фоновое ревью репозитория включено">
@@ -180,7 +180,7 @@
           <div class="row-divider row-divider--tile"></div>
           <div class="settings-row">
             <span class="icon-tile"><svg class="icon"><use href="../web/icons.svg#i-repo-fill"/></svg></span>
-            <span class="settings-row__text"><span>workspace/backend</span><span class="settings-row__sub">git@bitbucket.org:workspace/backend.git · первый клон с ~/work/backend</span></span>
+            <span class="settings-row__text"><span>acme/backend</span><span class="settings-row__sub">git@bitbucket.org:acme/backend.git · первый клон с ~/work/backend</span></span>
             <button class="memory-chip memory-chip--marked" style="--c: var(--accent)" title="Новых правил: 2. Откройте, чтобы посмотреть"><svg class="icon"><use href="../web/icons.svg#i-brain"/></svg>24</button>
             <button class="icon-button" title="Ещё"><svg class="icon"><use href="../web/icons.svg#i-more"/></svg></button>
             <input type="checkbox" class="switch" checked>
@@ -188,7 +188,7 @@
           <div class="row-divider row-divider--tile"></div>
           <div class="settings-row">
             <span class="icon-tile" style="--c: var(--gray)"><svg class="icon"><use href="../web/icons.svg#i-repo-fill"/></svg></span>
-            <span class="settings-row__text"><span>workspace/android</span><span class="settings-row__sub">git@bitbucket.org:workspace/android.git</span></span>
+            <span class="settings-row__text"><span>acme/android</span><span class="settings-row__sub">git@bitbucket.org:acme/android.git</span></span>
             <button class="link-button">Скачать</button>
             <button class="memory-chip" title="Память ревьюеров: правила из ответов команды на замечания"><svg class="icon"><use href="../web/icons.svg#i-brain"/></svg>0</button>
             <button class="icon-button" title="Ещё"><svg class="icon"><use href="../web/icons.svg#i-more"/></svg></button>
@@ -365,8 +365,8 @@
 
 <template id="tpl-sheet-add-repo">
   <div class="sheet__head"><span class="sheet__titles"><span class="sheet__title">Новый репозиторий</span></span></div>
-  <div class="labeled" style="gap: 6px"><input class="text-field" style="flex: none" value="workspace/admin" placeholder="https://bitbucket.org/workspace/repo или workspace/repo"><span class="info-card__body">Подойдёт ссылка на репозиторий или PR, SSH-адрес клона или workspace/slug.</span></div>
-  <span class="form-message" style="--c: var(--red)">Нет доступа к workspace/admin: проверьте, что токен Bitbucket видит этот репозиторий.</span>
+  <div class="labeled" style="gap: 6px"><input class="text-field" style="flex: none" value="acme/admin" placeholder="https://bitbucket.org/workspace/repo или workspace/repo"><span class="info-card__body">Подойдёт ссылка на репозиторий или PR, SSH-адрес клона или workspace/slug.</span></div>
+  <span class="form-message" style="--c: var(--red)">Нет доступа к acme/admin: проверьте, что токен Bitbucket видит этот репозиторий.</span>
   <div class="sheet__footer"><span class="spinner" style="display:none"></span><span class="spacer"></span><button class="button">Отмена</button><button class="button button--prominent">Добавить</button></div>
 </template>
 
@@ -394,8 +394,8 @@
   <span class="k">"branchPattern"</span><span class="p">:</span> <span class="s">"PROJ-\\d+|feature/"</span><span class="p">,</span>
   <span class="k">"ignorePaths"</span><span class="p">:</span> <span class="p">[</span><span class="s">"**/yarn.lock"</span><span class="p">,</span> <span class="s">"**/package-lock.json"</span><span class="p">,</span> <span class="s">"**/*.snap"</span><span class="p">],</span>
   <span class="k">"repos"</span><span class="p">:</span> <span class="p">[</span>
-    <span class="p">{</span> <span class="k">"workspace"</span><span class="p">:</span> <span class="s">"project"</span><span class="p">,</span> <span class="k">"slug"</span><span class="p">:</span> <span class="s">"frontend"</span> <span class="p">},</span>
-    <span class="p">{</span> <span class="k">"workspace"</span><span class="p">:</span> <span class="s">"project"</span><span class="p">,</span> <span class="k">"slug"</span><span class="p">:</span> <span class="s">"android"</span><span class="p">,</span> <span class="k">"paused"</span><span class="p">:</span> <span class="b">true</span> <span class="p">}</span>
+    <span class="p">{</span> <span class="k">"workspace"</span><span class="p">:</span> <span class="s">"acme"</span><span class="p">,</span> <span class="k">"slug"</span><span class="p">:</span> <span class="s">"frontend"</span> <span class="p">},</span>
+    <span class="p">{</span> <span class="k">"workspace"</span><span class="p">:</span> <span class="s">"acme"</span><span class="p">,</span> <span class="k">"slug"</span><span class="p">:</span> <span class="s">"android"</span><span class="p">,</span> <span class="k">"paused"</span><span class="p">:</span> <span class="b">true</span> <span class="p">}</span>
   <span class="p">],</span>
   <span class="k">"agents"</span><span class="p">:</span> <span class="p">{</span>
     <span class="k">"claude"</span><span class="p">:</span> <span class="p">{</span> <span class="k">"model"</span><span class="p">:</span> <span class="s">"opus"</span> <span class="p">},</span>

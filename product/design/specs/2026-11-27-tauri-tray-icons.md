@@ -2,7 +2,7 @@
 
 Дата: 27.11.2026, дизайнер. Одобрено пользователем 27.11.2026 («Одобряю»).
 
-Макет: `product/design/mockups/2026-11-27-tauri-tray-icons.html`. Рядом лежат PNG значков SF Symbols из старого окна.
+Макет: `product/design/mockups/2026-11-27-tauri-tray-icons.html`. Со значками SF Symbols старого окна сравнивали локально: их рендеры в репозиторий не кладём (лицензия Apple).
 Код: `app/src/model/tray.ts`, `app/src/trayIcon.ts`.
 
 ## Зачем
