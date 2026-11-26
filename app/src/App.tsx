@@ -27,7 +27,7 @@ import type { PullRequest } from './model/types';
 import { notify, reviewNotice } from './notify';
 import { checkAlerts, initialMemory, saveMemory } from './alerts';
 import { allows, loadNotifications } from './model/notifications';
-import { isWindows, serviceDown, useService } from './service';
+import { isWindows, serviceDown, useService, type ServiceSetup } from './service';
 import { applyTrayIcon, applyTrayMenu } from './trayIcon';
 import { setLangSetting, t, useLang } from './i18n';
 
@@ -128,6 +128,10 @@ export const App = () => {
     apiRef.current = connection.phase === 'up' ? connection.api : null;
     if (connection.phase === 'up') healthRef.current = connection.health;
     const offline = connection.phase === 'down';
+    // Установлен ли сервис — с последней неудачной попытки; нужен и баннеру, и уведомлениям (#70)
+    const downSetup: ServiceSetup = connection.phase === 'down' ? connection.setup : 'installed';
+    const setupRef = useRef(downSetup);
+    setupRef.current = downSetup;
     const hasData = !!data.status;
     const configLanguage = data.config.language ?? 'system';
     useEffect(() => {
@@ -147,7 +151,10 @@ export const App = () => {
     const command = useCallback(
         async (path: Command) => {
             const api = apiRef.current;
-            if (!api) return notify({ title: t('app.service.notRunning'), body: serviceDown().text });
+            if (!api) {
+                const down = serviceDown(setupRef.current);
+                return notify({ title: down.notice ?? t('app.service.notRunning'), body: down.text });
+            }
             if (path === '/sync') setSyncing(true);
             const { error } = await api.POST(path);
             if (path === '/sync') setSyncing(false);
@@ -203,8 +210,8 @@ export const App = () => {
     useEffect(() => {
         if (downSince === null) return;
         const timer = setTimeout(() => {
-            const { text, command } = serviceDown();
-            notify({ title: t('app.service.notResponding'), body: `${text}\n${command}` });
+            const { text, command, notice } = serviceDown(setupRef.current);
+            notify({ title: notice ?? t('app.service.notResponding'), body: command ? `${text}\n${command}` : text });
         }, Math.max(0, downSince + DOWN_NOTICE_MS - Date.now()));
         return () => clearTimeout(timer);
     }, [downSince]);
@@ -287,6 +294,7 @@ export const App = () => {
             else if (action.kind === 'memory') setMemorySheet(action.slug);
             else if (action.kind === 'stop') command('/stop');
             else if (action.kind === 'copy') copy(action.text);
+            else if (action.kind === 'open') openUrl(action.url).catch(() => {});
             else retry();
         },
         closeBanner: (close: NonNullable<Banner['close']>) => {
@@ -302,8 +310,8 @@ export const App = () => {
 
     const banners = useMemo(() => {
         const list = hasData ? buildBanners(data, prefs, { syncError, memoryBroken }, now) : [];
-        return offline ? [serviceDownBanner(serviceDown()), ...list] : list;
-    }, [hasData, data, prefs, syncError, memoryBroken, now, offline, lang]);
+        return offline ? [serviceDownBanner(serviceDown(downSetup)), ...list] : list;
+    }, [hasData, data, prefs, syncError, memoryBroken, now, offline, downSetup, lang]);
 
     // Путь к CLI в WSL — из /health; до первого ответа сервиса — как ставит install.sh
     const cli = (healthRef.current?.cli ?? '~/pr-reviewer/bin/pr-reviewer').replace(/^\/(?:home\/[^/]+|root)(?=\/)/, '~');

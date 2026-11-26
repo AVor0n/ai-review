@@ -12,6 +12,10 @@ export const app = {
         streamStatus: 'Поток событий ответил {status}',
         downWsl: 'Нет ответа от сервиса в WSL ({address}). Откройте терминал Ubuntu — сервис запускается вместе с WSL. Если он не поднялся, выполните в PowerShell команду ниже.',
         downMac: 'Нет ответа от {address}. Запустите сервис командой ниже или установите заново через ./install.sh.',
+        missingNotice: 'PR Reviewer: сервис не установлен в WSL',
+        missing: 'В WSL нет сервиса PR Reviewer (юнита pr-reviewer-api), перезапускать нечего. Установите его по инструкции в README, раздел «Installing on Windows 11 (WSL2)».',
+        noWslNotice: 'PR Reviewer: в Windows нет WSL',
+        noWsl: 'Сервис PR Reviewer работает в WSL, а в Windows не нашлось WSL или дистрибутива Linux. Установите Ubuntu в WSL2 и сервис по инструкции в README, раздел «Installing on Windows 11 (WSL2)».',
     },
     confirm: {
         fix: {

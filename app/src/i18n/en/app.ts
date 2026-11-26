@@ -14,6 +14,10 @@ export const app: Messages<typeof Ru> = {
         streamStatus: 'The event stream responded with {status}',
         downWsl: 'No response from the service in WSL ({address}). Open the Ubuntu terminal: the service starts with WSL. If it didn’t start, run the command below in PowerShell.',
         downMac: 'No response from {address}. Start the service with the command below or reinstall it with ./install.sh.',
+        missingNotice: 'PR Reviewer: service not installed in WSL',
+        missing: 'The PR Reviewer service (the pr-reviewer-api unit) isn’t installed in WSL, so there’s nothing to restart. Install it following the README, section “Installing on Windows 11 (WSL2)”.',
+        noWslNotice: 'PR Reviewer: no WSL in Windows',
+        noWsl: 'The PR Reviewer service runs in WSL, but no WSL or Linux distribution was found in Windows. Install Ubuntu in WSL2 and the service following the README, section “Installing on Windows 11 (WSL2)”.',
     },
     confirm: {
         fix: {

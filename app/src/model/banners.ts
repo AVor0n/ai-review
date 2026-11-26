@@ -7,7 +7,7 @@ import type { Data, Lesson } from './types';
 import type { SettingsSheet } from '../settings/model';
 import { t } from '../i18n';
 
-export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'retry' });
+export type BannerAction = { label: string; destructive?: boolean } & ({ kind: 'settings'; sheet: SettingsSheet } | { kind: 'memory'; slug: string } | { kind: 'stop' } | { kind: 'copy'; text: string } | { kind: 'open'; url: string } | { kind: 'retry' });
 
 export type Banner = {
     id: string;
@@ -125,19 +125,24 @@ export const banners = (data: Data, prefs: Prefs, extra: { syncError: string | n
     return result;
 };
 
-// Сервис не отвечает — баннер встаёт первым, список PR при этом остаётся, если данные уже были
-export const serviceDownBanner = (down: { text: string; command: string }): Banner => ({
-    id: 'service-down',
-    variant: 'critical',
-    icon: 'i-power',
-    title: t('overview.banners.serviceDown'),
-    text: down.text,
-    command: down.command,
-    actions: [
-        { label: t('overview.banners.copyCommand'), kind: 'copy', text: down.command },
-        { label: t('overview.banners.retry'), kind: 'retry' },
-    ],
-});
+// Сервис не отвечает — баннер встаёт первым, список PR при этом остаётся, если данные уже были.
+// Сервис не установлен (#70) — вместо команды перезапуска ссылка на инструкцию
+export const serviceDownBanner = (down: { title: string; text: string; command?: string; guide?: string }): Banner => {
+    const first: BannerAction[] = down.command
+        ? [{ label: t('overview.banners.copyCommand'), kind: 'copy', text: down.command }]
+        : down.guide
+          ? [{ label: t('overview.banners.openGuide'), kind: 'open', url: down.guide }]
+          : [];
+    return {
+        id: 'service-down',
+        variant: 'critical',
+        icon: 'i-power',
+        title: down.title,
+        text: down.text,
+        command: down.command,
+        actions: [...first, { label: t('overview.banners.retry'), kind: 'retry' }],
+    };
+};
 
 // Ещё 1 сообщение, ещё 2 сообщения, ещё 5 сообщений
 export const moreMessages = (count: number) => t('overview.banners.more', { count });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { banners, moreMessages } from './banners';
+import { banners, moreMessages, serviceDownBanner } from './banners';
+import { serviceDown, SETUP_GUIDE, type ServiceSetup } from '../service';
 import { availability, canTest, headline, isTaskBranch, qaConfigured, reviewState, tokens, unreviewedPrs, workerStall } from './derive';
 import { ago, resetShort, shortRepoName } from './format';
 import { defaultPrefs, muteUntil } from './prefs';
@@ -133,6 +134,24 @@ describe('шапка и строка PR', () => {
 });
 
 describe('баннеры', () => {
+    it('сервис не отвечает: на Windows без юнита — инструкция вместо команды перезапуска (#70)', () => {
+        const actions = (setup: ServiceSetup, windows: boolean) => serviceDownBanner(serviceDown(setup, windows)).actions.map((action) => action.kind);
+        const stopped = serviceDownBanner(serviceDown('installed', true));
+        expect(stopped).toMatchObject({ title: 'Сервис не запущен', command: 'wsl systemctl --user restart pr-reviewer-api' });
+        expect(actions('installed', true)).toEqual(['copy', 'retry']);
+
+        const missing = serviceDown('missing', true);
+        expect(missing).toMatchObject({ title: 'Сервис не установлен в WSL', guide: SETUP_GUIDE, notice: 'PR Reviewer: сервис не установлен в WSL' });
+        expect(missing.command).toBeUndefined();
+        expect(serviceDownBanner(missing).actions[0]).toEqual({ label: 'Открыть инструкцию', kind: 'open', url: SETUP_GUIDE });
+        expect(actions('missing', true)).toEqual(['open', 'retry']);
+        expect(serviceDown('no-wsl', true)).toMatchObject({ title: 'В Windows нет WSL', guide: SETUP_GUIDE, notice: 'PR Reviewer: в Windows нет WSL' });
+
+        // На macOS ничего не меняется: всегда команда перезапуска агента
+        expect(serviceDown('missing', false)).toMatchObject({ title: 'Сервис не запущен', command: expect.stringContaining('launchctl kickstart') });
+        expect(actions('missing', false)).toEqual(['copy', 'retry']);
+    });
+
     it('порядок: завис, ошибка, истёкший токен, истекающий, память', () => {
         const saved = (days: number) => new Date(NOW.getTime() - days * 86_400_000).toISOString();
         const value = data({

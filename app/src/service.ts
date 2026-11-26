@@ -8,7 +8,7 @@ import { t } from './i18n';
 // после события перечитываем нужный ресурс. Если сервис недоступен — повторяем подключение с паузой
 export type Connection =
     | { phase: 'connecting' }
-    | { phase: 'down'; reason: string; since: number }
+    | { phase: 'down'; reason: string; since: number; setup: ServiceSetup }
     | { phase: 'up'; api: ApiClient; health: Schemas['Health'] };
 
 // Клиент API — вместе с событием: состояние React с ним обновится позже, чем придёт первое событие
@@ -29,9 +29,11 @@ export const useService = (onChange: Listener) => {
         let attempt = 0;
         let failures = 0;
         let downSince: number | null = null;
-        const down = (reason: string) => {
-            downSince ??= Date.now();
-            if (++failures >= FAILURES_BEFORE_BANNER) setConnection({ phase: 'down', reason, since: downSince });
+        const down = async (reason: string) => {
+            const since = (downSince ??= Date.now());
+            if (++failures < FAILURES_BEFORE_BANNER) return;
+            const setup = await serviceSetup();
+            if (!controller.signal.aborted) setConnection({ phase: 'down', reason, since, setup });
         };
         const loop = async () => {
             while (!controller.signal.aborted) {
@@ -46,11 +48,11 @@ export const useService = (onChange: Listener) => {
                     setConnection({ phase: 'up', api, health });
                     listener.current({ type: 'connected', at: new Date().toISOString() }, api);
                     await streamEvents(`${baseUrl()}/events`, token, (event) => listener.current(event, api), controller.signal);
-                    down(t('app.service.streamBroken'));
+                    await down(t('app.service.streamBroken'));
                 } catch (error) {
                     if (controller.signal.aborted) return;
                     // invoke отдаёт строку с причиной, fetch — TypeError «Failed to fetch» при закрытом порте
-                    down(typeof error === 'string' ? error : t('app.service.unreachable'));
+                    await down(typeof error === 'string' ? error : t('app.service.unreachable'));
                 }
                 // «Проверить снова» прерывает паузу и пробует сразу
                 await new Promise<void>((resolve) => {
@@ -71,14 +73,33 @@ export const useService = (onChange: Listener) => {
 
 export const isWindows = () => navigator.userAgent.includes('Windows');
 
+// Установлен ли сервис (#70): на Windows он живёт в WSL, и без юнита pr-reviewer-api команда перезапуска падает.
+// Проверяет Rust (service_setup); на macOS и при любой ошибке — «установлен», баннер как раньше
+export type ServiceSetup = 'installed' | 'missing' | 'no-wsl';
+
+const serviceSetup = async (): Promise<ServiceSetup> => {
+    if (!isWindows()) return 'installed';
+    const setup = await invoke<string>('service_setup').catch(() => 'installed');
+    return setup === 'missing' || setup === 'no-wsl' ? setup : 'installed';
+};
+
+// Инструкция по установке в WSL — раздел README «Installing on Windows 11 (WSL2)»
+export const SETUP_GUIDE = 'https://github.com/AVor0n/ai-review#installing-on-windows-11-wsl2';
+
+// Что сказать, когда сервис не отвечает: установлен — команда перезапуска, не установлен — ссылка на инструкцию.
+// notice — заголовок системного уведомления, если он не обычный «не запущен / не отвечает»
+export type ServiceDown = { title: string; text: string; command?: string; guide?: string; notice?: string };
+
 // Тексты и команды — из макета (agents/design/mockups/2026-11-25-tauri-popover.html, «сервис не отвечает»)
-export const serviceDown = () =>
-    isWindows()
-        ? {
-              text: t('app.service.downWsl', { address: baseUrl().replace('http://', '') }),
-              command: 'wsl systemctl --user restart pr-reviewer-api',
-          }
-        : {
-              text: t('app.service.downMac', { address: baseUrl().replace('http://', '') }),
-              command: 'launchctl kickstart -k gui/$(id -u)/com.avoronin.pr-reviewer.api',
-          };
+export const serviceDown = (setup: ServiceSetup = 'installed', windows = isWindows()): ServiceDown => {
+    const address = baseUrl().replace('http://', '');
+    if (!windows)
+        return {
+            title: t('overview.banners.serviceDown'),
+            text: t('app.service.downMac', { address }),
+            command: 'launchctl kickstart -k gui/$(id -u)/com.avoronin.pr-reviewer.api',
+        };
+    if (setup === 'missing') return { title: t('overview.banners.serviceMissing'), text: t('app.service.missing'), guide: SETUP_GUIDE, notice: t('app.service.missingNotice') };
+    if (setup === 'no-wsl') return { title: t('overview.banners.noWsl'), text: t('app.service.noWsl'), guide: SETUP_GUIDE, notice: t('app.service.noWslNotice') };
+    return { title: t('overview.banners.serviceDown'), text: t('app.service.downWsl', { address }), command: 'wsl systemctl --user restart pr-reviewer-api' };
+};

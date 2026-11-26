@@ -125,6 +125,38 @@ fn api_token() -> Result<String, String> {
     }
 }
 
+// Почему сервис не отвечает (#70): на Windows он живёт в WSL, и команда перезапуска бесполезна, если юнита там нет.
+// "missing" — в WSL нет юнита pr-reviewer-api, "no-wsl" — нет WSL или дистрибутива, "installed" — юнит есть
+// или понять не удалось: тогда баннер как раньше, с командой перезапуска. На macOS и Linux — всегда "installed"
+#[tauri::command]
+fn service_setup() -> &'static str {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        let unit = std::process::Command::new("wsl.exe")
+            .args(["-e", "sh", "-c", r#"test -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/pr-reviewer-api.service" && echo installed || echo missing"#])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        let Ok(unit) = unit else { return "no-wsl" };
+        match String::from_utf8_lossy(&unit.stdout).trim() {
+            "installed" => return "installed",
+            "missing" => return "missing",
+            _ => {}
+        }
+        // Команда в WSL не выполнилась: есть ли дистрибутивы вообще. wsl.exe пишет список в UTF-16
+        let list = std::process::Command::new("wsl.exe").args(["-l", "-q"]).creation_flags(CREATE_NO_WINDOW).output();
+        return match list {
+            Ok(list) if list.status.success() && list.stdout.iter().any(|byte| byte.is_ascii_alphanumeric()) => "installed",
+            _ => "no-wsl",
+        };
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        "installed"
+    }
+}
+
 // Тема панели задач Windows: значок там система не перекрашивает, вебвью рисует его белым или чёрным
 #[tauri::command]
 fn taskbar_dark() -> bool {
@@ -578,7 +610,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
-        .invoke_handler(tauri::generate_handler![api_token, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification, set_modal, set_language])
+        .invoke_handler(tauri::generate_handler![api_token, service_setup, taskbar_dark, set_tray_icon, set_tray_tooltip, set_tray_menu, save_image, code_available, open_in_code, reveal_path, open_path, open_viewer, open_notification_settings, show_notification, set_modal, set_language])
         .setup(|app| {
             // Приложение живёт в строке меню: без значка в Dock и в переключателе приложений
             #[cfg(target_os = "macos")]
