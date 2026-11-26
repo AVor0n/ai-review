@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Журнал Tauri</title>
+<link rel="stylesheet" href="../web/tokens.css">
+<link rel="stylesheet" href="../web/components.css">
+<style>
+  /* Оформление страницы-макета: в приложение не переносится */
+  body { margin: 0; background: #e5e5ea; font-family: var(--font); color: #1d1d1f; }
+  .page { max-width: 1000px; margin: 0 auto; padding: 32px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 48px 0 6px; }
+  h3 { font-size: 14px; margin: 28px 0 10px; color: #3a3a3c; }
+  p, li { font-size: 14px; line-height: 1.5; }
+  .lead { color: #48484a; max-width: 760px; }
+  .status { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #fff3d6; color: #a05a00; } .status--ok { background: #dff5e3; color: #1d7a34; }
+  .note { background: #fff; border-radius: 10px; padding: 12px 16px; margin: 12px 0; font-size: 13px; max-width: 760px; }
+  .note b { font-weight: 600; }
+  .page > p code, .caption code, .note code { font-family: var(--font-mono); font-size: 12px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 4px; }
+  .caption { font-size: 13px; color: #48484a; margin: 6px 0 0; max-width: 760px; }
+
+  .scene { position: relative; border-radius: 12px; margin: 10px 0 6px; padding: 24px 0; display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+  .scene--mac { background: linear-gradient(160deg, #a7c4e8, #d9c6e8 60%, #f0d9c4); }
+  .scene--mac.dark { background: linear-gradient(160deg, #1d2b45, #3a2d4d 60%, #4a3428); }
+  .scene--win { background: linear-gradient(160deg, #9fc3e9, #c9dcf0); }
+  .popover--short { height: 300px !important; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Журнал в приложении Tauri</h1>
+<p><span class="status status--ok">одобрено 26.11.2026</span> 26.11.2026 · дизайнер · задача B-30, экран 8 из 8</p>
+<p class="lead">Вкладка «Журнал» переносится из SwiftUI без изменений: переключатель «Все записи / Ошибки», «Открыть файл» и последние 300 записей журнала сервиса. Свежие сверху. У каждой записи — время и текст моноширинным, у ошибок — оранжевый треугольник и подложка. Длинные записи свёрнуты до двух строк и раскрываются шевроном. Вёрстка — HTML/CSS на <code>product/design/web</code>.</p>
+<div class="note"><b>Что меняется по сравнению с SwiftUI.</b> (1) Журнал приходит из API сервиса, а не читается из файла: на Windows файл лежит в WSL. (2) «Открыть файл» на Mac открывает <code>~/Library/Logs/pr-reviewer/worker.log</code>, как раньше. На Windows — <code>~/.local/state/pr-reviewer/worker.log</code> из WSL по пути <code>\\wsl.localhost\…</code> в программе по умолчанию. (3) Иконки — Phosphor. Больше ничего не меняется. Заглушка «Журнал» из первой поставки и кнопки «Журнал» в баннерах ведут сюда.</div>
+
+<h2>1. Все записи</h2>
+<p class="lead">Третья запись раскрыта: многострочная ошибка с выводом команды.</p>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log"></div>
+</div>
+<p class="caption">Шеврон есть только у записей длиннее 140 символов или многострочных. Подсказка — «Показать целиком» / «Свернуть». Текст выделяется. Подсказка у «Открыть файл» — путь к файлу.</p>
+
+<h2>2. Только ошибки, тёмная тема</h2>
+<div class="scene scene--mac dark">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="dark" data-template="log-errors"></div>
+</div>
+
+<h2>3. Пустые состояния</h2>
+<div class="scene scene--mac">
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log-empty" data-short></div>
+  <div class="popover-frame popover-frame--mac" style="--arrow-x: 702px" data-theme="light" data-template="log-no-errors" data-short></div>
+</div>
+
+<h2>4. Windows</h2>
+<div class="scene scene--win">
+  <div class="popover-frame popover-frame--win" data-theme="light" data-template="log"></div>
+</div>
+
+</div>
+
+<!-- ======================= Шаблоны ======================= -->
+
+<template id="tpl-log-tabs">
+  <div class="tabs">
+    <div class="segmented" role="tablist">
+      <button class="segmented__item" role="tab">Обзор</button>
+      <button class="segmented__item" role="tab">Бэклог</button>
+      <button class="segmented__item" role="tab">Статистика</button>
+      <button class="segmented__item" role="tab" aria-selected="true">Журнал</button>
+      <button class="segmented__item" role="tab">Настройки</button>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-log-toolbar">
+  <div class="toolbar">
+    <div class="segmented" style="--segment-width: 100px"><button class="segmented__item" aria-selected="true">Все записи</button><button class="segmented__item">Ошибки</button></div>
+    <span class="spacer"></span>
+    <button class="link-button link-button--icon" title="~/Library/Logs/pr-reviewer/worker.log"><svg class="icon"><use href="../web/icons.svg#i-open-external"/></svg>Открыть файл</button>
+  </div>
+</template>
+
+<template id="tpl-log-toolbar-errors">
+  <div class="toolbar">
+    <div class="segmented" style="--segment-width: 100px"><button class="segmented__item">Все записи</button><button class="segmented__item" aria-selected="true">Ошибки</button></div>
+    <span class="spacer"></span>
+    <button class="link-button link-button--icon" title="~/Library/Logs/pr-reviewer/worker.log"><svg class="icon"><use href="../web/icons.svg#i-open-external"/></svg>Открыть файл</button>
+  </div>
+</template>
+
+<template id="tpl-row-plain-1">
+  <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 14:05:12</span><span class="log-row__message">frontend#2828: ревью Claude — старт, первым</span></div></div>
+</template>
+
+<template id="tpl-row-error-expanded">
+  <div class="log-row log-row--error log-row--expanded"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:58:40</span><span class="log-row__message">frontend#2826: доработка — проверки не прошли
+$ npm test
+ FAIL  src/products/ProductGallery.test.tsx
+  ● ProductGallery › показывает заглушку без фото
+    expect(received).toBeInTheDocument()
+Tests: 1 failed, 208 passed, 209 total</span></div><button class="log-row__toggle" title="Свернуть"><svg class="icon"><use href="../web/icons.svg#i-chevron-down"/></svg></button></div>
+</template>
+
+<template id="tpl-row-error-collapsed">
+  <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">26 нояб. 11:20:03</span><span class="log-row__message">Codex: лимит исчерпан, сброс 26 ноября в 14:30. Модель вернётся в фоновое ревью сама после сброса; до тех пор ревью по клику на иконку тоже упрётся в лимит. Ответ CLI: usage limit reached for this billing period</span></div><button class="log-row__toggle" title="Показать целиком"><svg class="icon"><use href="../web/icons.svg#i-chevron-down"/></svg></button></div>
+</template>
+
+<template id="tpl-log-list">
+  <div class="scroll"><div class="section__card">
+    <slot data-tpl="tpl-row-plain-1"></slot>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 14:05:10</span><span class="log-row__message">Фоновая проверка раз в 15 мин</span></div></div>
+    <div class="row-divider row-divider--log"></div>
+    <slot data-tpl="tpl-row-error-expanded"></slot>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:41:27</span><span class="log-row__message">backend#2058: архитектурное ревью — готово, вердикт discuss</span></div></div>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:12:55</span><span class="log-row__message">frontend: удалены ветки доработки закрытых PR — pr-reviewer-fix/PROJ-1218-product-gallery-20261125-1630</span></div></div>
+    <div class="row-divider row-divider--log"></div>
+    <slot data-tpl="tpl-row-error-collapsed"></slot>
+    <div class="row-divider row-divider--log"></div>
+    <div class="log-row"><span class="log-row__mark"></span><div class="log-row__body"><span class="log-row__time">26 нояб. 10:02:44</span><span class="log-row__message">API слушает 127.0.0.1:8765</span></div></div>
+  </div></div>
+</template>
+
+<template id="tpl-log">
+  <div class="popover app">
+    <slot data-tpl="tpl-log-tabs"></slot>
+    <div class="screen"><slot data-tpl="tpl-log-toolbar"></slot><slot data-tpl="tpl-log-list"></slot></div>
+  </div>
+</template>
+
+<template id="tpl-log-errors">
+  <div class="popover app">
+    <slot data-tpl="tpl-log-tabs"></slot>
+    <div class="screen"><slot data-tpl="tpl-log-toolbar-errors"></slot>
+      <div class="scroll"><div class="section__card">
+        <slot data-tpl="tpl-row-error-collapsed"></slot>
+        <div class="row-divider row-divider--log"></div>
+        <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">26 нояб. 13:58:40</span><span class="log-row__message">frontend#2826: доработка — проверки не прошли
+$ npm test</span></div><button class="log-row__toggle" title="Показать целиком"><svg class="icon"><use href="../web/icons.svg#i-chevron-down"/></svg></button></div>
+        <div class="row-divider row-divider--log"></div>
+        <div class="log-row log-row--error"><span class="log-row__mark"><svg class="icon"><use href="../web/icons.svg#i-warning-fill"/></svg></span><div class="log-row__body"><span class="log-row__time">25 нояб. 22:14:09</span><span class="log-row__message">Bitbucket: 503 Service Unavailable при чтении PR android — повтор через минуту</span></div></div>
+      </div></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-log-empty">
+  <div class="popover app">
+    <slot data-tpl="tpl-log-tabs"></slot>
+    <div class="screen"><slot data-tpl="tpl-log-toolbar"></slot>
+      <div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-file-text"/></svg><div class="empty-state__title">Лог пуст</div></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-log-no-errors">
+  <div class="popover app">
+    <slot data-tpl="tpl-log-tabs"></slot>
+    <div class="screen"><slot data-tpl="tpl-log-toolbar-errors"></slot>
+      <div class="empty-state"><svg class="icon empty-state__icon"><use href="../web/icons.svg#i-check-circle"/></svg><div class="empty-state__title">Ошибок нет</div></div>
+    </div>
+  </div>
+</template>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="arrow" viewBox="0 0 24 11"><path d="M0 11C5 11 8.5 1 12 1S19 11 24 11Z" fill="currentColor"/></symbol>
+</svg>
+
+<script>
+  // Страница собирает поповеры из шаблонов, чтобы разметка была в одном месте. В приложении шаблонов нет
+  function stamp(root) {
+    root.querySelectorAll('slot[data-tpl]').forEach(slot => {
+      const content = document.getElementById(slot.dataset.tpl).content.cloneNode(true);
+      stamp(content);
+      slot.replaceWith(content);
+    });
+    return root;
+  }
+  document.querySelectorAll('[data-template]').forEach(frame => {
+    const content = stamp(document.getElementById('tpl-' + frame.dataset.template).content.cloneNode(true));
+    if (frame.classList.contains('popover-frame--mac')) frame.insertAdjacentHTML('afterbegin', '<svg class="popover__arrow"><use href="#arrow"/></svg>');
+    if (frame.hasAttribute('data-short')) content.querySelector('.popover').classList.add('popover--short');
+    frame.appendChild(content);
+  });
+</script>
+</body>
+</html>
