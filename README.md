@@ -1,142 +1,180 @@
 # PR Reviewer
 
-Фоновое код-ревью открытых PR в Bitbucket тремя моделями — Claude, Codex и Cursor — с приложением в трее для macOS и Windows.
+**English** · [Русский](README.ru.md)
 
-Раз в несколько минут сервис смотрит открытые PR подключённых репозиториев. Если появился новый коммит или новый тред, модели по очереди читают изменения и публикуют замечания уровнями P0–P3. Следующая модель проверяет замечания предыдущей: согласна — ставит отметку, не согласна — отвечает с причиной. Когда код исправлен или команда объяснила, что так задумано, модель сама закрывает свой тред. Модели только читают код и возвращают JSON; публикует, подписывает и привязывает замечания к строкам диффа сам сервис. Разные репозитории проверяются параллельно (`parallelRepos`, по умолчанию 3).
+Background code review of open Bitbucket pull requests by three models — Claude, Codex and Cursor — with a tray app for macOS and Windows.
 
-Кроме ревью:
+![The "Overview" popover: pull requests by repository, model status and review results](product/design/screenshots/overview-light.png)
+<sub>Mockup with made-up data</sub>
 
-- **доработка по замечаниям** — Claude правит код по открытым тредам, прогоняет проверки и пушит в ветку PR; или делает rebase на целевую ветку;
-- **архитектурное ревью** — правильно ли вообще решена задача: альтернативы, где можно проще, серьёзные риски;
-- **тестирование в браузере** — план и прогон тестов Vitest и Playwright против локального бэкенда в Docker;
-- **бэклог** — проблемы, которые были до PR, не засоряют PR, а копятся для разбора;
-- **память ревьюеров** — правила из ответов команды, чтобы модели не повторяли отклонённые замечания;
-- **статистика** — шум, доля исправленных замечаний, сравнение моделей, цена по тарифам API.
+> This is the author's personal tool, published as a showcase: the code, the architecture, and how the product was built by a team of AI agents. No support or compatibility between versions is promised. It works with **Bitbucket Cloud only**; GitHub is not supported. The interface and most of the project documents are in Russian.
 
-Всё управление — в приложении в трее (поповер у значка); то же самое умеет CLI: `bin/pr-reviewer help`.
+Every few minutes the service looks at open pull requests in the connected repositories. When there is a new commit or a new thread, the models read the changes one after another and post findings with levels P0–P3. Each next model checks the previous one's findings: if it agrees, it adds a mark; if not, it replies with a reason. When the code is fixed or the team explains it is intended, the model resolves its own thread. Models only read code and return JSON; the service itself posts, signs and anchors findings to diff lines. Repositories are reviewed in parallel (`parallelRepos`, 3 by default).
 
-## Что нужно
+Besides review:
 
-- macOS, Node 22+ с npm, `git`, Rust ([rustup](https://rustup.rs): версию `install.sh` возьмёт из `app/rust-toolchain.toml`) — приложение собирается из исходников. Или Linux с systemd, в том числе WSL2 на Windows 11: там работает сервис, а приложение ставится в Windows, см. «Linux и WSL2» и «Приложение в трее».
-- CLI моделей в `PATH`: `claude` и `codex` (вход через `codex login`); `cursor-agent` — по желанию.
-- Docker — только для тестирования в браузере.
-- [uv](https://docs.astral.sh/uv/) — по желанию: `install.sh` ставит им Graphify (граф кода для исследования подбора правил памяти). Без uv исследование идёт без графа.
-- Atlassian API-токен с доступом к Bitbucket и SSH-доступ к репозиториям.
+- **fixing by findings** — Claude edits the code for open threads, runs the checks and pushes to the PR branch; or rebases it onto the target branch;
+- **architecture review** — is the task solved the right way at all: alternatives, simpler options, serious risks;
+- **testing in a browser** — a plan, then Vitest and Playwright tests against a local backend in Docker;
+- **backlog** — problems that existed before the PR do not clutter it but are collected for triage;
+- **reviewer memory** — rules learned from the team's replies, so models do not repeat rejected findings;
+- **statistics** — noise, share of fixed findings, model comparison, cost at API prices.
 
-## Установка
+Everything is controlled from the tray app (a popover at the icon); the CLI can do the same: `bin/pr-reviewer help`.
 
-1. **Конфиг.** `cp config.example.json config.json` (или просто `./install.sh` — при первом запуске он скопирует пример и остановится). Заполните `bitbucket.email` и `repos` (`workspace`, `slug`, SSH-адрес `remote`, необязательный `source` — локальная копия для быстрого первого клона). Репозитории можно подключить и позже в настройках приложения. Описания всех полей — в `schema/config.schema.json`, их показывает редактор.
+![The "Statistics" tab: reviewer comments by day and what happened to the findings](product/design/screenshots/stats-light.png)
+<sub>Mockup with made-up data</sub>
 
-2. **Токен Bitbucket** — [API-токен Atlassian](https://id.atlassian.com/manage-profile/security/api-tokens) со scope `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`:
+## How it works
+
+```
+Model CLIs (claude, codex, cursor-agent)
+        ▲  prompt, JSON by schema
+        │
+Service (Node, src/) ──► Bitbucket Cloud: threads, build status
+  scheduled worker (launchd / systemd)
+  CLI bin/pr-reviewer
+  local HTTP API 127.0.0.1:8765 + SSE
+        ▲  token from a 600 file
+        │
+Tray app (Tauri 2: Rust + React, app/)
+```
+
+- **Service** (`src/`) — the worker goes over open PRs, calls the models through their CLIs and posts the findings itself: models only read code and return JSON by the schemas in `schema/`. Fixing, architecture review, testing, memory, backlog and statistics live here too. Data is JSON/JSONL files in the data folder.
+- **API** (`src/api.mjs`, `schema/api.openapi.json`) — the app's only door to the service: data reads, actions through the same CLI, a change stream over SSE.
+- **App** (`app/`) — a tray icon and a popover on macOS and Windows. The client and types are generated from the OpenAPI schema. Styles and icons come from the design system in `product/design/web/`.
+- On Windows the service runs in WSL2 and the app in Windows itself; WSL forwards `localhost` between them.
+
+## How it was built
+
+The product was built by a team of Claude Code sessions led by the author: PM, dev, designer and qa. The author set goals and made decisions; the roles worked in separate sessions and messaged each other directly. Everything they left is in the repository:
+
+- [`product/backlog.md`](product/backlog.md) — the team's rules: roles, message routes, the board, how a task goes from idea to check. The tasks themselves are on the [GitHub board](https://github.com/users/AVor0n/projects/10) and in issues; early history is in [`product/archive/`](product/archive/).
+- [`product/specs/`](product/specs/) — PM specifications. Questions to the author are numbered across the whole project (Q1, Q2, …) with the decisions next to them.
+- [`product/design/`](product/design/) — HTML mockups, screen specifications and the design system [`web/`](product/design/web/) the app takes its styles and icons from.
+- [`product/bugs/`](product/bugs/) — qa reports: what was checked, how, what was found and what the author decided.
+- The git history — commits by the roles with a `Co-Authored-By: Claude` line.
+
+## Requirements
+
+- macOS, Node 22+ with npm, `git`, Rust ([rustup](https://rustup.rs); `install.sh` takes the version from `app/rust-toolchain.toml`) — the app is built from source. Or Linux with systemd, including WSL2 on Windows 11: the service runs there and the app is installed in Windows, see "Linux and WSL2" and "Tray app".
+- Model CLIs in `PATH`: `claude` and `codex` (signed in with `codex login`); `cursor-agent` is optional.
+- Docker — only for browser testing.
+- [uv](https://docs.astral.sh/uv/) — optional: `install.sh` uses it to install Graphify (a code graph for the rule-selection research). Without uv the research runs without the graph.
+- An Atlassian API token with Bitbucket access and SSH access to the repositories.
+
+## Installation (macOS)
+
+1. **Config.** `cp config.example.json config.json` (or just run `./install.sh` — on the first run it copies the example and stops). Fill in `bitbucket.email` and `repos` (`workspace`, `slug`, SSH `remote`, optional `source` — a local copy for a faster first clone). Repositories can also be added later in the app settings. All fields are described in `schema/config.schema.json`; editors show the descriptions.
+
+2. **Bitbucket token** — an [Atlassian API token](https://id.atlassian.com/manage-profile/security/api-tokens) with scopes `read:repository:bitbucket`, `read:pullrequest:bitbucket`, `write:pullrequest:bitbucket`:
 
     ```bash
-    read -rs 'TOKEN?Токен Bitbucket: ' && security add-generic-password -U -s pr-reviewer-bitbucket -a <email> -T /usr/bin/security -w "$TOKEN"; unset TOKEN
+    read -rs 'TOKEN?Bitbucket token: ' && security add-generic-password -U -s pr-reviewer-bitbucket -a <email> -T /usr/bin/security -w "$TOKEN"; unset TOKEN
     ```
 
-    Не используйте `security … -w` без значения: интерактивный ввод обрезается до 128 символов, и Bitbucket потом отвечает 401.
+    Do not use `security … -w` without a value: interactive input is cut to 128 characters, and Bitbucket then answers 401.
 
-3. **Токен Claude** — обычная сессия в фоне протухает, нужен долгоживущий токен из `claude setup-token`:
+3. **Claude token** — a regular session expires in the background, so a long-lived token from `claude setup-token` is needed:
 
     ```bash
-    read -rs 'TOKEN?Токен Claude: ' && security add-generic-password -U -s pr-reviewer-claude -a claude -T /usr/bin/security -w "$TOKEN"; unset TOKEN
+    read -rs 'TOKEN?Claude token: ' && security add-generic-password -U -s pr-reviewer-claude -a claude -T /usr/bin/security -w "$TOKEN"; unset TOKEN
     ```
 
-4. **Ключ Cursor** (по желанию) — API-ключ из [настроек Cursor](https://cursor.com/dashboard?tab=integrations), той же командой с `-s pr-reviewer-cursor`. Без него выключите Cursor из фона: `bin/pr-reviewer agent set cursor --auto off`.
+4. **Cursor key** (optional) — an API key from the [Cursor settings](https://cursor.com/dashboard?tab=integrations), with the same command and `-s pr-reviewer-cursor`. Without it, take Cursor out of background review: `bin/pr-reviewer agent set cursor --auto off`.
 
-5. **Установка:**
+5. **Install:**
 
     ```bash
     ./install.sh
     ```
 
-    Скрипт проверяет CLI, конфиг и токены, создаёт `bin/pr-reviewer`, собирает приложение `~/Applications/PR Reviewer.app` (Tauri, первая сборка — несколько минут) и регистрирует три агента launchd: воркер, локальный API и приложение — оно стартует при входе. Старое окно SwiftUI, если оно стояло, удаляется. Первая установка оставляет фоновое ревью выключенным.
+    The script checks the CLIs, the config and the tokens, creates `bin/pr-reviewer`, builds the app `~/Applications/PR Reviewer.app` (Tauri; the first build takes a few minutes) and registers three launchd agents: the worker, the local API and the app, which starts at login. The first install leaves background review off.
 
-6. **Проверка без публикации** (модели запускаются по-настоящему, в Bitbucket ничего не уходит):
+6. **Check without publishing** (the models really run, nothing goes to Bitbucket):
 
     ```bash
     bin/pr-reviewer run --dry-run --pr <id>
     ```
 
-7. **Включение** — переключатель «Фоновое ревью» в «Настройках» приложения или `bin/pr-reviewer resume`.
+7. **Turn on** — the "Background review" switch in the app settings or `bin/pr-reviewer resume`.
 
-## Обновление
+## Updating
 
-Изменения в `src/` и `schema/` действуют сразу. Изменения в `app/` и `product/design/web/` (стили и значки приложения) — после пересборки приложения:
+Changes in `src/` and `schema/` apply at once. Changes in `app/` and `product/design/web/` (the app's styles and icons) apply after rebuilding the app:
 
 ```bash
 ./install.sh --app-only
 ```
 
-Полная переустановка (`./install.sh`) нужна, если изменился `install.sh` или переехали `node`, `claude`, `codex`, `cursor-agent`. Она ждёт конца идущего прохода и пишет, что идёт; Ctrl+C отменяет. `./install.sh --now` ставит сразу и прерывает проход. Какая сборка установлена — строка «Сборка …» внизу «Настроек».
+A full reinstall (`./install.sh`) is needed when `install.sh` changed or `node`, `claude`, `codex`, `cursor-agent` moved. It waits for the current review pass to end and says what is running; Ctrl+C cancels. `./install.sh --now` installs at once and interrupts the pass. The installed build is shown at the bottom of the app settings.
 
-Сроки токенов приложение считает от даты записи в Keychain (`tokenLifetimeDays`) и за 14 дней предупреждает баннером. Новый токен сохраняется той же командой `security add-generic-password -U …`.
+Token expiry is counted from the date the token was saved to the Keychain (`tokenLifetimeDays`); the app warns with a banner 14 days ahead. A new token is saved with the same `security add-generic-password -U …` command.
 
-## Где что лежит
+## Where things are
 
-| Путь | Что это |
+| Path | What it is |
 |---|---|
-| `config.json` | Личный конфиг (в `.gitignore`); пример — `config.example.json` |
-| `api-token` в папке данных | Токен локального API (права 600) |
-| Keychain: `pr-reviewer-bitbucket`, `pr-reviewer-claude`, `pr-reviewer-cursor` | Токены |
-| `~/Library/Application Support/pr-reviewer/` | Состояние, очередь, статистика, память, бэклог, лимиты |
-| `~/Library/Logs/pr-reviewer/worker.log` | Журнал сервиса (лист «Журнал» в «Настройках» приложения) |
-| `~/Applications/PR Reviewer.app` | Приложение в трее; агент автозапуска `com.avoronin.pr-reviewer.tray` |
-| `~/.pr-reviewer/` | Служебные копии репозиториев и рабочие папки доработки, архитектуры, тестирования; `graphify-venv/` и `graphs/` — Graphify и графы кода |
+| `config.json` | Personal config (in `.gitignore`); example — `config.example.json` |
+| `api-token` in the data folder | Local API token (mode 600) |
+| Keychain: `pr-reviewer-bitbucket`, `pr-reviewer-claude`, `pr-reviewer-cursor` | Tokens |
+| `~/Library/Application Support/pr-reviewer/` | State, queue, statistics, memory, backlog, limits |
+| `~/Library/Logs/pr-reviewer/worker.log` | Service log ("Log" sheet in the app settings) |
+| `~/Applications/PR Reviewer.app` | The tray app; autostart agent `com.avoronin.pr-reviewer.tray` |
+| `~/.pr-reviewer/` | Service clones of the repositories and work folders for fixing, architecture review and testing; `graphify-venv/` and `graphs/` — Graphify and code graphs |
 
-## Если что-то не так
+## Troubleshooting
 
-- **Сервис ничего не делает** — фоновое ревью выключено (`bin/pr-reviewer status`), проход ещё не подошёл по `intervalMinutes` (▶ в обзоре запускает сразу) или агент launchd (на Linux — `pr-reviewer.timer`) не загружен (`./install.sh`).
-- **Модель не ревьюит PR** — наведите курсор на серый «0» в строке PR и на значок модели: подсказки называют причину (черновик, ветка вне `branchPattern`, выключенное фоновое ревью, лимит, модель только для ручного запуска). Клик по значку модели запускает ревью вручную.
-- **Bitbucket 401 / 403** — неверный email или обрезанный токен / у токена нет нужных scope. Пересохраните токен командой выше.
-- **Проход завис** (значок в трее с оранжевым треугольником) — «Прервать» в баннере или `bin/pr-reviewer stop`.
-- **Правка в `app/` или в стилях не видна** — `./install.sh --app-only`.
-- **Значка в трее нет** — приложение закрыли через «Выйти»: `open ~/Applications/PR\ Reviewer.app` или `launchctl kickstart gui/$(id -u)/com.avoronin.pr-reviewer.tray`.
-- **Баннер «Не удалось прочитать данные сервиса» или «Память сломана»** — файл в `~/Library/Application Support/pr-reviewer/` повреждён или недоступен; кнопка в баннере открывает его или показывает в Finder.
-- Подробности по любой ошибке — в журнале: «Настройки» → «Журнал» или `worker.log`.
+- **The service does nothing** — background review is off (`bin/pr-reviewer status`), the pass is not due yet by `intervalMinutes` (▶ in the overview runs it now), or the launchd agent (on Linux — `pr-reviewer.timer`) is not loaded (`./install.sh`).
+- **A model does not review a PR** — hover over the grey "0" in the PR row and over the model icon: the tooltips name the reason (draft, branch outside `branchPattern`, background review off, limit, manual-only model). Clicking the model icon starts a review manually.
+- **Bitbucket 401 / 403** — wrong email or a cut token / the token lacks scopes. Save the token again with the command above.
+- **The pass is stuck** (tray icon with an orange triangle) — "Stop" in the banner or `bin/pr-reviewer stop`.
+- **A change in `app/` or the styles is not visible** — `./install.sh --app-only`.
+- **No tray icon** — the app was closed with "Quit": `open ~/Applications/PR\ Reviewer.app` or `launchctl kickstart gui/$(id -u)/com.avoronin.pr-reviewer.tray`.
+- **"Memory is broken" banner** — the memory file is damaged; the banner shows its path, fix the file by hand.
+- Details on any error are in the log: Settings → Log, or `worker.log`.
 
-## Linux и WSL2
+## Linux and WSL2
 
-Сервис работает на Linux и в WSL2 так же, как на macOS. На Windows к нему подключается приложение в трее (см. «Приложение в трее»): WSL2 пробрасывает `localhost`, и приложение говорит с API сервиса. На Linux без Windows приложения нет: результат ревью виден в Bitbucket (статус «AI-review» на коммите PR, `buildStatus.enabled`, и замечания в тредах), управление — через `bin/pr-reviewer` (`status`, `run-now`, `pause`, `resume`, `help`).
+The service runs on Linux and in WSL2 the same way as on macOS. On Windows the tray app connects to it (see "Tray app"): WSL2 forwards `localhost`, and the app talks to the service API. On Linux without Windows there is no app: review results are visible in Bitbucket (an "AI-review" build status on the PR commit, `buildStatus.enabled`, and findings in threads), and the service is controlled with `bin/pr-reviewer` (`status`, `run-now`, `pause`, `resume`, `help`).
 
 | | macOS | Linux / WSL2 |
 |---|---|---|
-| Секреты | Keychain | libsecret (`secret-tool`), если есть рабочее хранилище, иначе `~/.config/pr-reviewer/secrets.json` с правами 600 |
-| Расписание | launchd | systemd: `pr-reviewer.timer` раз в минуту и `pr-reviewer.service` |
-| Не засыпать во время прохода | `caffeinate` | `systemd-inhibit`, если есть |
-| Данные | `~/Library/Application Support/pr-reviewer/` | `~/.local/share/pr-reviewer/` |
-| Журналы | `~/Library/Logs/pr-reviewer/` | `~/.local/state/pr-reviewer/` |
+| Secrets | Keychain | libsecret (`secret-tool`) when a working keyring exists, otherwise `~/.config/pr-reviewer/secrets.json` with mode 600 |
+| Schedule | launchd | systemd: `pr-reviewer.timer` once a minute and `pr-reviewer.service` |
+| Stay awake during a pass | `caffeinate` | `systemd-inhibit` when available |
+| Data | `~/Library/Application Support/pr-reviewer/` | `~/.local/share/pr-reviewer/` |
+| Logs | `~/Library/Logs/pr-reviewer/` | `~/.local/state/pr-reviewer/` |
 
-### Переезд с Mac на Windows 11 (WSL2)
+### Installing on Windows 11 (WSL2)
 
-1. **На Mac** выгрузите данные (память, статистику, исходы, бэклог, состояние, `config.json`; секретов, клонов и рабочих папок в архиве нет):
+1. **Moving from a Mac** (optional) — export the data (memory, statistics, outcomes, backlog, state, `config.json`; no secrets, clones or work folders):
 
     ```bash
     bin/pr-reviewer data export ~/Desktop/pr-reviewer-export.tar.gz
     ```
 
-    Остановите сервис на Mac, чтобы две машины не ревьюили одни и те же PR: `./uninstall.sh` (данные остаются).
+    Stop the service on the Mac so that two machines do not review the same PRs: `./uninstall.sh` (data stays).
 
-2. **В Windows** поставьте Ubuntu в WSL2 (`wsl --install -d Ubuntu` в PowerShell) и включите в ней systemd:
-
-    ```bash
-    printf '[boot]
-systemd=true
-' | sudo tee /etc/wsl.conf
-    ```
-
-    затем в PowerShell `wsl --shutdown` и снова откройте Ubuntu.
-
-3. **В Ubuntu** поставьте Node 22+ (например, через [nvm](https://github.com/nvm-sh/nvm)), `git`, CLI моделей (`claude`, `codex`, по желанию `cursor-agent`), по желанию `uv`. Войдите в Codex: `codex login`. Добавьте SSH-ключ с доступом к репозиториям (`ssh -T git@bitbucket.org` должен отвечать).
-
-4. Склонируйте PR Reviewer в домашнюю папку Linux (не в `/mnt/c/…`: там git и Node медленные), перенесите архив (из Windows он виден как `/mnt/c/Users/<имя>/…`) и разложите данные:
+2. **In Windows** install Ubuntu in WSL2 (`wsl --install -d Ubuntu` in PowerShell) and enable systemd in it:
 
     ```bash
-    bin/pr-reviewer data import /mnt/c/Users/<имя>/Desktop/pr-reviewer-export.tar.gz
+    printf '[boot]\nsystemd=true\n' | sudo tee /etc/wsl.conf
     ```
 
-    Пока `bin/` нет, вместо `bin/pr-reviewer` используйте `node src/cli.mjs`. Импорт назовёт пути с Mac в `config.json` (например, `repos[].source`); локальные копии необязательны — сервис сам уберёт такие пути и склонирует репозитории по SSH при первом проходе.
+    then run `wsl --shutdown` in PowerShell and open Ubuntu again.
 
-5. Сохраните токены — команда спросит значение и не покажет его:
+3. **In Ubuntu** install Node 22+ (for example with [nvm](https://github.com/nvm-sh/nvm)), `git`, the model CLIs (`claude`, `codex`, optionally `cursor-agent`), optionally `uv`. Sign in to Codex: `codex login`. Add an SSH key with access to the repositories (`ssh -T git@bitbucket.org` should answer).
+
+4. Clone PR Reviewer into the Linux home folder (not into `/mnt/c/…`: git and Node are slow there). When moving from a Mac, import the archive (Windows paths are visible as `/mnt/c/Users/<name>/…`):
+
+    ```bash
+    node src/cli.mjs data import /mnt/c/Users/<name>/Desktop/pr-reviewer-export.tar.gz
+    ```
+
+    The import names Mac paths in `config.json` (for example `repos[].source`); local copies are optional — the service removes such paths and clones the repositories over SSH on the first pass. Otherwise create `config.json` from `config.example.json`.
+
+5. Save the tokens — the command asks for the value and does not show it:
 
     ```bash
     node src/cli.mjs secret set bitbucket
@@ -144,9 +182,9 @@ systemd=true
     node src/cli.mjs secret set cursor
     ```
 
-    `cursor` — только если Cursor включён. Проверка без вывода значений: `node src/cli.mjs secret status`.
+    `cursor` — only if Cursor is enabled. Check without printing values: `node src/cli.mjs secret status`.
 
-6. Установите и проверьте:
+6. Install and check:
 
     ```bash
     ./install.sh
@@ -154,47 +192,58 @@ systemd=true
     bin/pr-reviewer run --dry-run --pr <id>
     ```
 
-    Сервис ревьюит в фоне, пока работает WSL. Чтобы он не зависел от открытого терминала, `install.sh` включает `loginctl enable-linger` (если не смог — подскажет команду с `sudo`). Журнал — `~/.local/state/pr-reviewer/worker.log`.
+    The service reviews in the background while WSL runs. To keep it independent of an open terminal, `install.sh` enables `loginctl enable-linger` (if it cannot, it prints the `sudo` command). Log — `~/.local/state/pr-reviewer/worker.log`.
 
-**Ограничения.** На Linux без Windows приложения нет: настройки меняются через `bin/pr-reviewer` или в `config.json`. WSL работает, пока Windows не спит: в «Параметрах → Система → Питание» отключите сон, если ревью нужно ночью. Где `cursor-agent` хранит вход на Linux, ещё не проверено вживую — если Cursor не стартует, выключите его из фона: `bin/pr-reviewer agent set cursor --auto off`.
+7. Install the tray app in Windows — see "Tray app".
 
-## Локальный API
+**Limitations.** WSL runs while Windows is awake: turn off sleep in "Settings → System → Power" if reviews are needed at night. Where `cursor-agent` keeps its sign-in on Linux is not checked yet — if Cursor does not start, take it out of background review: `bin/pr-reviewer agent set cursor --auto off`.
 
-Для приложения в трее сервис держит HTTP API на `127.0.0.1:8765` (порт — `api.port` в `config.json`). Это отдельный постоянный процесс: агент launchd `com.avoronin.pr-reviewer.api` на macOS, `pr-reviewer-api.service` на Linux; ставит его `./install.sh`. Каждый запрос — с заголовком `Authorization: Bearer <токен>`, токен лежит в файле с правами 600 (путь — `bin/pr-reviewer api token-path`). Запросы принимаются только с этой машины, CORS — только для приложения Tauri. Действия выполняют те же команды, что CLI; значения секретов API не отдаёт никогда. Изменения приходят потоком `GET /events` (SSE). Описание всех ресурсов — `schema/api.openapi.json`, журнал сервера — `api.err.log` рядом с `worker.log`.
+## Local API
 
-## Приложение в трее
+For the tray app the service keeps an HTTP API on `127.0.0.1:8765` (port — `api.port` in `config.json`). It is a separate long-running process: launchd agent `com.avoronin.pr-reviewer.api` on macOS, `pr-reviewer-api.service` on Linux; `./install.sh` sets it up. Every request carries `Authorization: Bearer <token>`; the token is in a file with mode 600 (path — `bin/pr-reviewer api token-path`). Requests are accepted only from this machine, CORS only for the Tauri app. Actions run the same commands as the CLI; the API never returns secret values. Changes come as a `GET /events` stream (SSE). All resources are described in `schema/api.openapi.json`; the server log is `api.err.log` next to `worker.log`.
 
-Приложение для macOS и Windows лежит в `app/` (Tauri 2, React, TypeScript). Значок в трее с поповером: «Обзор» (PR по репозиториям, баннеры, запуск, пауза, лимиты моделей), «Бэклог», «Статистика», «Настройки» с журналом, листы отчётов (доработка, архитектурное ревью, тестирование, память). Меню по правому клику, системные уведомления — нажатие открывает PR или тред. Приложение работает только через локальный API: клиент и типы генерируются из `schema/api.openapi.json` (`npm run gen:api` в `app/`). Стили и значки — из `product/design/web`.
+## Tray app
 
-**macOS** — ставит `./install.sh` (раздел «Установка»), пересобирает `./install.sh --app-only`.
+The macOS and Windows app is in `app/` (Tauri 2, React, TypeScript). A tray icon with a popover: "Overview" (PRs by repository, banners, run, pause, model limits), "Backlog", "Statistics", "Settings" with the log, report sheets (fixing, architecture review, testing, memory). A right-click menu, system notifications — clicking opens the PR or thread. The app works only through the local API: the client and types are generated from `schema/api.openapi.json` (`npm run gen:api` in `app/`). Styles and icons come from `product/design/web`.
 
-**Windows.** Сервис — в WSL (раздел «Linux и WSL2»), приложение — в самой Windows:
+**macOS** — installed by `./install.sh` (see "Installation"), rebuilt with `./install.sh --app-only`.
 
-1. Проверьте, что API сервиса запущен: в Ubuntu `systemctl --user status pr-reviewer-api` — `active`.
-2. Скачайте `pr-reviewer-Windows` из последнего запуска **app** во вкладке Actions репозитория и установите `PR Reviewer_…_x64-setup.exe`. Подписи нет: при первом запуске — «Подробнее → Выполнить в любом случае». Публикация сборок в Releases — #53.
-3. Значок появится в области уведомлений (может быть спрятан под стрелкой ^ — перетащите его на панель). Левый клик — поповер, правый — меню. Приложение само прописывается в автозапуск.
-4. Если API остановлен, поповер покажет «Сервис не запущен» и команду для PowerShell: `wsl systemctl --user restart pr-reviewer-api`.
+**Windows.** The service runs in WSL ("Linux and WSL2"), the app in Windows itself:
 
-Пути к файлам из WSL (служебные копии, config.json, файлы прогона) приложение открывает в Проводнике и VS Code через `\\wsl.localhost\…`. Сборка на Windows ещё не проверялась вживую на этом этапе (Q53): замечания — отдельными issues.
+1. Check that the service API is running: in Ubuntu `systemctl --user status pr-reviewer-api` shows `active`.
+2. Download the Windows installer `PR Reviewer_…_x64-setup.exe` from the latest release and run it. It is not signed: on the first run choose "More info → Run anyway".
+3. The icon appears in the notification area (it may be hidden under the ^ arrow — drag it onto the taskbar). Left click — popover, right click — menu. The app adds itself to autostart.
+4. If the API is stopped, the popover shows "Service is not running" with a PowerShell command: `wsl systemctl --user restart pr-reviewer-api`.
 
-**Разработка.** `cd app && npm ci && npx tauri dev` (Rust по `app/rust-toolchain.toml`). С `PR_REVIEWER_SHOW=1` dev-сборка сразу показывает поповер и не прячет его — для скриншотов рядом с макетом. В dev нет CSP релизной сборки: то, что зависит от CSP и окон, проверяйте в `npx tauri build --bundles app`. Тесты приложения — `npm test` в `app/`. Сборки для macOS (`.dmg`) и Windows (`.exe`) собирает GitHub Actions: вкладка Actions → **app** → Run workflow.
+The app opens WSL paths (service clones, `config.json`, test run files) in Explorer and VS Code through `\\wsl.localhost\…`.
 
-## Исследование подбора правил
+**Development.** `cd app && npm ci && npx tauri dev` (Rust per `app/rust-toolchain.toml`). With `PR_REVIEWER_SHOW=1` the dev build shows the popover at once and does not hide it — for screenshots next to mockups. Dev builds have no release CSP: check anything that depends on CSP or windows with `npx tauri build --bundles app`. App tests — `npm test` in `app/`. macOS (`.dmg`) and Windows (`.exe`) builds are made by GitHub Actions: Actions → **app** → Run workflow, or by pushing a tag `app-v*`.
 
-Сейчас в промпт ревью идёт вся память репозитория. В теневом режиме сервис считает, какие правила подставили бы стратегии подбора — по смысловым тегам (T), по сообществам графа кода (G) и обе вместе (TG), — и пишет это в `rule-selection.jsonl`. Ревью от этого не меняется. Исследование включается для репозитория созданием словаря тегов:
+## Rule selection research
+
+Right now the whole repository memory goes into the review prompt. In shadow mode the service computes which rules selection strategies would pick — by semantic tags (T), by code-graph communities (G) and both (TG) — and writes it to `rule-selection.jsonl`. Reviews do not change. The research is turned on for a repository by creating a tag vocabulary:
 
 ```bash
-bin/pr-reviewer memory tags init <slug>            # --graph-nolibs — ещё G′: сообщества без библиотечных узлов
+bin/pr-reviewer memory tags init <slug>            # --graph-nolibs — also G′: communities without library nodes
 bin/pr-reviewer memory tags show <slug>
-bin/pr-reviewer memory selection report [<slug>] [--since <дата>]
+bin/pr-reviewer memory selection report [<slug>] [--since <date>]
 ```
 
-Граф строит Graphify локально (tree-sitter, без LLM, код никуда не уходит) по основной ветке служебной копии, раз в сутки.
+Graphify builds the graph locally (tree-sitter, no LLM, the code goes nowhere) from the main branch of the service clone, once a day.
 
-## Разработка
+## Development
 
-`npm test` — автотесты ядра (привязка замечаний к строкам диффа, треды, исходы замечаний, дорожки репозиториев, вытеснение и подбор правил). Данные в тестах выдуманные, живые файлы не трогаются.
+`npm test` — core tests (anchoring findings to diff lines, threads, finding outcomes, repository lanes, eviction and rule selection). Test data is made up; live files are never touched. App tests — `npm test` in `app/`.
 
-## Удаление
+## Uninstalling
 
-`./uninstall.sh` удаляет агентов launchd и приложение (на Linux — unit-файлы systemd) и `bin/`; состояние, журналы и служебные копии остаются. `./uninstall.sh --purge` удаляет ещё данные и журналы. `~/.pr-reviewer/` и секреты (записи Keychain, на Linux — libsecret или `~/.config/pr-reviewer/secrets.json`) удаляются вручную.
+`./uninstall.sh` removes the launchd agents and the app (on Linux — the systemd units) and `bin/`; state, logs and service clones stay. `./uninstall.sh --purge` also removes data and logs. `~/.pr-reviewer/` and the secrets (Keychain entries, on Linux — libsecret or `~/.config/pr-reviewer/secrets.json`) are removed by hand.
+
+## Credits
+
+- Interface icons — [Phosphor Icons](https://phosphoricons.com) (MIT), see [NOTICE](NOTICE).
+- The Anthropic (Claude), OpenAI and Cursor logos belong to their respective owners. They only mark which model CLI a review runs on and are not covered by this project's license.
+
+## License
+
+[MIT](LICENSE).
