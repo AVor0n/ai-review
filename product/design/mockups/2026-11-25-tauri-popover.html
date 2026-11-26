@@ -114,6 +114,8 @@
 <p class="lead">Поповер переносится из SwiftUI в веб без изменений: те же сегменты, строка статуса, баннеры, секции репозиториев и строки PR. Вёрстка на этой странице — настоящий HTML/CSS на токенах <code>product/design/web/tokens.css</code> и компонентах <code>components.css</code>, dev берёт её как есть. На macOS и Windows отличается только рамка: где поповер стоит, есть ли стрелка, как выглядит значок в трее. Всё остальное одинаковое.</p>
 <div class="note"><b>Что нового по сравнению с окном SwiftUI.</b> (1) Баннер «Сервис не запущен»: в SwiftUI его не было, потому что окно читало файлы само. (2) Иконки интерфейса — Phosphor вместо SF Symbols: SF Symbols по лицензии Apple можно использовать только на её платформах. (3) Текст баннера токена без слова «Keychain»: на Windows секреты хранятся не там. Остальное — паритет.</div>
 
+<div class="note"><b>Изменение 26.11 (Q49, #52).</b> Сегментов четыре: «Журнал» стал листом в «Настройках», см. <a href="2026-11-26-tauri-log.html">макет журнала</a>. Кнопка «Журнал» в баннерах открывает «Настройки» с листом журнала.</div>
+
 <h2>1. macOS</h2>
 <p class="lead">Поповер под значком в строке меню, стрелка указывает на значок. Скругление 12, тень системная. Тема следует системной.</p>
 
@@ -297,7 +299,7 @@
   <tr><th>Откуда</th><th>Заголовок заглушки</th><th>Команды на Windows</th></tr>
   <tr><td>Вкладка «Бэклог»</td><td>Бэклог</td><td><code>pr-reviewer backlog list</code> — записи, ждущие разбора; <code>backlog filed|drop &lt;id&gt;</code> — итог разбора</td></tr>
   <tr><td>Вкладка «Статистика»</td><td>Статистика</td><td><code>pr-reviewer stats</code> — сравнение моделей</td></tr>
-  <tr><td>Вкладка «Журнал», кнопка «Журнал» в баннерах</td><td>Журнал</td><td><code>pr-reviewer status</code> — состояние и последние ревью; <code>tail -f ~/.local/state/pr-reviewer/worker.log</code> — журнал сервиса</td></tr>
+  <tr><td>Кнопка «Журнал» в баннерах, пока нет листа журнала (#43)</td><td>Журнал</td><td><code>pr-reviewer status</code> — состояние и последние ревью; <code>tail -f ~/.local/state/pr-reviewer/worker.log</code> — журнал сервиса</td></tr>
   <tr><td>Вкладка «Настройки», «Подключить…»</td><td>Настройки</td><td>как на макете выше; из «Подключить…» первой строкой <code>pr-reviewer repo add &lt;ссылка&gt;</code></td></tr>
   <tr><td>«Обновить…» в баннере токена</td><td>Токен Bitbucket / Claude / Cursor</td><td><code>pr-reviewer secret set &lt;id&gt;</code>, <code>pr-reviewer token &lt;id&gt; &lt;дней|never&gt;</code></td></tr>
   <tr><td>«Проверить правила», «Посмотреть» в баннерах памяти</td><td>Память frontend</td><td><code>pr-reviewer memory list &lt;slug&gt;</code>, <code>memory remove &lt;slug&gt; &lt;id&gt;</code>, <code>memory review &lt;slug&gt;</code></td></tr>
@@ -314,7 +316,6 @@
       <button class="segmented__item" role="tab" aria-selected="true">Обзор</button>
       <button class="segmented__item" role="tab">Бэклог</button>
       <button class="segmented__item" role="tab">Статистика</button>
-      <button class="segmented__item" role="tab">Журнал</button>
       <button class="segmented__item" role="tab">Настройки</button>
     </div>
   </div>
