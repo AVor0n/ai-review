@@ -3228,3 +3228,22 @@
   font-size: 22px;                                       /* minus.circle.fill 15 pt → 18 px */
   color: var(--red);
 }
+
+/* Значок слева от текста строки или карточки: ход разбора памяти, «Сохранены» в QA */
+.lead-icon {
+  flex: none;
+  margin-top: 1px;
+  font-size: 15px;
+  color: var(--c, var(--label-2));
+}
+
+.lead-icon--small {
+  font-size: 13px;
+}
+
+/* Устаревший лимит модели: оранжевый треугольник перед текстом (exclamationmark.triangle.fill 9 pt) */
+.limit__stale {
+  flex: none;
+  font-size: 12px;
+  color: var(--orange);
+}
