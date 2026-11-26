@@ -4,7 +4,7 @@
 
 Background code review of open Bitbucket pull requests by three models — Claude, Codex and Cursor — with a tray app for macOS and Windows.
 
-![The "Overview" popover: pull requests by repository, model status and review results](product/design/screenshots/overview-light.png)
+![The "Overview" popover: pull requests by repository, model status and review results](product/design/screenshots/overview-light.en.png)
 <sub>Mockup with made-up data</sub>
 
 > This is the author's personal tool, published as a showcase: the code, the architecture, and how the product was built by a team of AI agents. No support or compatibility between versions is promised. It works with **Bitbucket Cloud only**; GitHub is not supported. The interface and most of the project documents are in Russian.
@@ -22,7 +22,7 @@ Besides review:
 
 Everything is controlled from the tray app (a popover at the icon); the CLI can do the same: `bin/pr-reviewer help`.
 
-![The "Statistics" tab: reviewer comments by day and what happened to the findings](product/design/screenshots/stats-light.png)
+![The "Stats" tab: reviewer comments per day and the fate of findings](product/design/screenshots/stats-light.en.png)
 <sub>Mockup with made-up data</sub>
 
 ## How it works
