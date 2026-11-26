@@ -761,6 +761,8 @@
 
 .empty-state__text {
   max-width: 520px;
+  /* Строки одной длины: без этого второй строкой висит одно-два слова */
+  text-wrap: balance;
   font-size: var(--text-body);
   line-height: var(--line-text);
   color: var(--label-2);
@@ -2475,4 +2477,211 @@
 .viewer__hint {
   font-size: var(--text-subhead);
   color: var(--label-2);
+}
+
+/* ---------- Бэклог ---------- */
+
+/* Ряд над списком вкладки: сегменты слева, кнопки-ссылки справа */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: 0 var(--screen-inset) var(--space-10);
+}
+
+.link-button--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: var(--weight-regular);
+}
+
+.link-button--secondary {
+  color: var(--label-2);
+}
+
+.link-button:disabled {
+  color: var(--label-2);
+}
+
+/* Итог задачи: зелёный — готово */
+.banner--success { --banner-color: var(--green); }
+
+.empty-state__note {
+  max-width: 520px;
+  text-wrap: balance;
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.row-divider--backlog {
+  --divider-inset: 56px;
+}
+
+.backlog-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: 9px var(--space-12);
+}
+
+.backlog-row:hover {
+  background: var(--hover);
+}
+
+/* Разобранные записи в режиме «Все» приглушены и проявляются под курсором */
+.backlog-row--closed:not(:hover) {
+  opacity: 0.55;
+}
+
+.backlog-row__top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-10);
+}
+
+.backlog-row__toggle {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+  text-align: left;
+}
+
+.backlog-row__chevron {
+  flex: none;
+  width: 10px;
+  font-size: 9px;
+  color: var(--label-2);
+  transition: transform var(--duration-fast) var(--ease);
+}
+
+.backlog-row--expanded .backlog-row__chevron {
+  transform: rotate(90deg);
+}
+
+.backlog-row__level {
+  flex: none;
+  width: 28px;
+}
+
+.backlog-row__title {
+  display: -webkit-box;
+  flex: 1;
+  overflow: hidden;
+  font-size: var(--text-body);
+  line-height: var(--line-text);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.backlog-row--expanded .backlog-row__title {
+  display: block;
+}
+
+.backlog-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.backlog-row__meta,
+.backlog-row__details,
+.backlog-row .inline-editor {
+  margin-left: 56px;
+}
+
+.backlog-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+  white-space: nowrap;
+}
+
+.backlog-row__meta .link-button {
+  font-size: inherit;
+  font-weight: var(--weight-regular);
+}
+
+.backlog-row__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+  font-size: var(--text-callout);
+  line-height: var(--line-text);
+}
+
+.backlog-row__file {
+  font-family: var(--font-mono);
+  font-size: var(--text-subhead);
+  text-align: left;
+}
+
+.backlog-row__sources {
+  font-size: var(--text-subhead);
+  color: var(--label-2);
+}
+
+.backlog-row__id {
+  font-size: var(--text-caption);
+  color: var(--label-3);
+  user-select: text;
+}
+
+/* Итог разбора по коду: линия слева и заголовок зелёные, только когда запись можно закрыть */
+.triage-block {
+  display: flex;
+  gap: var(--space-10);
+}
+
+.triage-block::before {
+  flex: none;
+  width: 3px;
+  background: var(--c, var(--label-2));
+  content: "";
+}
+
+.triage-block__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.triage-block__title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-medium);
+  color: var(--c, var(--label-2));
+}
+
+/* Поле в строке: номер задачи или причина отклонения */
+.inline-editor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-10);
+  padding: 7px var(--space-10);
+  background: var(--bg);
+  border-radius: var(--radius-control);
+}
+
+.inline-editor input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-callout);
+  color: var(--label);
+  background: none;
+  border: 0;
+  outline: none;
+}
+
+.inline-editor input::placeholder {
+  color: var(--label-3);
 }
