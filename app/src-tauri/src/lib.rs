@@ -105,9 +105,9 @@ fn api_token() -> Result<String, String> {
             .args(["-e", "sh", "-c", r#"cat "${XDG_DATA_HOME:-$HOME/.local/share}/pr-reviewer/api-token""#])
             .creation_flags(CREATE_NO_WINDOW)
             .output()
-            .map_err(|error| format!("{}: {error}", tr("Не удалось запустить WSL", "Could not start WSL")))?;
+            .map_err(|error| format!("{}: {error}", tr("Не удалось запустить WSL", "Couldn’t start WSL")))?;
         if !output.status.success() {
-            return Err(tr("В WSL нет токена API: сервис не установлен или ни разу не запускался", "No API token in WSL: the service is not installed or has never run").into());
+            return Err(tr("В WSL нет токена API: сервис не установлен или ни разу не запускался", "No API token in WSL: the service isn’t installed or has never run").into());
         }
         return Ok(String::from_utf8_lossy(&output.stdout).trim().to_string());
     }
@@ -121,7 +121,7 @@ fn api_token() -> Result<String, String> {
         };
         std::fs::read_to_string(&path)
             .map(|token| token.trim().to_string())
-            .map_err(|_| tr("Нет токена API: сервис не установлен или ни разу не запускался", "No API token: the service is not installed or has never run").into())
+            .map_err(|_| tr("Нет токена API: сервис не установлен или ни разу не запускался", "No API token: the service isn’t installed or has never run").into())
     }
 }
 
@@ -258,7 +258,7 @@ fn open_in_code(path: String) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         let status = std::process::Command::new("open").args(["-b", "com.microsoft.VSCode", &path]).status().map_err(|error| error.to_string())?;
-        if status.success() { Ok(()) } else { Err(tr("не удалось открыть VS Code", "could not open VS Code").into()) }
+        if status.success() { Ok(()) } else { Err(tr("не удалось открыть VS Code", "couldn’t open VS Code").into()) }
     }
     #[cfg(target_os = "windows")]
     {
@@ -283,7 +283,7 @@ fn windows_path(path: &str) -> Result<String, String> {
     let converted = std::process::Command::new("wsl.exe").args(["-e", "wslpath", "-w", path]).creation_flags(CREATE_NO_WINDOW).output().map_err(|error| error.to_string())?;
     let result = String::from_utf8_lossy(&converted.stdout).trim().to_string();
     if result.is_empty() {
-        return Err(tr("WSL не перевёл путь к файлу", "WSL could not convert the file path").into());
+        return Err(tr("WSL не перевёл путь к файлу", "WSL couldn’t convert the file path").into());
     }
     Ok(result)
 }
@@ -455,7 +455,7 @@ fn save_image(request: tauri::ipc::Request<'_>) -> Result<String, String> {
         return Err(tr("недопустимое имя файла", "invalid file name").into());
     }
     let path = dirs::download_dir().ok_or(tr("не найдена папка «Загрузки»", "Downloads folder not found"))?.join(name);
-    std::fs::write(&path, bytes).map_err(|error| format!("{}: {error}", tr("не удалось сохранить картинку", "could not save the image")))?;
+    std::fs::write(&path, bytes).map_err(|error| format!("{}: {error}", tr("не удалось сохранить картинку", "couldn’t save the image")))?;
     tauri_plugin_opener::open_path(&path, None::<&str>).map_err(|error| error.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }

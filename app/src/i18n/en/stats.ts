@@ -51,7 +51,7 @@ export const stats: Messages<typeof Ru> = {
     review: {
         title: 'Review',
         comments: {
-            title: 'Team comments per day',
+            title: 'Reviewer comments per day',
             footer: 'Published findings and replies to other threads, without skips. Above each day: how many code reviews ran (for 90 days, in the tooltip). Hover a bar to see the values.',
         },
         fate: {
@@ -101,7 +101,7 @@ export const stats: Messages<typeof Ru> = {
         dismissedDetail: '{part} of {count}: not fixed',
         density: {
             title: 'Findings per 1000 lines',
-            footer: 'Findings from all models per 1000 changed lines, excluding excluded files. Comparing raw finding counts is unfair: whoever writes the most “errs” the most. Under 500 lines is too little data; such rows are dimmed and listed last.',
+            footer: 'Findings from all models per 1000 changed lines, without excluded files. Comparing raw finding counts is unfair: whoever writes the most “errs” the most. Under 500 lines is too little data; such rows are dimmed and listed last.',
         },
     },
     time: {
@@ -124,7 +124,7 @@ export const stats: Messages<typeof Ru> = {
         findingsPerRun: 'Findings per review',
         newFindingsPerRun: 'New findings per review',
         addressed: 'Addressed',
-        ignored: 'Silently not fixed',
+        ignored: 'Ignored silently',
         disputed: 'Disputed in thread',
         waiting: 'Awaiting fix',
         confirmed: 'Confirmed by another model',
@@ -157,14 +157,16 @@ export const stats: Messages<typeof Ru> = {
     autofix: {
         title: 'Fixes',
         runs: 'Runs',
-        runsDetail: '{fix} fix · {rebase} rebase',
+        runsDetail: '{fix} · {rebase}',
+        runsDetailFix: { one: '{count} fix', other: '{count} fixes' },
+        runsDetailRebase: { one: '{count} rebase', other: '{count} rebases' },
         fixed: 'Findings fixed',
         skippedDetail: '{count} more skipped by the model',
-        costPerFix: 'Cost per fixed',
+        costPerFix: 'Cost per fixed finding',
         costDetail: '{cost} on fixes',
         outcomes: {
             title: 'Run outcomes',
-            footer: '“Pushed”: a fix or rebase in the PR branch. “Nothing to change”: the model found nothing to fix. The rest didn’t reach the branch: commit, checks, rebase conflict, or a push rejected due to new commits. Cost per fixed: fix spend without rebase, divided by the findings it fixed.',
+            footer: '“Pushed”: a fix or rebase in the PR branch. “Nothing to change”: the model found nothing to fix. The rest didn’t reach the branch: commit, checks, rebase conflict, or a push rejected due to new commits. Cost per fixed finding: fix spend without rebase, divided by the findings it fixed.',
         },
         status: {
             pushed: 'Pushed',

@@ -53,7 +53,7 @@ export const reports: Messages<typeof Ru> = {
         runningWithPrevious: 'Reviewing. The previous report is below',
         runningForWithPrevious: 'Reviewing · {time}. The previous report is below',
         staleTitle: 'Report is outdated',
-        staleText: 'It was taken on commit {head}, but the PR is now at {prHead}. The approach may have changed. Restart the review.',
+        staleText: 'It was made on commit {head}, but the PR is now at {prHead}. The approach may have changed. Restart the review.',
         empty: 'This PR hasn’t had an architecture review yet',
         copied: 'Copied',
         copyMarkdown: 'Copy markdown',

@@ -76,7 +76,7 @@ export const qa: Messages<typeof Ru> = {
         expect: 'Expected',
         extraTitle: 'Your cases',
         extraFooter: 'One case per line. The model writes the steps and checks itself; these cases go first.',
-        extraPlaceholder: 'For example: the draft opens from the “Analyses” menu after signing in again',
+        extraPlaceholder: 'For example: the draft opens from the “Reports” menu after signing in again',
         notTestable: 'Can’t check · {count}',
         planHead: 'Plan commit',
         madeAt: 'Made',

@@ -5,7 +5,7 @@ import { Icon } from '../components/Icon';
 import { agentIds, agentName } from '../model/derive';
 import type { Data } from '../model/types';
 import { formatDate } from '../model/format';
-import { t, useLang, type MessageKey } from '../i18n';
+import { getLang, t, useLang, type MessageKey } from '../i18n';
 import { DailyChart, NoiseChart, type Series } from './Charts';
 import {
     DISAGREE_REASONS,
@@ -70,9 +70,9 @@ const QA_STATUSES = [
     ['passed', 'var(--green)'],
     ['skipped', 'var(--gray)'],
 ] as const;
-// Дата новых правил отбора в подписях: «19.10» и «19.10.2026»
-const rulesDay = () => formatDate(SELECTION_RULES_DATE, { day: '2-digit', month: '2-digit' });
-const rulesDate = () => formatDate(SELECTION_RULES_DATE, { day: '2-digit', month: '2-digit', year: 'numeric' });
+// Дата новых правил отбора в подписях: «19.10» и «19.10.2026», в английском — «19 Oct» и «19 Oct 2026»
+const rulesDay = () => formatDate(SELECTION_RULES_DATE, getLang() === 'ru' ? { day: '2-digit', month: '2-digit' } : { day: 'numeric', month: 'short' });
+const rulesDate = () => formatDate(SELECTION_RULES_DATE, getLang() === 'ru' ? { day: '2-digit', month: '2-digit', year: 'numeric' } : { day: 'numeric', month: 'short', year: 'numeric' });
 
 const loadJournals = async (api: ApiClient): Promise<Journals> => {
     const [stats, outcomes, skips, spend, fixLog, archLog, qaLog, backlog] = await Promise.all([
@@ -472,7 +472,7 @@ const Sections = ({ stats, data, prefs, update, authors }: { stats: StatsData; d
 
             <Title icon="i-fix">{t('stats.autofix.title')}</Title>
             <div className="kpi-row">
-                <Kpi title={t('stats.autofix.runs')} value={String(stats.fixes.length)} detail={t('stats.autofix.runsDetail', { fix: stats.fixRuns.length, rebase: rebases })} />
+                <Kpi title={t('stats.autofix.runs')} value={String(stats.fixes.length)} detail={t('stats.autofix.runsDetail', { fix: t('stats.autofix.runsDetailFix', { count: stats.fixRuns.length }), rebase: t('stats.autofix.runsDetailRebase', { count: rebases }) })} />
                 <Kpi title={t('stats.autofix.fixed')} value={String(stats.fixedCount)} detail={stats.fixSkipped > 0 ? t('stats.autofix.skippedDetail', { count: stats.fixSkipped }) : t('stats.periodDays', { count: prefs.days })} />
                 <Kpi title={t('stats.autofix.costPerFix')} value={stats.fixedCount > 0 ? money(stats.fixCost / stats.fixedCount) : '—'} detail={t('stats.autofix.costDetail', { cost: money(stats.fixCost) })} />
             </div>

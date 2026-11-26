@@ -154,7 +154,9 @@ export const stats = {
     autofix: {
         title: 'Автофикс',
         runs: 'Запусков',
-        runsDetail: '{fix} автофикс · {rebase} rebase',
+        runsDetail: '{fix} · {rebase}',
+        runsDetailFix: { one: '{count} автофикс', few: '{count} автофикс', many: '{count} автофикс', other: '{count} автофикс' },
+        runsDetailRebase: { one: '{count} rebase', few: '{count} rebase', many: '{count} rebase', other: '{count} rebase' },
         fixed: 'Исправлено замечаний',
         skippedDetail: 'ещё {count} модель пропустила',
         costPerFix: 'Цена исправленного',

@@ -9,10 +9,10 @@ export const alerts: Messages<typeof Ru> = {
     newPr: 'New PR {repo} #{pr}',
     newCommits: 'New commits in {repo} #{pr}',
     closed: { title: 'PR {repo} #{pr} closed', body: 'Merged or declined' },
-    fix: { done: 'Fix {repo} #{pr}', failed: 'Fix {repo} #{pr} failed', counts: 'Fixed {fixed}, not fixed {skipped}' },
-    rebase: { done: 'Rebase {repo} #{pr}', failed: 'Rebase {repo} #{pr} failed' },
+    fix: { done: 'Fix finished: {repo} #{pr}', failed: 'Fix failed: {repo} #{pr}', counts: 'Fixed {fixed}, not fixed {skipped}' },
+    rebase: { done: 'Rebase finished: {repo} #{pr}', failed: 'Rebase failed: {repo} #{pr}' },
     runError: 'PR Reviewer: pass failed',
-    stall: { title: 'Review pass stuck', body: 'The service hasn’t responded for {duration}: git or the network seems stuck. You can stop the pass in “Overview”.' },
+    stall: { title: 'Review pass stuck', body: 'The service hasn’t responded for {duration}: git or the network seems stuck. You can stop the pass in Overview.' },
     review: { title: '{agent} finished reviewing {repo} #{pr}', findings: 'Findings: {levels}', clean: 'No findings' },
     settings: {
         kinds: {

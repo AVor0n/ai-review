@@ -6,8 +6,8 @@ export const backlog: Messages<typeof Ru> = {
     toolbar: {
         triageHint: 'Check against the current main branch code which issues are still relevant',
         triage: 'Triage',
-        copyAllHint: 'The whole backlog in markdown: by repository, with scenarios, fixes and PR links',
-        copyWaitingHint: 'Issues to triage in markdown: by repository, with scenarios, fixes and PR links',
+        copyAllHint: 'The whole backlog in markdown: by repository, with scenarios, suggested fixes and PR links',
+        copyWaitingHint: 'Issues to triage in markdown: by repository, with scenarios, suggested fixes and PR links',
         copy: 'Copy .md',
         copied: 'Copied',
     },
@@ -19,7 +19,7 @@ export const backlog: Messages<typeof Ru> = {
     errors: {
         title: 'Couldn’t run the command',
         noMarkdown: 'The service returned no markdown',
-        clipboard: 'Couldn’t copy to clipboard: {reason}',
+        clipboard: 'Couldn’t copy to the clipboard: {reason}',
     },
     job: {
         learn: 'Collect from PR history',
@@ -46,7 +46,7 @@ export const backlog: Messages<typeof Ru> = {
     },
     row: {
         collapse: 'Collapse',
-        expand: 'Show scenario and fix',
+        expand: 'Show scenario and suggested fix',
         fileHint: 'Mark that a ticket was filed for the issue; you can add the ticket number',
         filed: 'Ticket filed',
         ticket: 'Ticket {ticket}',
@@ -63,8 +63,8 @@ export const backlog: Messages<typeof Ru> = {
         file: 'File',
         fileLinkHint: 'Open the file in Bitbucket at the commit where the issue was found',
         scenario: 'Scenario',
-        fix: 'Fix',
-        dropReason: 'Dismiss reason',
+        fix: 'Suggested fix',
+        dropReason: 'Dismissal reason',
         sources: 'Found in',
         since: 'id {id} · in backlog since {date}',
         ticketPlaceholder: 'Ticket number, e.g. PROJ-1234',
